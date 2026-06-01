@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: nocodb
+      POSTGRES_PASSWORD: teddyboy
+      POSTGRES_DB: nocodb
+    ports:
+      - "5433:5432"
+    volumes:
+      - db-data:/var/lib/postgresql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nocodb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://nocodb:teddyboy@db:5432/nocodb
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-ofe-dashboard-secret-change-in-prod}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://10.0.1.3:3000}
+      FARMER_SERVER_URL: ${FARMER_SERVER_URL:-}
+      DATA_DIR: /app/upload-data
+    volumes:
+      - upload-data:/app/upload-data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  upload-data:
+  db-data:

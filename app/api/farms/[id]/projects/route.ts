@@ -1,0 +1,21 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { id: projectId } = await req.json();
+  const link = await prisma.projectFarm.create({
+    data: { Projects_id: projectId, Farms_id: parseInt(id) },
+  });
+  return NextResponse.json(link, { status: 201 });
+}
+
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { searchParams } = new URL(req.url);
+  const projectId = parseInt(searchParams.get("projectId") ?? "0");
+  await prisma.projectFarm.delete({
+    where: { Farms_id_Projects_id: { Farms_id: parseInt(id), Projects_id: projectId } },
+  });
+  return new NextResponse(null, { status: 204 });
+}

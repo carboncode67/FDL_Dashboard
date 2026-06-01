@@ -1,0 +1,379 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["public", "pgntarg2udzj1f3"]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+  @@schema("public")
+}
+
+model Project {
+  id               Int       @id @default(autoincrement())
+  title            String?
+  Project_Name     String?
+  Project_Sponsors String?
+  Total_Budget     Decimal?
+  Year_Started     Int?
+  Status           String?
+  created_at       DateTime?
+  updated_at       DateTime?
+
+  TreatmentProtocols TreatmentProtocol[]
+  ExperimentZones    ExperimentZone[]
+  ProjectFarms       ProjectFarm[]
+  ProjectLabMembers  ProjectLabMember[]
+
+  @@map("Projects")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Farm {
+  id            Int       @id @default(autoincrement())
+  title         String?
+  Farm_Name     String?
+  Farmer_Name   String?
+  Contact_Phone String?
+  Contact_Email String?
+  County        String?
+  State         String?
+  created_at    DateTime?
+  updated_at    DateTime?
+
+  Fields          Field[]
+  ExperimentZones ExperimentZone[]
+  ProjectFarms    ProjectFarm[]
+  Contacts        Contact[]
+  Photos          Photo[]
+  Notes           Note[]
+  Recordings      Recording[]
+  Locations       Location[]
+
+  @@map("Farms")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model LabMember {
+  id            Int       @id @default(autoincrement())
+  title         String?
+  Name          String?
+  Position      String?
+  Contact_Phone String?
+  Contact_Email String?
+  Status        String?
+  FAA_Part_107  Boolean?
+  created_at    DateTime?
+  updated_at    DateTime?
+
+  ProjectLabMembers ProjectLabMember[]
+
+  @@map("Lab Members")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Field {
+  id              Int       @id @default(autoincrement())
+  Name            String?
+  geometry        String?
+  boundary_source String?
+  Farms_id        Int?
+  created_at      DateTime?
+  updated_at      DateTime?
+
+  Farm            Farm?            @relation(fields: [Farms_id], references: [id])
+  FieldTests      FieldTest[]
+  FieldCrops      FieldCrop[]
+  FieldDrones     FieldDrone[]
+  DualexReadings  Dualex[]
+  ExperimentZones ExperimentZone[]
+
+  @@map("Fields")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Dualex {
+  id             Int       @id @default(autoincrement())
+  title          String?   @map("Title")
+  instrumentId   Int?      @map("Instrument ID")
+  temperature    Decimal?  @map("Temperature")
+  chlorophyll    Decimal?  @map("Chlorophyll")
+  flavonoids     Decimal?  @map("Flavonoids")
+  anth           Decimal?  @map("Anth")
+  nbi            Decimal?  @map("NBI")
+  collectionDate DateTime? @map("Collection Date") @db.Date
+  collectionTime DateTime? @map("Collection Time") @db.Time(6)
+  location       String?   @map("Location")
+  fieldsId       Int?      @map("Fields_id")
+
+  Field Field? @relation(fields: [fieldsId], references: [id])
+
+  @@map("Dualex")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Treatment {
+  id             Int       @id @default(autoincrement())
+  title          String?
+  Treatment_Name String?
+  Description    String?
+  Notes          String?
+  created_at     DateTime?
+  updated_at     DateTime?
+
+  TreatmentProtocols TreatmentProtocol[]
+
+  @@map("Treatments")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model TreatmentProtocol {
+  id            Int       @id @default(autoincrement())
+  title         String?
+  project_id    Int?
+  treatment_id  Int?
+  Protocol_Name String?
+  Product       String?
+  Rate          Decimal?
+  Rate_Unit     String?
+  Timing        String?
+  Is_Control    Boolean?
+  Notes         String?
+  created_at    DateTime?
+  updated_at    DateTime?
+
+  Project         Project?   @relation(fields: [project_id], references: [id])
+  Treatment       Treatment? @relation(fields: [treatment_id], references: [id])
+  ExperimentZones ExperimentZone[]
+
+  @@map("Treatment_Protocol")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model ExperimentZone {
+  id              Int       @id @default(autoincrement())
+  title           String?
+  project_id      Int?
+  farm_id         Int?
+  Fields_id       Int?
+  protocol_id     Int?
+  geometry        String?
+  Zone_Label      String?
+  Rep_Number      Int?
+  Boundary_Source String?
+  created_at      DateTime?
+  updated_at      DateTime?
+
+  Project  Project?           @relation(fields: [project_id], references: [id])
+  Farm     Farm?              @relation(fields: [farm_id], references: [id])
+  Field    Field?             @relation(fields: [Fields_id], references: [id])
+  Protocol TreatmentProtocol? @relation(fields: [protocol_id], references: [id])
+
+  @@map("Experiment_Zones")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Test {
+  id               Int       @id @default(autoincrement())
+  title            String?
+  Test_Name        String?
+  Test_Description String?
+  Cost             Decimal?
+  Planned_Date     DateTime?
+  Completed_Date   DateTime?
+  N_Samples        Int?
+  created_at       DateTime?
+  updated_at       DateTime?
+
+  FieldTests FieldTest[]
+
+  @@map("Tests")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Drone {
+  id                Int       @id @default(autoincrement())
+  title             String?
+  Name              String?
+  Description       String?
+  Cost_Per_Acre     Decimal?
+  Mobilization_Cost Decimal?
+  created_at        DateTime?
+  updated_at        DateTime?
+
+  FieldDrones FieldDrone[]
+
+  @@map("Drones")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Crop {
+  id         Int       @id @default(autoincrement())
+  title      String?
+  Crop_Name  String?
+  Crop_Type  String?
+  created_at DateTime?
+  updated_at DateTime?
+
+  FieldCrops FieldCrop[]
+
+  @@map("Crops")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// M2M join tables — column names match actual DB schema
+model ProjectFarm {
+  Projects_id Int
+  Farms_id    Int
+  Project     Project @relation(fields: [Projects_id], references: [id])
+  Farm        Farm    @relation(fields: [Farms_id], references: [id])
+
+  @@id([Farms_id, Projects_id])
+  @@map("_nc_m2m_Projects_Farms")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model ProjectLabMember {
+  Projects_id    Int
+  Lab_Members_id Int @map("Lab Members_id")
+  Project        Project   @relation(fields: [Projects_id], references: [id])
+  LabMember      LabMember @relation(fields: [Lab_Members_id], references: [id])
+
+  @@id([Lab_Members_id, Projects_id])
+  @@map("_nc_m2m_Projects_Lab Members")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model FieldTest {
+  Fields_id Int
+  Tests_id  Int
+  Field     Field @relation(fields: [Fields_id], references: [id])
+  Test      Test  @relation(fields: [Tests_id], references: [id])
+
+  @@id([Tests_id, Fields_id])
+  @@map("_nc_m2m_Fields_Tests")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model FieldCrop {
+  Fields_id Int
+  Crops_id  Int
+  Field     Field @relation(fields: [Fields_id], references: [id])
+  Crop      Crop  @relation(fields: [Crops_id], references: [id])
+
+  @@id([Crops_id, Fields_id])
+  @@map("_nc_m2m_Fields_Crops")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model FieldDrone {
+  Fields_id  Int
+  Drones_id  Int
+  Field      Field @relation(fields: [Fields_id], references: [id])
+  Drone      Drone @relation(fields: [Drones_id], references: [id])
+
+  @@id([Drones_id, Fields_id])
+  @@map("_nc_m2m_Fields_Drones")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Contact {
+  id            Int       @id @default(autoincrement())
+  name          String
+  email         String?
+  phone         String?
+  whatsapp      Boolean   @default(false)
+  token         String    @default("")
+  farms_id      Int?
+  is_lab_member Boolean   @default(false)
+  created_at    DateTime  @default(now())
+
+  Farm       Farm?       @relation(fields: [farms_id], references: [id])
+  Photos     Photo[]
+  Recordings Recording[]
+  Notes      Note[]
+  Locations  Location[]
+
+  @@map("Contacts")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Photo {
+  id          Int       @id @default(autoincrement())
+  contact_id  Int?
+  farm_id     Int?
+  filename    String
+  latitude    Float?
+  longitude   Float?
+  note        String?
+  timestamp   DateTime?
+  received_at DateTime  @default(now())
+
+  Contact Contact? @relation(fields: [contact_id], references: [id])
+  Farm    Farm?    @relation(fields: [farm_id], references: [id])
+
+  @@map("Photos")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Recording {
+  id           Int       @id @default(autoincrement())
+  contact_id   Int?
+  farm_id      Int?
+  filename     String
+  gps_filename String?
+  start_time   DateTime?
+  end_time     DateTime?
+  received_at  DateTime  @default(now())
+
+  Contact Contact? @relation(fields: [contact_id], references: [id])
+  Farm    Farm?    @relation(fields: [farm_id], references: [id])
+
+  @@map("Recordings")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Note {
+  id          Int       @id @default(autoincrement())
+  contact_id  Int?
+  farm_id     Int?
+  content     String
+  latitude    Float?
+  longitude   Float?
+  timestamp   DateTime?
+  received_at DateTime  @default(now())
+
+  Contact Contact? @relation(fields: [contact_id], references: [id])
+  Farm    Farm?    @relation(fields: [farm_id], references: [id])
+
+  @@map("Notes")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Location {
+  id             Int       @id @default(autoincrement())
+  contact_id     Int?
+  farm_id        Int?
+  name           String?
+  track_filename String?
+  start_time     DateTime?
+  end_time       DateTime?
+  received_at    DateTime  @default(now())
+
+  Contact Contact? @relation(fields: [contact_id], references: [id])
+  Farm    Farm?    @relation(fields: [farm_id], references: [id])
+
+  @@map("Locations")
+  @@schema("pgntarg2udzj1f3")
+}

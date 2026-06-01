@@ -1,0 +1,142 @@
+
+<style>
+#erd { padding: 8px 0; }
+#erd svg { width: 100%; }
+</style>
+<div id="erd"></div>
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+await document.fonts.ready;
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  fontFamily: '"Anthropic Sans", sans-serif',
+  themeVariables: {
+    darkMode: dark,
+    fontSize: '13px',
+    fontFamily: '"Anthropic Sans", sans-serif',
+    lineColor: dark ? '#9c9a92' : '#73726c',
+    textColor: dark ? '#c2c0b6' : '#3d3d3a',
+  },
+});
+const diagram = `erDiagram
+  Projects {
+    int id PK
+    text Project_Name
+    text Project_Sponsors
+    decimal Total_Budget
+    int Year_Started
+    text Status
+  }
+  Farms {
+    int id PK
+    text Farm_Name
+    text Farmer_Name
+    text Contact_Phone
+    text Contact_Email
+    text County
+    text State
+  }
+  Lab_Members {
+    int id PK
+    text Name
+    text Position
+    text Contact_Phone
+    text Contact_Email
+  }
+  Fields {
+    int id PK
+    int farm_id FK
+    text Name
+    geometry geometry
+    text boundary_source
+  }
+  Treatments {
+    int id PK
+    text Treatment_Name
+    text Description
+    text Notes
+  }
+  Treatment_Protocol {
+    int id PK
+    int project_id FK
+    int treatment_id FK
+    text Protocol_Name
+    text Product
+    decimal Rate
+    text Rate_Unit
+    text Timing
+    bool Is_Control
+    text Notes
+  }
+  Experiment_Zones {
+    int id PK
+    int project_id FK
+    int farm_id FK
+    int protocol_id FK
+    geometry geometry
+    text Zone_Label
+    int Rep_Number
+    text Boundary_Source
+  }
+  Tests {
+    int id PK
+    text Test_Name
+    text Test_Description
+    decimal Cost
+    date Planned_Date
+    date Completed_Date
+    int N_Samples
+  }
+  Drones {
+    int id PK
+    text Name
+    text Description
+    decimal Cost_Per_Acre
+    decimal Mobilization_Cost
+  }
+  Crops {
+    int id PK
+    text Crop_Name
+    text Crop_Type
+  }
+
+  Projects ||--o{ Treatment_Protocol : "defines"
+  Treatments ||--o{ Treatment_Protocol : "instantiated by"
+  Treatment_Protocol ||--o{ Experiment_Zones : "applied in"
+  Projects }o--o{ Farms : "involves"
+  Projects }o--o{ Lab_Members : "staffed by"
+  Farms ||--o{ Fields : "has"
+  Farms ||--o{ Experiment_Zones : "hosts"
+  Fields }o--o{ Tests : "scheduled for"
+  Fields }o--o{ Drones : "flown by"
+  Fields }o--o{ Crops : "planted with"
+`;
+const { svg } = await mermaid.render('erd-svg', diagram);
+document.getElementById('erd').innerHTML = svg;
+
+document.querySelectorAll('#erd svg.erDiagram .node').forEach(node => {
+  const firstPath = node.querySelector('path[d]');
+  if (!firstPath) return;
+  const d = firstPath.getAttribute('d');
+  const nums = d.match(/-?[\d.]+/g)?.map(Number);
+  if (!nums || nums.length < 8) return;
+  const xs = [nums[0], nums[2], nums[4], nums[6]];
+  const ys = [nums[1], nums[3], nums[5], nums[7]];
+  const x = Math.min(...xs), y = Math.min(...ys);
+  const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', x); rect.setAttribute('y', y);
+  rect.setAttribute('width', w); rect.setAttribute('height', h);
+  rect.setAttribute('rx', '8');
+  for (const a of ['fill', 'stroke', 'stroke-width', 'class', 'style']) {
+    if (firstPath.hasAttribute(a)) rect.setAttribute(a, firstPath.getAttribute(a));
+  }
+  firstPath.replaceWith(rect);
+});
+
+document.querySelectorAll('#erd svg.erDiagram .row-rect-odd path, #erd svg.erDiagram .row-rect-even path').forEach(p => {
+  p.setAttribute('stroke', 'none');
+});
+</script>
