@@ -20,6 +20,8 @@ import {
   ShieldCheck,
   Upload,
   SlidersHorizontal,
+  MessageCircle,
+  BarChart2,
 } from "lucide-react";
 
 const adminNav = [
@@ -29,6 +31,8 @@ const adminNav = [
   { href: "/lab-uploads", label: "Data Uploads", icon: Upload },
   { href: "/data-sorting", label: "Data Sorting", icon: SlidersHorizontal },
   { href: "/users", label: "Users", icon: ShieldCheck },
+  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
+  { href: "/activity-report", label: "Activity Report", icon: BarChart2 },
 ];
 
 const fieldOpsNav = [

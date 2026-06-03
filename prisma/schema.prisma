@@ -39,6 +39,8 @@ model Project {
   Notes              Note[]
   Recordings         Recording[]
   Locations          Location[]
+  Videos             Video[]
+  Documents          Document[]
   LabMemberUploads   LabMemberUpload[]
 
   @@map("Projects")
@@ -67,6 +69,9 @@ model Farm {
   Notes            Note[]
   Recordings       Recording[]
   Locations        Location[]
+  Videos           Video[]
+  Documents        Document[]
+  ContactCards     WhatsAppContactCard[]
   LabMemberUploads LabMemberUpload[]
 
   @@map("Farms")
@@ -314,6 +319,9 @@ model Contact {
   Recordings Recording[]
   Notes      Note[]
   Locations  Location[]
+  Videos     Video[]
+  Documents  Document[]
+  ContactCards WhatsAppContactCard[]
 
   @@map("Contacts")
   @@schema("pgntarg2udzj1f3")
@@ -432,5 +440,68 @@ model LabMemberUpload {
   Project   Project?   @relation(fields: [project_id], references: [id])
 
   @@map("Lab_Member_Uploads")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Video {
+  id          Int       @id @default(autoincrement())
+  contact_id  Int?
+  farm_id     Int?
+  project_id  Int?
+  filename    String
+  latitude    Float?
+  longitude   Float?
+  note        String?
+  timestamp   DateTime?
+  status      Int       @default(2)
+  category    String?   @db.VarChar(100)
+  description String?
+  received_at DateTime  @default(now())
+
+  Contact Contact? @relation(fields: [contact_id], references: [id])
+  Farm    Farm?    @relation(fields: [farm_id], references: [id])
+  Project Project? @relation(fields: [project_id], references: [id])
+
+  @@map("Videos")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Document {
+  id          Int       @id @default(autoincrement())
+  contact_id  Int?
+  farm_id     Int?
+  project_id  Int?
+  filename    String
+  note        String?
+  timestamp   DateTime?
+  status      Int       @default(2)
+  category    String?   @db.VarChar(100)
+  description String?
+  received_at DateTime  @default(now())
+
+  Contact Contact? @relation(fields: [contact_id], references: [id])
+  Farm    Farm?    @relation(fields: [farm_id], references: [id])
+  Project Project? @relation(fields: [project_id], references: [id])
+
+  @@map("Documents")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model WhatsAppContactCard {
+  id          Int       @id @default(autoincrement())
+  contact_id  Int?
+  farm_id     Int?
+  shared_name  String
+  shared_phone String?
+  shared_email String?
+  shared_org   String?
+  note        String?
+  status      Int       @default(2)
+  received_at DateTime  @default(now())
+
+  Contact Contact? @relation(fields: [contact_id], references: [id])
+  Farm    Farm?    @relation(fields: [farm_id], references: [id])
+
+  @@map("WhatsApp_Contact_Cards")
   @@schema("pgntarg2udzj1f3")
 }
