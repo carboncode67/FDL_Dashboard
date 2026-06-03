@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
-import { resolveFarmId } from "@/lib/proximity";
+import { resolveFarmId, resolveFarmIdForLabMember } from "@/lib/proximity";
 import fs from "fs";
 import path from "path";
 
@@ -31,19 +31,39 @@ export async function POST(request: Request) {
       fs.writeFileSync(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
     }
 
-    const farmId = await resolveFarmId(auth.contact, geo.latitude ?? null, geo.longitude ?? null);
+    const lat = geo.latitude ?? null;
+    const lng = geo.longitude ?? null;
 
-    await prisma.photo.create({
-      data: {
-        contact_id: auth.contact.id,
-        farm_id: farmId,
-        filename,
-        latitude: geo.latitude ?? null,
-        longitude: geo.longitude ?? null,
-        note: note || null,
-        timestamp: timestamp ? new Date(timestamp) : null,
-      },
-    });
+    if (auth.kind === "labMember") {
+      const farmId = await resolveFarmIdForLabMember(lat, lng);
+      await prisma.labMemberUpload.create({
+        data: {
+          lab_member_id: auth.labMember.id,
+          farm_id: farmId,
+          media_type: "photo",
+          filename: filename || null,
+          latitude: lat,
+          longitude: lng,
+          content: note || null,
+          date_collected: timestamp ? new Date(timestamp) : null,
+          status: farmId != null ? 2 : 1,
+        },
+      });
+    } else {
+      const farmId = await resolveFarmId(auth.contact, lat, lng);
+      await prisma.photo.create({
+        data: {
+          contact_id: auth.contact.id,
+          farm_id: farmId,
+          filename,
+          latitude: lat,
+          longitude: lng,
+          note: note || null,
+          timestamp: timestamp ? new Date(timestamp) : null,
+          status: 2,
+        },
+      });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

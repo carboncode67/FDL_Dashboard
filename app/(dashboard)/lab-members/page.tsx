@@ -11,6 +11,7 @@ export default async function LabMembersPage() {
     FAA_Part_107: m.FAA_Part_107 ?? false,
     Contact_Phone: m.Contact_Phone,
     Contact_Email: m.Contact_Email,
+    has_token: !!m.token,
   }));
   return <LabMembersClient data={data} />;
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
-import { resolveFarmId, firstPointFromGeoJSON } from "@/lib/proximity";
+import { resolveFarmId, resolveFarmIdForLabMember, firstPointFromGeoJSON } from "@/lib/proximity";
 import fs from "fs";
 import path from "path";
 
@@ -36,18 +36,38 @@ export async function POST(request: Request) {
     }
 
     const firstPt = gpsTrack ? firstPointFromGeoJSON(gpsTrack) : null;
-    const farmId = await resolveFarmId(auth.contact, firstPt?.lat ?? null, firstPt?.lng ?? null);
 
-    await prisma.recording.create({
-      data: {
-        contact_id: auth.contact.id,
-        farm_id: farmId,
-        filename,
-        gps_filename: gpsFilename,
-        start_time: startTime ? new Date(startTime) : null,
-        end_time: endTime ? new Date(endTime) : null,
-      },
-    });
+    if (auth.kind === "labMember") {
+      const farmId = await resolveFarmIdForLabMember(firstPt?.lat ?? null, firstPt?.lng ?? null);
+      await prisma.labMemberUpload.create({
+        data: {
+          lab_member_id: auth.labMember.id,
+          farm_id: farmId,
+          media_type: "recording",
+          filename: filename || null,
+          gps_filename: gpsFilename,
+          latitude: firstPt?.lat ?? null,
+          longitude: firstPt?.lng ?? null,
+          start_time: startTime ? new Date(startTime) : null,
+          end_time: endTime ? new Date(endTime) : null,
+          date_collected: startTime ? new Date(startTime) : null,
+          status: farmId != null ? 2 : 1,
+        },
+      });
+    } else {
+      const farmId = await resolveFarmId(auth.contact, firstPt?.lat ?? null, firstPt?.lng ?? null);
+      await prisma.recording.create({
+        data: {
+          contact_id: auth.contact.id,
+          farm_id: farmId,
+          filename,
+          gps_filename: gpsFilename,
+          start_time: startTime ? new Date(startTime) : null,
+          end_time: endTime ? new Date(endTime) : null,
+          status: 2,
+        },
+      });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -42,12 +42,24 @@ interface GpsTrack {
   properties: { contactName: string; startTime: string | null; kind: string; name?: string | null }
 }
 
+export interface LabUploadPin {
+  id: number
+  latitude: number
+  longitude: number
+  uploaderName: string
+  filename: string | null
+  content: string | null
+  media_type: string
+  timestamp: string | null
+}
+
 export interface FarmMapProps {
   fields: MapField[]
   zones: MapZone[]
   photos: MapPhoto[]
   notes: MapNote[]
   farmId: number
+  labUploads?: LabUploadPin[]
 }
 
 function extractLatLngs(geojsonStr: string): [number, number][] {
@@ -95,7 +107,7 @@ function BoundsAdjuster({ bounds }: { bounds: L.LatLngBoundsExpression }) {
   return null
 }
 
-export default function FarmMap({ fields, zones, photos, notes, farmId }: FarmMapProps) {
+export default function FarmMap({ fields, zones, photos, notes, farmId, labUploads = [] }: FarmMapProps) {
   const [gpsTracks, setGpsTracks] = useState<GpsTrack[]>([])
 
   useEffect(() => {
@@ -110,6 +122,7 @@ export default function FarmMap({ fields, zones, photos, notes, farmId }: FarmMa
     ...zones.flatMap((z) => (z.geometry ? extractLatLngs(z.geometry) : [])),
     ...photos.map((p) => [p.latitude, p.longitude] as [number, number]),
     ...notes.map((n) => [n.latitude, n.longitude] as [number, number]),
+    ...labUploads.map((u) => [u.latitude, u.longitude] as [number, number]),
   ]
 
   const bounds = allLatLngs.length >= 2 ? L.latLngBounds(allLatLngs) : null
@@ -119,7 +132,8 @@ export default function FarmMap({ fields, zones, photos, notes, farmId }: FarmMa
     fields.some((f) => f.geometry) ||
     zones.some((z) => z.geometry) ||
     photos.length > 0 ||
-    notes.length > 0
+    notes.length > 0 ||
+    labUploads.length > 0
 
   return (
     <div className="space-y-3">
@@ -236,6 +250,46 @@ export default function FarmMap({ fields, zones, photos, notes, farmId }: FarmMa
             </CircleMarker>
           ))}
 
+          {/* Lab upload pins — orange (photo) / teal (other) */}
+          {labUploads.map((u) => {
+            const isPhoto = u.media_type === "photo"
+            const color = isPhoto ? "#ea580c" : "#0d9488"
+            const fill = isPhoto ? "#f97316" : "#14b8a6"
+            return (
+              <CircleMarker
+                key={`lab-${u.id}`}
+                center={[u.latitude, u.longitude]}
+                radius={7}
+                pathOptions={{ color, fillColor: fill, fillOpacity: 0.9, weight: 2 }}
+              >
+                <Popup>
+                  {isPhoto && u.filename && (
+                    <img
+                      src={`/api/files/photos/${u.filename}`}
+                      alt="Lab upload"
+                      style={{ maxWidth: 220, maxHeight: 160, objectFit: "cover", borderRadius: 4, marginBottom: 6, display: "block" }}
+                    />
+                  )}
+                  <strong>{isPhoto ? "Photo (Lab)" : `${u.media_type.charAt(0).toUpperCase() + u.media_type.slice(1)} (Lab)`}</strong>
+                  <br />
+                  {u.uploaderName}
+                  {u.content && (
+                    <>
+                      <br />
+                      {u.content.slice(0, 120)}{u.content.length > 120 ? "…" : ""}
+                    </>
+                  )}
+                  {u.timestamp && (
+                    <>
+                      <br />
+                      <span style={{ fontSize: "0.75rem" }}>{new Date(u.timestamp).toLocaleString()}</span>
+                    </>
+                  )}
+                </Popup>
+              </CircleMarker>
+            )
+          })}
+
           {/* GPS tracks — red */}
           {gpsTracks.map((track, i) => {
             if (track.geometry?.type !== "LineString" || !Array.isArray(track.geometry.coordinates)) return null
@@ -289,6 +343,14 @@ export default function FarmMap({ fields, zones, photos, notes, farmId }: FarmMa
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: "#8b5cf6" }} />
           Notes
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: "#f97316" }} />
+          Lab Photos
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: "#14b8a6" }} />
+          Lab Uploads
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-5 border-t-2" style={{ borderColor: "#dc2626" }} />

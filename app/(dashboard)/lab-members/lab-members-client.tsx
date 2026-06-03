@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil, CheckCircle2 } from "lucide-react";
+import { Pencil, CheckCircle2, Smartphone } from "lucide-react";
 
 interface LabMemberRow {
   id: number;
@@ -14,6 +14,7 @@ interface LabMemberRow {
   FAA_Part_107: boolean;
   Contact_Phone: string | null;
   Contact_Email: string | null;
+  has_token: boolean;
 }
 
 function statusVariant(status: string | null): "default" | "secondary" | "outline" {
@@ -55,6 +56,21 @@ export function LabMembersClient({ data }: { data: LabMemberRow[] }) {
     { key: "Contact_Phone", header: "Phone" },
     { key: "Contact_Email", header: "Email" },
     {
+      key: "has_token",
+      header: "App Access",
+      render: (row: Record<string, unknown>) => {
+        const r = row as unknown as LabMemberRow;
+        return r.has_token ? (
+          <Badge variant="default" className="gap-1">
+            <Smartphone className="h-3 w-3" />
+            Active
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-slate-400">None</Badge>
+        );
+      },
+    },
+    {
       key: "_actions",
       header: "",
       render: (row: Record<string, unknown>) => (
@@ -77,6 +93,7 @@ export function LabMembersClient({ data }: { data: LabMemberRow[] }) {
       searchKeys={["Name", "Position", "Status"]}
       onAdd={() => router.push("/lab-members/new")}
       addLabel="New Member"
+      onRowClick={(row) => router.push(`/lab-members/${(row as unknown as LabMemberRow).id}`)}
     />
   );
 }

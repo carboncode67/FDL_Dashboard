@@ -35,6 +35,11 @@ model Project {
   ExperimentZones    ExperimentZone[]
   ProjectFarms       ProjectFarm[]
   ProjectLabMembers  ProjectLabMember[]
+  Photos             Photo[]
+  Notes              Note[]
+  Recordings         Recording[]
+  Locations          Location[]
+  LabMemberUploads   LabMemberUpload[]
 
   @@map("Projects")
   @@schema("pgntarg2udzj1f3")
@@ -52,14 +57,17 @@ model Farm {
   created_at    DateTime?
   updated_at    DateTime?
 
+  farm_summary    String?
+
   Fields          Field[]
   ExperimentZones ExperimentZone[]
   ProjectFarms    ProjectFarm[]
-  Contacts        Contact[]
-  Photos          Photo[]
-  Notes           Note[]
-  Recordings      Recording[]
-  Locations       Location[]
+  Contacts         Contact[]
+  Photos           Photo[]
+  Notes            Note[]
+  Recordings       Recording[]
+  Locations        Location[]
+  LabMemberUploads LabMemberUpload[]
 
   @@map("Farms")
   @@schema("pgntarg2udzj1f3")
@@ -74,10 +82,12 @@ model LabMember {
   Contact_Email String?
   Status        String?
   FAA_Part_107  Boolean?
+  token         String?   @db.VarChar(64)
   created_at    DateTime?
   updated_at    DateTime?
 
-  ProjectLabMembers ProjectLabMember[]
+  ProjectLabMembers  ProjectLabMember[]
+  LabMemberUploads   LabMemberUpload[]
 
   @@map("Lab Members")
   @@schema("pgntarg2udzj1f3")
@@ -313,15 +323,20 @@ model Photo {
   id          Int       @id @default(autoincrement())
   contact_id  Int?
   farm_id     Int?
+  project_id  Int?
   filename    String
   latitude    Float?
   longitude   Float?
   note        String?
   timestamp   DateTime?
+  status      Int       @default(2)
+  category    String?   @db.VarChar(100)
+  description String?
   received_at DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
+  Project Project? @relation(fields: [project_id], references: [id])
 
   @@map("Photos")
   @@schema("pgntarg2udzj1f3")
@@ -331,14 +346,19 @@ model Recording {
   id           Int       @id @default(autoincrement())
   contact_id   Int?
   farm_id      Int?
+  project_id   Int?
   filename     String
   gps_filename String?
   start_time   DateTime?
   end_time     DateTime?
+  status       Int       @default(2)
+  category     String?   @db.VarChar(100)
+  description  String?
   received_at  DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
+  Project Project? @relation(fields: [project_id], references: [id])
 
   @@map("Recordings")
   @@schema("pgntarg2udzj1f3")
@@ -348,14 +368,19 @@ model Note {
   id          Int       @id @default(autoincrement())
   contact_id  Int?
   farm_id     Int?
+  project_id  Int?
   content     String
   latitude    Float?
   longitude   Float?
   timestamp   DateTime?
+  status      Int       @default(2)
+  category    String?   @db.VarChar(100)
+  description String?
   received_at DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
+  Project Project? @relation(fields: [project_id], references: [id])
 
   @@map("Notes")
   @@schema("pgntarg2udzj1f3")
@@ -365,15 +390,47 @@ model Location {
   id             Int       @id @default(autoincrement())
   contact_id     Int?
   farm_id        Int?
+  project_id     Int?
   name           String?
   track_filename String?
   start_time     DateTime?
   end_time       DateTime?
+  status         Int       @default(2)
+  category       String?   @db.VarChar(100)
+  description    String?
   received_at    DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
+  Project Project? @relation(fields: [project_id], references: [id])
 
   @@map("Locations")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model LabMemberUpload {
+  id             Int       @id @default(autoincrement())
+  lab_member_id  Int?
+  farm_id        Int?
+  project_id     Int?
+  media_type     String    @db.VarChar(20)
+  filename       String?
+  content        String?
+  latitude       Float?
+  longitude      Float?
+  gps_filename   String?
+  start_time     DateTime?
+  end_time       DateTime?
+  date_collected DateTime?
+  status         Int       @default(1)
+  category       String?   @db.VarChar(100)
+  description    String?
+  received_at    DateTime  @default(now())
+
+  LabMember LabMember? @relation(fields: [lab_member_id], references: [id])
+  Farm      Farm?      @relation(fields: [farm_id], references: [id])
+  Project   Project?   @relation(fields: [project_id], references: [id])
+
+  @@map("Lab_Member_Uploads")
   @@schema("pgntarg2udzj1f3")
 }

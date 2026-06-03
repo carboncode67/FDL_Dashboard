@@ -1,0 +1,153 @@
+import { prisma } from "@/lib/prisma";
+import { DataSortingClient, UploadItem } from "./data-sorting-client";
+
+export default async function DataSortingPage() {
+  const [photos, notes, recordings, locations, labUploads, projects] = await Promise.all([
+    prisma.photo.findMany({
+      include: {
+        Contact: { select: { name: true } },
+        Farm:    { select: { Farm_Name: true } },
+        Project: { select: { Project_Name: true } },
+      },
+      orderBy: { received_at: "desc" },
+    }),
+    prisma.note.findMany({
+      include: {
+        Contact: { select: { name: true } },
+        Farm:    { select: { Farm_Name: true } },
+        Project: { select: { Project_Name: true } },
+      },
+      orderBy: { received_at: "desc" },
+    }),
+    prisma.recording.findMany({
+      include: {
+        Contact: { select: { name: true } },
+        Farm:    { select: { Farm_Name: true } },
+        Project: { select: { Project_Name: true } },
+      },
+      orderBy: { received_at: "desc" },
+    }),
+    prisma.location.findMany({
+      include: {
+        Contact: { select: { name: true } },
+        Farm:    { select: { Farm_Name: true } },
+        Project: { select: { Project_Name: true } },
+      },
+      orderBy: { received_at: "desc" },
+    }),
+    prisma.labMemberUpload.findMany({
+      include: {
+        LabMember: { select: { Name: true } },
+        Farm:      { select: { Farm_Name: true } },
+        Project:   { select: { Project_Name: true } },
+      },
+      orderBy: { received_at: "desc" },
+    }),
+    prisma.project.findMany({
+      select: { id: true, Project_Name: true },
+      orderBy: { Project_Name: "asc" },
+    }),
+  ]);
+
+  const items: UploadItem[] = [
+    ...photos.map((r) => ({
+      id: r.id,
+      table: "photos" as const,
+      uploader: r.Contact?.name ?? null,
+      uploader_type: "contact" as const,
+      farm: r.Farm?.Farm_Name ?? null,
+      media_type: "photo",
+      date_collected: r.timestamp?.toISOString() ?? null,
+      received_at: r.received_at.toISOString(),
+      status: r.status,
+      category: r.category ?? null,
+      description: r.description ?? null,
+      project_id: r.project_id ?? null,
+      project_name: r.Project?.Project_Name ?? null,
+      filename: r.filename || null,
+      content: r.note ?? null,
+      latitude: r.latitude ?? null,
+      longitude: r.longitude ?? null,
+    })),
+    ...notes.map((r) => ({
+      id: r.id,
+      table: "notes" as const,
+      uploader: r.Contact?.name ?? null,
+      uploader_type: "contact" as const,
+      farm: r.Farm?.Farm_Name ?? null,
+      media_type: "note",
+      date_collected: r.timestamp?.toISOString() ?? null,
+      received_at: r.received_at.toISOString(),
+      status: r.status,
+      category: r.category ?? null,
+      description: r.description ?? null,
+      project_id: r.project_id ?? null,
+      project_name: r.Project?.Project_Name ?? null,
+      filename: null,
+      content: r.content,
+      latitude: r.latitude ?? null,
+      longitude: r.longitude ?? null,
+    })),
+    ...recordings.map((r) => ({
+      id: r.id,
+      table: "recordings" as const,
+      uploader: r.Contact?.name ?? null,
+      uploader_type: "contact" as const,
+      farm: r.Farm?.Farm_Name ?? null,
+      media_type: "recording",
+      date_collected: r.start_time?.toISOString() ?? null,
+      received_at: r.received_at.toISOString(),
+      status: r.status,
+      category: r.category ?? null,
+      description: r.description ?? null,
+      project_id: r.project_id ?? null,
+      project_name: r.Project?.Project_Name ?? null,
+      filename: r.filename || null,
+      content: null,
+      latitude: null,
+      longitude: null,
+    })),
+    ...locations.map((r) => ({
+      id: r.id,
+      table: "locations" as const,
+      uploader: r.Contact?.name ?? null,
+      uploader_type: "contact" as const,
+      farm: r.Farm?.Farm_Name ?? null,
+      media_type: "location",
+      date_collected: r.start_time?.toISOString() ?? null,
+      received_at: r.received_at.toISOString(),
+      status: r.status,
+      category: r.category ?? null,
+      description: r.description ?? null,
+      project_id: r.project_id ?? null,
+      project_name: r.Project?.Project_Name ?? null,
+      filename: null,
+      content: r.name ?? null,
+      latitude: null,
+      longitude: null,
+    })),
+    ...labUploads.map((r) => ({
+      id: r.id,
+      table: "lab-member-uploads" as const,
+      uploader: r.LabMember?.Name ?? null,
+      uploader_type: "lab_member" as const,
+      farm: r.Farm?.Farm_Name ?? null,
+      media_type: r.media_type,
+      date_collected: r.date_collected?.toISOString() ?? null,
+      received_at: r.received_at.toISOString(),
+      status: r.status,
+      category: r.category ?? null,
+      description: r.description ?? null,
+      project_id: r.project_id ?? null,
+      project_name: r.Project?.Project_Name ?? null,
+      filename: r.filename ?? null,
+      content: r.content ?? null,
+      latitude: r.latitude ?? null,
+      longitude: r.longitude ?? null,
+    })),
+  ].sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime());
+
+  const projectList = projects.map((p) => ({ id: p.id, name: p.Project_Name ?? `Project ${p.id}` }));
+
+  return <DataSortingClient items={items} projects={projectList} />;
+}

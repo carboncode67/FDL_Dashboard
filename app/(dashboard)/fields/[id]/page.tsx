@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { format } from "date-fns";
 import { RelationPicker } from "@/components/relation-picker";
+import FieldMapWrapper from "@/components/field-map-wrapper";
 
 export default async function FieldDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -97,11 +98,11 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-6">
             <h3 className="font-medium text-slate-700 mb-3">Map Visualization</h3>
-            <p className="text-sm text-slate-500 mb-4">Map visualization — geometry loaded via API</p>
             {field.geometry ? (
-              <pre className="bg-white border rounded p-3 text-xs text-slate-600 overflow-x-auto whitespace-pre-wrap break-all">
-                {field.geometry}
-              </pre>
+              <FieldMapWrapper
+                fieldName={field.Name ?? `Field #${field.id}`}
+                geometry={field.geometry}
+              />
             ) : (
               <p className="text-sm text-slate-400 italic">No geometry data available for this field.</p>
             )}

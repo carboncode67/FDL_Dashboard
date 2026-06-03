@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
-import { resolveFarmId } from "@/lib/proximity";
+import { resolveFarmId, resolveFarmIdForLabMember } from "@/lib/proximity";
 
 export const runtime = "nodejs";
 
@@ -13,18 +13,34 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { content = "", latitude = null, longitude = null, timestamp = "" } = body;
 
-    const farmId = await resolveFarmId(auth.contact, latitude, longitude);
-
-    await prisma.note.create({
-      data: {
-        contact_id: auth.contact.id,
-        farm_id: farmId,
-        content,
-        latitude: latitude ?? null,
-        longitude: longitude ?? null,
-        timestamp: timestamp ? new Date(timestamp) : null,
-      },
-    });
+    if (auth.kind === "labMember") {
+      const farmId = await resolveFarmIdForLabMember(latitude, longitude);
+      await prisma.labMemberUpload.create({
+        data: {
+          lab_member_id: auth.labMember.id,
+          farm_id: farmId,
+          media_type: "note",
+          content: content || null,
+          latitude: latitude ?? null,
+          longitude: longitude ?? null,
+          date_collected: timestamp ? new Date(timestamp) : null,
+          status: farmId != null ? 2 : 1,
+        },
+      });
+    } else {
+      const farmId = await resolveFarmId(auth.contact, latitude, longitude);
+      await prisma.note.create({
+        data: {
+          contact_id: auth.contact.id,
+          farm_id: farmId,
+          content,
+          latitude: latitude ?? null,
+          longitude: longitude ?? null,
+          timestamp: timestamp ? new Date(timestamp) : null,
+          status: 2,
+        },
+      });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

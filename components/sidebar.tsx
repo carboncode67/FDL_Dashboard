@@ -18,16 +18,24 @@ import {
   ChevronRight,
   BookUser,
   ShieldCheck,
+  Upload,
+  SlidersHorizontal,
 } from "lucide-react";
 
-const fieldOpsNav = [
+const adminNav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/contacts", label: "Farmers", icon: BookUser },
+  { href: "/lab-members", label: "Lab Members", icon: Users },
+  { href: "/lab-uploads", label: "Data Uploads", icon: Upload },
+  { href: "/data-sorting", label: "Data Sorting", icon: SlidersHorizontal },
+  { href: "/users", label: "Users", icon: ShieldCheck },
+];
+
+const fieldOpsNav = [
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/farms", label: "Farms", icon: Building2 },
   { href: "/fields", label: "Fields", icon: Map },
   { href: "/experiment-zones", label: "Experiment Zones", icon: Layers },
-  { href: "/treatment-protocols", label: "Treatment Protocols", icon: FlaskConical },
-  { href: "/contacts", label: "Contacts", icon: BookUser },
 ];
 
 const referenceNav = [
@@ -35,11 +43,7 @@ const referenceNav = [
   { href: "/tests", label: "Tests", icon: TestTube },
   { href: "/drones", label: "Drones", icon: Plane },
   { href: "/crops", label: "Crops", icon: Wheat },
-  { href: "/lab-members", label: "Lab Members", icon: Users },
-];
-
-const adminNav = [
-  { href: "/users", label: "Users", icon: ShieldCheck },
+  { href: "/treatment-protocols", label: "Treatment Protocols", icon: FlaskConical },
 ];
 
 export function Sidebar() {
@@ -55,77 +59,35 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
-        <div>
-          <p className="px-2 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Field Operations
-          </p>
-          <ul className="space-y-0.5">
-            {fieldOpsNav.map(({ href, label, icon: Icon }) => (
-              <li key={href}>
-                <Link
-                  href={href}
-                  className={cn(
-                    "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
-                    pathname === href
-                      ? "bg-emerald-600 text-white"
-                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                  )}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <p className="px-2 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Reference Data
-          </p>
-          <ul className="space-y-0.5">
-            {referenceNav.map(({ href, label, icon: Icon }) => (
-              <li key={href}>
-                <Link
-                  href={href}
-                  className={cn(
-                    "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
-                    pathname === href
-                      ? "bg-emerald-600 text-white"
-                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                  )}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <p className="px-2 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Admin
-          </p>
-          <ul className="space-y-0.5">
-            {adminNav.map(({ href, label, icon: Icon }) => (
-              <li key={href}>
-                <Link
-                  href={href}
-                  className={cn(
-                    "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
-                    pathname === href
-                      ? "bg-emerald-600 text-white"
-                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                  )}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {[
+          { label: "Admin", items: adminNav },
+          { label: "Field Operations", items: fieldOpsNav },
+          { label: "Reference Data", items: referenceNav },
+        ].map(({ label, items }) => (
+          <div key={label}>
+            <p className="px-2 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              {label}
+            </p>
+            <ul className="space-y-0.5">
+              {items.map(({ href, label: itemLabel, icon: Icon }) => (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    className={cn(
+                      "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
+                      pathname === href
+                        ? "bg-emerald-600 text-white"
+                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {itemLabel}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </nav>
     </aside>
   );

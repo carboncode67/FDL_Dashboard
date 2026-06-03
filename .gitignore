@@ -51,6 +51,7 @@ DB_info.md
 
 # claude session files
 .claude/
+memory/
 
 # vercel
 .vercel

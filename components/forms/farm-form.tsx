@@ -7,7 +7,15 @@ import { Button } from "@/components/ui/button";
 
 interface FarmFormProps {
   onSuccess?: () => void;
-  initialData?: { Farm_Name?: string | null; Farmer_Name?: string | null; County?: string | null; State?: string | null; Contact_Phone?: string | null; Contact_Email?: string | null };
+  initialData?: {
+    Farm_Name?: string | null;
+    Farmer_Name?: string | null;
+    County?: string | null;
+    State?: string | null;
+    Contact_Phone?: string | null;
+    Contact_Email?: string | null;
+    farm_summary?: string | null;
+  };
   farmId?: number;
 }
 
@@ -18,6 +26,7 @@ export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
   const [state, setState] = useState(initialData?.State ?? "");
   const [phone, setPhone] = useState(initialData?.Contact_Phone ?? "");
   const [email, setEmail] = useState(initialData?.Contact_Email ?? "");
+  const [summary, setSummary] = useState(initialData?.farm_summary ?? "");
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -29,7 +38,15 @@ export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
       await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ Farm_Name: farmName, Farmer_Name: farmerName, County: county, State: state, Contact_Phone: phone, Contact_Email: email }),
+        body: JSON.stringify({
+          Farm_Name: farmName,
+          Farmer_Name: farmerName,
+          County: county,
+          State: state,
+          Contact_Phone: phone,
+          Contact_Email: email,
+          farm_summary: summary || null,
+        }),
       });
       onSuccess?.();
     } finally {
@@ -45,6 +62,16 @@ export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
       <div className="space-y-1.5"><Label>State</Label><Input value={state} onChange={(e) => setState(e.target.value)} /></div>
       <div className="space-y-1.5"><Label>Contact Phone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
       <div className="space-y-1.5"><Label>Contact Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+      <div className="space-y-1.5">
+        <Label>Farmer Summary (Markdown)</Label>
+        <textarea
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+          rows={8}
+          placeholder="Paste or type markdown content here…"
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+      </div>
       <Button type="submit" disabled={saving} className="w-full">{saving ? "Saving..." : farmId ? "Update" : "Create"}</Button>
     </form>
   );

@@ -66,3 +66,12 @@ export async function resolveFarmId(
   if (lat == null || lng == null) return null
   return findFarmByLocation(lat, lng)
 }
+
+// Resolver for lab member uploads — always uses proximity.
+export async function resolveFarmIdForLabMember(
+  lat: number | null,
+  lng: number | null,
+): Promise<number | null> {
+  if (lat == null || lng == null) return null
+  return findFarmByLocation(lat, lng)
+}
