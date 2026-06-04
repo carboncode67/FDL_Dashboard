@@ -505,3 +505,18 @@ model WhatsAppContactCard {
   @@map("WhatsApp_Contact_Cards")
   @@schema("pgntarg2udzj1f3")
 }
+
+model ReportingSubscription {
+  id           Int       @id @default(autoincrement())
+  label        String                          // e.g. "Agrivoltaics team"
+  emails       String                          // semicolon-separated list
+  frequency    String    @default("weekly")    // weekly | biweekly | monthly
+  active       Boolean   @default(true)
+  contact_ids  String                          // JSON array of contact IDs
+  last_sent_at DateTime?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  @@map("Reporting_Subscriptions")
+  @@schema("pgntarg2udzj1f3")
+}

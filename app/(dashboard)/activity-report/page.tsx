@@ -1,14 +1,28 @@
-import { BarChart2 } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+import { ActivityReportClient } from "./activity-report-client";
 
-export default function ActivityReportPage() {
+export default async function ActivityReportPage() {
+  const [contacts, subscriptions] = await Promise.all([
+    prisma.contact.findMany({
+      where: { whatsapp: true },
+      select: { id: true, name: true, phone: true, Farm: { select: { Farm_Name: true } } },
+      orderBy: { name: "asc" },
+    }),
+    prisma.reportingSubscription.findMany({ orderBy: { created_at: "desc" } }),
+  ]);
+
   return (
-    <div className="flex flex-col items-center justify-center h-96 gap-4 text-slate-400">
-      <BarChart2 className="h-12 w-12" />
-      <p className="text-lg font-medium">Activity Report</p>
-      <p className="text-sm text-center max-w-sm">
-        This page will show a 2-week activity report covering all three data
-        streams — WhatsApp, App (farmers), and App (lab members). Coming soon.
-      </p>
-    </div>
+    <ActivityReportClient
+      contacts={contacts.map(c => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone ?? "",
+        farm_name: c.Farm?.Farm_Name ?? null,
+      }))}
+      initialSubscriptions={subscriptions.map(s => ({
+        ...s,
+        contact_ids: JSON.parse(s.contact_ids) as number[],
+      }))}
+    />
   );
 }

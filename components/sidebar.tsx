@@ -58,7 +58,7 @@ export function Sidebar() {
       <div className="px-4 py-5 border-b border-slate-700">
         <div className="flex items-center gap-2">
           <ChevronRight className="h-5 w-5 text-emerald-400" />
-          <span className="text-lg font-bold tracking-tight">OFE Dashboard</span>
+          <span className="text-lg font-bold tracking-tight">FDL Dashboard</span>
         </div>
       </div>
 

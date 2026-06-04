@@ -42,7 +42,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="flex items-center justify-center gap-2 mb-8">
           <ChevronRight className="h-6 w-6 text-emerald-600" />
-          <span className="text-2xl font-bold text-slate-900">OFE Dashboard</span>
+          <span className="text-2xl font-bold text-slate-900">FDL Dashboard</span>
         </div>
         <Card>
           <CardHeader>

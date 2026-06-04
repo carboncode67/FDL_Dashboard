@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { startScheduler } from "@/lib/scheduler";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,9 +14,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OFE Dashboard",
+  title: "FDL Dashboard",
   description: "On-Farm Experiment research dashboard",
 };
+
+// Start the report scheduler when the server starts.
+// The guard inside startScheduler prevents double-registration in dev hot reload.
+if (typeof window === "undefined") {
+  startScheduler();
+}
 
 export default function RootLayout({
   children,

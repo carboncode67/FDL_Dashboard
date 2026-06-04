@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 
 /**
  * POST /api/whatsapp/send
@@ -9,13 +8,9 @@ import { authOptions } from "@/lib/auth";
  * credentials. The dashboard never calls Twilio directly.
  *
  * Body: { phone: string, message: string }
- *
- * OFEDashBot must expose POST /send-message (added in its config).
- * OFEDASHBOT_URL is set in .env.local.
  */
 export async function POST(req: NextRequest) {
-  // Require an authenticated dashboard session
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
