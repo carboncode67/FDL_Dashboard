@@ -17,6 +17,7 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const note = (formData.get("note") as string) ?? "";
+    const ticket_ref = (formData.get("ticket_ref") as string) ?? "";
     const timestamp = (formData.get("timestamp") as string) ?? "";
 
     let filename = "";

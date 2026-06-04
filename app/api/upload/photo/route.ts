@@ -17,6 +17,7 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const geoJSON = (formData.get("geoJSON") as string) ?? "{}";
+    const ticket_ref = (formData.get("ticket_ref") as string) ?? "";
     const note = (formData.get("note") as string) ?? "";
     const timestamp = (formData.get("timestamp") as string) ?? "";
 
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
           note: note || null,
           timestamp: timestamp ? new Date(timestamp) : null,
           status: 2,
+          ticket_ref: ticket_ref || null,
         },
       });
     }

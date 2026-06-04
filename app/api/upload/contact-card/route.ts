@@ -31,6 +31,7 @@ export async function POST(request: Request) {
         shared_org: org ?? null,
         note: note ?? null,
         status: 2,
+        ticket_ref: ticket_ref || null,
       },
     });
 

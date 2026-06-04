@@ -38,6 +38,7 @@ export async function POST(request: Request) {
           longitude: longitude ?? null,
           timestamp: timestamp ? new Date(timestamp) : null,
           status: 2,
+          ticket_ref: ticket_ref || null,
         },
       });
     }

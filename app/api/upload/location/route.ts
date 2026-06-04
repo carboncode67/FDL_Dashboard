@@ -53,6 +53,7 @@ export async function POST(request: Request) {
           start_time: start_time ? new Date(start_time) : null,
           end_time: end_time ? new Date(end_time) : null,
           status: 2,
+          ticket_ref: ticket_ref || null,
         },
       });
     }

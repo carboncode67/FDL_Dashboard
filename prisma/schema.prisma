@@ -338,6 +338,7 @@ model Photo {
   note        String?
   timestamp   DateTime?
   status      Int       @default(2)
+  ticket_ref  String?                         // human-readable OFEDashBot reference
   category    String?   @db.VarChar(100)
   description String?
   received_at DateTime  @default(now())
@@ -360,6 +361,7 @@ model Recording {
   start_time   DateTime?
   end_time     DateTime?
   status       Int       @default(2)
+  ticket_ref   String?                         // human-readable OFEDashBot reference
   category     String?   @db.VarChar(100)
   description  String?
   received_at  DateTime  @default(now())
@@ -382,6 +384,7 @@ model Note {
   longitude   Float?
   timestamp   DateTime?
   status      Int       @default(2)
+  ticket_ref  String?                         // human-readable OFEDashBot reference
   category    String?   @db.VarChar(100)
   description String?
   received_at DateTime  @default(now())
@@ -404,6 +407,7 @@ model Location {
   start_time     DateTime?
   end_time       DateTime?
   status         Int       @default(2)
+  ticket_ref     String?                         // human-readable OFEDashBot reference
   category       String?   @db.VarChar(100)
   description    String?
   received_at    DateTime  @default(now())
@@ -454,6 +458,7 @@ model Video {
   note        String?
   timestamp   DateTime?
   status      Int       @default(2)
+  ticket_ref  String?                         // human-readable OFEDashBot reference
   category    String?   @db.VarChar(100)
   description String?
   received_at DateTime  @default(now())
@@ -475,6 +480,7 @@ model Document {
   note        String?
   timestamp   DateTime?
   status      Int       @default(2)
+  ticket_ref  String?                         // human-readable OFEDashBot reference
   category    String?   @db.VarChar(100)
   description String?
   received_at DateTime  @default(now())
@@ -497,6 +503,7 @@ model WhatsAppContactCard {
   shared_org   String?
   note        String?
   status      Int       @default(2)
+  ticket_ref  String?                         // human-readable OFEDashBot reference
   received_at DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])

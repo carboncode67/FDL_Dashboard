@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     const file = formData.get("file") as File | null;
     const geoJSON = (formData.get("geoJSON") as string) ?? "{}";
     const note = (formData.get("note") as string) ?? "";
+    const ticket_ref = (formData.get("ticket_ref") as string) ?? "";
     const timestamp = (formData.get("timestamp") as string) ?? "";
 
     let geo: { latitude?: number; longitude?: number } = {};
