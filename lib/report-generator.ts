@@ -291,3 +291,89 @@ ${chartScripts}
 </body>
 </html>`;
 }
+
+/**
+ * generateEmailHtml
+ *
+ * Like generateReportHtml but replaces each Chart.js canvas with a
+ * PNG screenshot captured by Puppeteer. This makes charts visible in
+ * email clients that block JavaScript.
+ *
+ * Steps:
+ *  1. Render the full interactive HTML report in a headless browser
+ *  2. Wait for Chart.js to finish drawing
+ *  3. Screenshot each chart canvas as a PNG
+ *  4. Replace the <canvas> elements with <img> tags in the final HTML
+ */
+export async function generateEmailHtml(
+  farmers: FarmerReportData[],
+  days = 14,
+  baseUrl = "http://localhost:3000"
+): Promise<string> {
+  // Dynamic import so Puppeteer is only loaded when sending emails,
+  // not on every page load.
+  const puppeteer = await import("puppeteer");
+  const browser   = await puppeteer.default.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 900, height: 600 });
+
+    // Load the interactive report HTML
+    const html = generateReportHtml(farmers, days);
+    await page.setContent(html, { waitUntil: "networkidle0" });
+
+    // Wait for Chart.js to finish rendering all charts
+    await page.waitForFunction(
+      () => {
+        const canvases = document.querySelectorAll("canvas");
+        return canvases.length > 0 &&
+          Array.from(canvases).every(c => c.width > 0 && c.height > 0);
+      },
+      { timeout: 10000 }
+    );
+
+    // Give charts an extra moment to finish drawing
+    await new Promise(r => setTimeout(r, 500));
+
+    // Capture each chart canvas as a base64 PNG
+    const chartImages: Record<string, string> = {};
+    for (const farmer of farmers) {
+      const canvasId = `chart_${farmer.id}`;
+      const dataUrl  = await page.evaluate((id: string) => {
+        const canvas = document.getElementById(id) as HTMLCanvasElement | null;
+        return canvas ? canvas.toDataURL("image/png") : null;
+      }, canvasId);
+      if (dataUrl) chartImages[canvasId] = dataUrl;
+    }
+
+    // Replace each <canvas> with an <img> in the HTML
+    let emailHtml = html;
+    for (const [canvasId, dataUrl] of Object.entries(chartImages)) {
+      // Replace the chart-wrap div content
+      const canvasPattern = new RegExp(
+        `<div class="chart-wrap"><canvas id="${canvasId}"[^>]*></canvas></div>`,
+        "g"
+      );
+      emailHtml = emailHtml.replace(
+        canvasPattern,
+        `<div class="chart-wrap" style="height:150px">` +
+        `<img src="${dataUrl}" style="width:100%;height:150px;object-fit:fill" ` +
+        `alt="Submission chart for farmer ${canvasId}" /></div>`
+      );
+    }
+
+    // Remove the Chart.js script block — not needed in email
+    emailHtml = emailHtml.replace(
+      /<script src="https:\/\/cdn\.jsdelivr\.net[^"]*"><\/script>/g, ""
+    );
+    emailHtml = emailHtml.replace(/<script[\s\S]*?<\/script>/g, "");
+
+    return emailHtml;
+  } finally {
+    await browser.close();
+  }
+}

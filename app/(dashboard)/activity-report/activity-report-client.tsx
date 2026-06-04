@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Send, Trash2, Edit2, BarChart2, CheckSquare, Square } from "lucide-react";
+import { Plus, Send, Trash2, Edit2, BarChart2, CheckSquare, Square, Eye } from "lucide-react";
 
 interface Contact {
   id: number;
@@ -153,6 +153,9 @@ export function ActivityReportClient({
   const [editing,   setEditing]   = useState<number | null>(null);
   const [sending,   setSending]   = useState<number | null>(null);
   const [notice,    setNotice]    = useState("");
+  // Standalone viewer
+  const [viewSelected, setViewSelected] = useState<Set<number>>(new Set());
+  const [viewLoading,  setViewLoading]  = useState(false);
 
   async function handleCreate(data: Omit<Subscription, "id" | "last_sent_at">) {
     const res = await fetch("/api/reporting", {
@@ -199,6 +202,24 @@ export function ActivityReportClient({
     }
   }
 
+  function previewSubscription(id: number) {
+    window.open(`/api/reporting/preview?subscription_id=${id}`, "_blank");
+  }
+
+  function previewCustom() {
+    if (viewSelected.size === 0) return;
+    const ids = Array.from(viewSelected).join(",");
+    window.open(`/api/reporting/preview?contact_ids=${ids}`, "_blank");
+  }
+
+  function toggleViewFarmer(id: number) {
+    setViewSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
   function getContactNames(ids: number[]) {
     return ids.map(id => contacts.find(c => c.id === id)?.name ?? `#${id}`).join(", ");
   }
@@ -227,6 +248,44 @@ export function ActivityReportClient({
           {notice}
         </div>
       )}
+
+      {/* Standalone report viewer */}
+      <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-slate-800">Preview a report</p>
+            <p className="text-xs text-slate-500 mt-0.5">Select farmers and open the report in a new tab.</p>
+          </div>
+          <Button
+            size="sm"
+            className="bg-slate-700 hover:bg-slate-800 text-white text-xs h-8"
+            onClick={previewCustom}
+            disabled={viewSelected.size === 0 || viewLoading}
+          >
+            <Eye className="h-3 w-3 mr-1" />
+            {viewLoading ? "Loading..." : `Preview (${viewSelected.size} farmer${viewSelected.size !== 1 ? "s" : ""})`}
+          </Button>
+        </div>
+        <div className="border border-slate-200 rounded-lg divide-y max-h-48 overflow-y-auto">
+          {contacts.map(c => (
+            <div
+              key={c.id}
+              className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-50"
+              onClick={() => toggleViewFarmer(c.id)}
+            >
+              {viewSelected.has(c.id)
+                ? <CheckSquare className="h-4 w-4 text-slate-600 shrink-0" />
+                : <Square className="h-4 w-4 text-slate-300 shrink-0" />
+              }
+              <span className="text-sm text-slate-800">{c.name}</span>
+              {c.farm_name && <span className="text-xs text-slate-400">{c.farm_name}</span>}
+            </div>
+          ))}
+          {contacts.length === 0 && (
+            <p className="text-xs text-slate-400 px-3 py-3">No WhatsApp farmers registered yet.</p>
+          )}
+        </div>
+      </div>
 
       {creating && (
         <SubscriptionForm
@@ -280,6 +339,16 @@ export function ActivityReportClient({
                   )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-8 border-slate-300 text-slate-600 hover:bg-slate-50"
+                    onClick={() => previewSubscription(sub.id)}
+                    title="Preview report"
+                  >
+                    <Eye className="h-3 w-3 mr-1" />
+                    Preview
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"

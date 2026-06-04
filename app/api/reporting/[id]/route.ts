@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { buildReportData, generateReportHtml } from "@/lib/report-generator";
+import { buildReportData, generateReportHtml, generateEmailHtml } from "@/lib/report-generator";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -29,7 +29,6 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  // POST to this endpoint manually triggers a report send
   const sub = await prisma.reportingSubscription.findUnique({
     where: { id: Number(id) },
   });
@@ -37,24 +36,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const contactIds = JSON.parse(sub.contact_ids) as number[];
   const farmers    = await buildReportData(contactIds, 14);
-  const html       = generateReportHtml(farmers, 14);
   const emails     = sub.emails.split(";").map(e => e.trim()).filter(Boolean);
 
-  const now   = new Date();
-  const month = now.toLocaleString("default", { month: "long" });
+  const now     = new Date();
+  const month   = now.toLocaleString("default", { month: "long" });
   const subject = `Farmers Datalab — Activity Report — ${month} ${now.getFullYear()}`;
-  const from  = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
+  const from    = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
+
+  // Generate chart images via Puppeteer then build email HTML
+  let emailHtml: string;
+  try {
+    const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+    emailHtml = await generateEmailHtml(farmers, 14, baseUrl);
+  } catch (e) {
+    console.error("[Report] Puppeteer chart capture failed, falling back to no-chart email:", e);
+    // Fallback: send without charts
+    emailHtml = generateReportHtml(farmers, 14);
+  }
 
   try {
-    await resend.emails.send({
-      from,
-      to: emails,
-      subject,
-      html,
-    });
+    await resend.emails.send({ from, to: emails, subject, html: emailHtml });
     await prisma.reportingSubscription.update({
       where: { id: sub.id },
-      data: { last_sent_at: now },
+      data:  { last_sent_at: now },
     });
     return NextResponse.json({ ok: true, sent_to: emails });
   } catch (e: unknown) {
