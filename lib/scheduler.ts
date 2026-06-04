@@ -1,6 +1,6 @@
 /**
  * Report scheduler — runs inside the Next.js process using node-cron.
- * Checks every hour if any active subscription is due for sending.
+ * Runs once a day at 07:00 server time and sends any subscription that is due.
  *
  * Frequency logic:
  *   weekly   — sends on Monday mornings

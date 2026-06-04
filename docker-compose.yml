@@ -26,6 +26,12 @@ services:
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://10.0.1.3:3000}
       FARMER_SERVER_URL: ${FARMER_SERVER_URL:-}
       DATA_DIR: /app/upload-data
+      # Optional. Base URL of the OFEDashBot webhook service. Required for the
+      # WhatsApp admin "send message" feature (POST /api/whatsapp/send).
+      OFEDASHBOT_URL: ${OFEDASHBOT_URL:-}
+      # Optional. Needed only for scheduled email activity reports (Resend).
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
     volumes:
       - upload-data:/app/upload-data
     depends_on:
