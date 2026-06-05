@@ -30,7 +30,7 @@
 	9. Drone Flights (same format as above) Note: both forms should allow for duplicate entries of tests or drone flights, as long as the dates are different
 	10. Treatments (multiselect from the Treatments table.)
 
-- [ ] 10. **File tree generation** 3. A file tree for the project is generated on box or an SMB share. Structured data from the Database will be stored there including a project info(ReadOnly).md that will be updated with data from the database, a project boundaries.gpkg file that stores all spatial data, and an Assets folder which contains all data uploaded via the FDL app. Test data or unstructured data will also be stored there and workflows will be developed to ingest and process the data will be developed over time. The file structure will be:
+- [x] 10. **File tree generation** 3. A file tree for the project is generated on box or an SMB share. Structured data from the Database will be stored there including a project info(ReadOnly).md that will be updated with data from the database, a project boundaries.gpkg file that stores all spatial data, and an Assets folder which contains all data uploaded via the FDL app. Test data or unstructured data will also be stored there and workflows will be developed to ingest and process the data will be developed over time. The file structure will be:
 	Root/
 		Projects
 			Farms
@@ -64,10 +64,12 @@
 	- [x] Total Area calculation to update dashboard number
 	- [x] Field Matching for spatial data. check uploaded data against field boundaries to match to field or farm (field uses intersect match, if not in field, use 1000 m near distance matching to match to farm)
 	
-- [ ] 14. **Edit Fields Page** Simply being able to delete numerous farm fields by highlighting them in a list in the Farm page is needed.
+- [ ] 14. **Database cleanout** many files were uploaded during the development phase that were corrupted by changes or are no longer relavent, I need a temporary way to delete data from the db, including farms, files and fields
 - [ ] 15. **Sort and filter for all table views**
 - [x] 16. **Upload Data Button** There should be a data upload portal for unstructured data like pdfs, csvs and docx files. These should be uploaded either in a project page, or in a specific farm page and be assigned to the farm or project level. 
 - [x] 17. **Link Farmer Name and other contact fields to Farmer info in Farmer Page** There should only be one farmer table, the existing farmers and contacts should be merged, and only one table carried forward, but the existing display of both the Farmers tab and the Farmer information in the Farms>farm menu should continue.
+
+- [ ] 
 
 
 

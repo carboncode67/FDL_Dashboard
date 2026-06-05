@@ -10,17 +10,27 @@ export async function GET(req: Request) {
   const q = searchParams.get("q")?.toLowerCase();
 
   const farms = await prisma.farm.findMany({
-    select: { id: true, Farm_Name: true, title: true },
+    select: {
+      id: true,
+      Farm_Name: true,
+      title: true,
+      ProjectFarms: { select: { Projects_id: true, Project: { select: { id: true, Project_Name: true } } } },
+    },
     orderBy: { Farm_Name: "asc" },
   });
 
-  const results = q
+  const filtered = q
     ? farms.filter(
         (f) =>
           f.Farm_Name?.toLowerCase().includes(q) ||
           f.title?.toLowerCase().includes(q)
       )
     : farms;
+
+  const results = filtered.map(({ ProjectFarms, ...f }) => ({
+    ...f,
+    projects: ProjectFarms.map((pf) => ({ id: pf.Project.id, name: pf.Project.Project_Name })),
+  }));
 
   return NextResponse.json(results);
 }
