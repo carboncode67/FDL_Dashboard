@@ -3,8 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { buildReportData, generateReportHtml, generateEmailHtml } from "@/lib/report-generator";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await req.json();
@@ -55,6 +53,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
     await resend.emails.send({ from, to: emails, subject, html: emailHtml });
     await prisma.reportingSubscription.update({
       where: { id: sub.id },

@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { content = "", latitude = null, longitude = null, timestamp = "" } = body;
+    const { content = "", latitude = null, longitude = null, timestamp = "", ticket_ref = "" } = body;
 
     if (auth.kind === "labMember") {
       const { farmId, fieldId } = await findFieldAndFarmByLocation(latitude ?? 0, longitude ?? 0);

@@ -53,7 +53,7 @@ export async function buildReportData(contactIds: number[], days = 14): Promise<
       Videos:    { where: { received_at: { gte: cutoff } }, select: { received_at: true } },
       Notes:     { where: { received_at: { gte: cutoff } }, select: { received_at: true } },
       Locations: { where: { received_at: { gte: cutoff } }, select: { received_at: true } },
-      Documents: { where: { received_at: { gte: cutoff } }, select: { received_at: true } },
+      Documents: { where: { uploaded_at: { gte: cutoff } }, select: { uploaded_at: true } },
       ContactCards: { where: { received_at: { gte: cutoff } }, select: { received_at: true } },
     },
   });
@@ -74,7 +74,7 @@ export async function buildReportData(contactIds: number[], days = 14): Promise<
       video:        c.Videos.map(x => x.received_at),
       note:         c.Notes.map(x => x.received_at),
       location:     c.Locations.map(x => x.received_at),
-      document:     c.Documents.map(x => x.received_at),
+      document:     c.Documents.map(x => x.uploaded_at),
       contact_card: c.ContactCards.map(x => x.received_at),
     };
 
@@ -324,7 +324,9 @@ export async function generateEmailHtml(
 
     // Load the interactive report HTML
     const html = generateReportHtml(farmers, days);
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    // "load" waits for the Chart.js CDN script tag to finish loading; the
+    // waitForFunction below then confirms every chart canvas has rendered.
+    await page.setContent(html, { waitUntil: "load" });
 
     // Wait for Chart.js to finish rendering all charts
     await page.waitForFunction(

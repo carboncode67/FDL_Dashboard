@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { name, phone, email, org, note } = await request.json();
+    const { name, phone, email, org, note, ticket_ref } = await request.json();
     if (!name) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
     }

@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     const file = formData.get("file") as File | null;
     const startTime = (formData.get("startTime") as string) ?? "";
     const endTime = (formData.get("endTime") as string) ?? "";
+    const ticket_ref = (formData.get("ticket_ref") as string) ?? "";
     const gpsTrack = (formData.get("gpsTrack") as string) ?? "";
 
     const dir = path.join(DATA_DIR, "recordings");
