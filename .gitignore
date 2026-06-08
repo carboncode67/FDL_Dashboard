@@ -25,3 +25,6 @@ upload-data/
 # Logs
 *.log
 npm-debug.log*
+
+# Syncthing conflict duplicates
+*sync-conflict*

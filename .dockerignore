@@ -6,3 +6,6 @@ upload-data
 .DS_Store
 .claude
 *.md
+# Syncthing conflict duplicates — must never enter the build context (they
+# carry stale code and break the typecheck). Matches any extension.
+*sync-conflict*
