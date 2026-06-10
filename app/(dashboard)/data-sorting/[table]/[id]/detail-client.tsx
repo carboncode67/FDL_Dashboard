@@ -23,6 +23,7 @@ import {
   MEDIA_LABEL,
 } from "../../data-sorting-client";
 import UploadPointMapWrapper from "@/components/upload-point-map-wrapper";
+import UploadTrackMapWrapper from "@/components/upload-track-map-wrapper";
 
 interface FarmOption { id: number; name: string; }
 interface ProjectOption { id: number; name: string; }
@@ -128,7 +129,8 @@ export default function DetailClient({
     }
   }
 
-  const hasMap = item.latitude !== null && item.longitude !== null;
+  const hasPointMap = item.latitude !== null && item.longitude !== null;
+  const hasTrackMap = Array.isArray(item.gps_track) && item.gps_track.length >= 2;
 
   return (
     <div className="space-y-0">
@@ -191,10 +193,16 @@ export default function DetailClient({
 
           <MediaPreview item={item} />
 
-          {hasMap && (
+          {hasPointMap && !hasTrackMap && (
             <UploadPointMapWrapper
               lat={item.latitude!}
               lng={item.longitude!}
+              label={item.uploader ?? undefined}
+            />
+          )}
+          {hasTrackMap && (
+            <UploadTrackMapWrapper
+              coordinates={item.gps_track!}
               label={item.uploader ?? undefined}
             />
           )}

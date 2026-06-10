@@ -74,6 +74,7 @@ export default async function DataSortingPage() {
       content: r.note ?? null,
       latitude: r.latitude ?? null,
       longitude: r.longitude ?? null,
+      gps_track: null,
     })),
     ...notes.map((r) => ({
       id: r.id,
@@ -95,6 +96,7 @@ export default async function DataSortingPage() {
       content: r.content,
       latitude: r.latitude ?? null,
       longitude: r.longitude ?? null,
+      gps_track: null,
     })),
     ...recordings.map((r) => ({
       id: r.id,
@@ -116,6 +118,7 @@ export default async function DataSortingPage() {
       content: null,
       latitude: null,
       longitude: null,
+      gps_track: null,
     })),
     ...locations.map((r) => ({
       id: r.id,
@@ -137,6 +140,7 @@ export default async function DataSortingPage() {
       content: r.name ?? null,
       latitude: null,
       longitude: null,
+      gps_track: null,
     })),
     ...labUploads.map((r) => ({
       id: r.id,
@@ -158,6 +162,7 @@ export default async function DataSortingPage() {
       content: r.content ?? null,
       latitude: r.latitude ?? null,
       longitude: r.longitude ?? null,
+      gps_track: null,
     })),
   ].sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime());
 

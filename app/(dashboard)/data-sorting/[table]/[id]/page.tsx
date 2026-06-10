@@ -1,7 +1,23 @@
+import fs from "fs";
+import path from "path";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { UploadItem } from "../../data-sorting-client";
 import DetailClient from "./detail-client";
+
+const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
+
+function loadGpsTrack(subdir: string, filename: string): [number, number][] | null {
+  try {
+    const raw = fs.readFileSync(path.join(DATA_DIR, subdir, filename), "utf-8");
+    const parsed = JSON.parse(raw);
+    const geometry = parsed.type === "Feature" ? parsed.geometry : parsed;
+    if (geometry?.type !== "LineString" || !Array.isArray(geometry.coordinates) || geometry.coordinates.length < 2) return null;
+    return geometry.coordinates.map(([lng, lat]: number[]) => [lat, lng] as [number, number]);
+  } catch {
+    return null;
+  }
+}
 
 const ALLOWED = ["photos", "notes", "recordings", "locations", "lab-member-uploads"] as const;
 type TableSlug = (typeof ALLOWED)[number];
@@ -29,7 +45,7 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
         category: r.category ?? null, description: r.description ?? null,
         project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
         filename: r.filename || null, content: r.note ?? null,
-        latitude: r.latitude ?? null, longitude: r.longitude ?? null,
+        latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
       };
     }
     case "notes": {
@@ -43,7 +59,7 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
         category: r.category ?? null, description: r.description ?? null,
         project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
         filename: null, content: r.content,
-        latitude: r.latitude ?? null, longitude: r.longitude ?? null,
+        latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
       };
     }
     case "recordings": {
@@ -57,6 +73,7 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
         category: r.category ?? null, description: r.description ?? null,
         project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
         filename: r.filename || null, content: null, latitude: null, longitude: null,
+        gps_track: r.gps_filename ? loadGpsTrack("recordings", r.gps_filename) : null,
       };
     }
     case "locations": {
@@ -70,6 +87,7 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
         category: r.category ?? null, description: r.description ?? null,
         project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
         filename: null, content: r.name ?? null, latitude: null, longitude: null,
+        gps_track: r.track_filename ? loadGpsTrack("locations", r.track_filename) : null,
       };
     }
     case "lab-member-uploads": {
@@ -91,6 +109,9 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
         project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
         filename: r.filename ?? null, content: r.content ?? null,
         latitude: r.latitude ?? null, longitude: r.longitude ?? null,
+        gps_track: r.gps_filename
+          ? loadGpsTrack(r.media_type === "recording" ? "recordings" : "locations", r.gps_filename)
+          : null,
       };
     }
   }
@@ -134,7 +155,7 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       category: r.category ?? null, description: r.description ?? null,
       project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
       filename: r.filename || null, content: r.note ?? null,
-      latitude: r.latitude ?? null, longitude: r.longitude ?? null,
+      latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
     })),
     ...notes.map((r) => ({
       id: r.id, table: "notes" as const, uploader: r.Contact?.name ?? null,
@@ -144,7 +165,7 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       category: r.category ?? null, description: r.description ?? null,
       project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
       filename: null, content: r.content,
-      latitude: r.latitude ?? null, longitude: r.longitude ?? null,
+      latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
     })),
     ...recordings.map((r) => ({
       id: r.id, table: "recordings" as const, uploader: r.Contact?.name ?? null,
@@ -153,7 +174,7 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       received_at: r.received_at.toISOString(), status: r.status, stage: r.stage ?? null,
       category: r.category ?? null, description: r.description ?? null,
       project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
-      filename: r.filename || null, content: null, latitude: null, longitude: null,
+      filename: r.filename || null, content: null, latitude: null, longitude: null, gps_track: null,
     })),
     ...locations.map((r) => ({
       id: r.id, table: "locations" as const, uploader: r.Contact?.name ?? null,
@@ -162,7 +183,7 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       received_at: r.received_at.toISOString(), status: r.status, stage: r.stage ?? null,
       category: r.category ?? null, description: r.description ?? null,
       project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
-      filename: null, content: r.name ?? null, latitude: null, longitude: null,
+      filename: null, content: r.name ?? null, latitude: null, longitude: null, gps_track: null,
     })),
     ...labUploads.map((r) => ({
       id: r.id, table: "lab-member-uploads" as const, uploader: r.User?.name ?? null,
@@ -172,7 +193,7 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       category: r.category ?? null, description: r.description ?? null,
       project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
       filename: r.filename ?? null, content: r.content ?? null,
-      latitude: r.latitude ?? null, longitude: r.longitude ?? null,
+      latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
     })),
   ].sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime());
 }

@@ -79,9 +79,9 @@
 
 - [x] 18. **Three Tiered Administration System** There needs to be a hierarchy of administration levels for web ui users, with the highest level being able to delete any feature and activate an "Edit Mode" that allows tier 2 members to delete rows as well. Tier 2 members can add projects, farmers and farms, edit things that are currently editable, and delete things when Edit Mode is on. Lowest only able to categorize data uploads. Once this change is in place, Users and Lab members can be merged, and an admin panel made visible to tier 1 members that can designate other members admin level, and activate Edit Mode.
 - [ ] 19. **Increase the Prominence of Experiment** Add Experiment to the Data Sorting Table and add an Experiments Tab to the "Field Operations" group that shows the experiment information from the experiment Tab in the Farms page. (all fields for now).
-- [ ] 20. **Merge Data Uploads and Data Sorting Tabs** 
+- [x] 20. **Merge Data Uploads and Data Sorting Tabs** 
 - [x] 21. **Add a log out option** When the user clicks on their name in the top left corner, a small window pops up that lets the user log out. 
-- [ ] 22. **Data Upload Categories** To be added to data sorting catagories
+- [x] 22. **Data Upload Categories** To be added to data sorting catagories
 	- [ ] Biomass sample
 	- [ ] Grazing Measurement
 	- [ ] Plant ID
@@ -93,8 +93,8 @@
 	- [ ] Harvest
 	- [ ] Planting
 	- [ ] Other
-- [ ] 23. **Remove data uploads page** (just data organization is needed, data uploads are still visible in farm page)
-- [ ] 24. **Overhaul of data organization** Instead of a pidly little side bar with a few fields, when a user clicks on a data item in the data sorting page, it should open a full page that shows all editable fields:
+- [x] 23. **Remove data uploads page** (just data organization is needed, data uploads are still visible in farm page)
+- [x] 24. **Overhaul of data organization** Instead of a pidly little side bar with a few fields, when a user clicks on a data item in the data sorting page, it should open a full page that shows all editable fields:
 		* Farm
 		* Project
 		* Category
@@ -102,7 +102,9 @@
 		* Stage (explained below)
 	and a map of where the data was collected (if it has spatial data).
 	The page should also have next and previous buttons at the bottom, and the ability to filter which types of data will be advanced to, for example, if filtering by farm, the "Next" button will skip uploads that dont pertain to the selected farm, likewise for other fields. 
-- [ ] 25. **Change Site Name to FDL Dashboard**
+- [x] 25. **Change Site Name to FDL Dashboard**
+- [x] 26. **Show Audio Recording Tracks instead of Dots** In the maps in data sorting data uploads, audio recordings show as a single dot where the recording started, but should show as a track/line feature.
+- [ ] 27. **Permanently save image files** Currently, every time the dashboard restarts, images are lost, there needs to be a way to save them to the database permanently so that thumbnails and files are permanent.
 
 
 

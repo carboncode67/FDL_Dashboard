@@ -34,6 +34,7 @@ export interface UploadItem {
   content: string | null;
   latitude: number | null;
   longitude: number | null;
+  gps_track: [number, number][] | null;
 }
 
 interface ProjectOption { id: number; name: string; }
