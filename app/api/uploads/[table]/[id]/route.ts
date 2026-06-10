@@ -34,9 +34,13 @@ export async function PATCH(
   const body = await req.json();
   const data: Record<string, unknown> = {};
 
+  const VALID_STAGES = ["Unread", "AI Processed", "AI Verification Needed", "Validated"];
+
   if ("category" in body)    data.category    = body.category ?? null;
   if ("description" in body) data.description = body.description ?? null;
   if ("project_id" in body)  data.project_id  = body.project_id ? Number(body.project_id) : null;
+  if ("farm_id" in body)     data.farm_id     = body.farm_id ? Number(body.farm_id) : null;
+  if ("stage" in body)       data.stage       = VALID_STAGES.includes(body.stage) ? body.stage : null;
   if ("status" in body) {
     const s = Number(body.status);
     if ([1, 2, 3, 4].includes(s)) data.status = s;

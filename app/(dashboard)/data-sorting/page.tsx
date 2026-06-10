@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { DataSortingClient, UploadItem } from "./data-sorting-client";
 
 export default async function DataSortingPage() {
-  const [photos, notes, recordings, locations, labUploads, projects] = await Promise.all([
+  const [photos, notes, recordings, locations, labUploads, projects, farms] = await Promise.all([
     prisma.photo.findMany({
       include: {
         Contact: { select: { name: true } },
@@ -47,6 +47,10 @@ export default async function DataSortingPage() {
       select: { id: true, Project_Name: true },
       orderBy: { Project_Name: "asc" },
     }),
+    prisma.farm.findMany({
+      select: { id: true, Farm_Name: true },
+      orderBy: { Farm_Name: "asc" },
+    }),
   ]);
 
   const items: UploadItem[] = [
@@ -56,10 +60,12 @@ export default async function DataSortingPage() {
       uploader: r.Contact?.name ?? null,
       uploader_type: "contact" as const,
       farm: r.Farm?.Farm_Name ?? null,
+      farm_id: r.farm_id ?? null,
       media_type: "photo",
       date_collected: r.timestamp?.toISOString() ?? null,
       received_at: r.received_at.toISOString(),
       status: r.status,
+      stage: r.stage ?? null,
       category: r.category ?? null,
       description: r.description ?? null,
       project_id: r.project_id ?? null,
@@ -75,10 +81,12 @@ export default async function DataSortingPage() {
       uploader: r.Contact?.name ?? null,
       uploader_type: "contact" as const,
       farm: r.Farm?.Farm_Name ?? null,
+      farm_id: r.farm_id ?? null,
       media_type: "note",
       date_collected: r.timestamp?.toISOString() ?? null,
       received_at: r.received_at.toISOString(),
       status: r.status,
+      stage: r.stage ?? null,
       category: r.category ?? null,
       description: r.description ?? null,
       project_id: r.project_id ?? null,
@@ -94,10 +102,12 @@ export default async function DataSortingPage() {
       uploader: r.Contact?.name ?? null,
       uploader_type: "contact" as const,
       farm: r.Farm?.Farm_Name ?? null,
+      farm_id: r.farm_id ?? null,
       media_type: "recording",
       date_collected: r.start_time?.toISOString() ?? null,
       received_at: r.received_at.toISOString(),
       status: r.status,
+      stage: r.stage ?? null,
       category: r.category ?? null,
       description: r.description ?? null,
       project_id: r.project_id ?? null,
@@ -113,10 +123,12 @@ export default async function DataSortingPage() {
       uploader: r.Contact?.name ?? null,
       uploader_type: "contact" as const,
       farm: r.Farm?.Farm_Name ?? null,
+      farm_id: r.farm_id ?? null,
       media_type: "location",
       date_collected: r.start_time?.toISOString() ?? null,
       received_at: r.received_at.toISOString(),
       status: r.status,
+      stage: r.stage ?? null,
       category: r.category ?? null,
       description: r.description ?? null,
       project_id: r.project_id ?? null,
@@ -132,10 +144,12 @@ export default async function DataSortingPage() {
       uploader: r.User?.name ?? null,
       uploader_type: "lab_member" as const,
       farm: r.Farm?.Farm_Name ?? null,
+      farm_id: r.farm_id ?? null,
       media_type: r.media_type,
       date_collected: r.date_collected?.toISOString() ?? null,
       received_at: r.received_at.toISOString(),
       status: r.status,
+      stage: r.stage ?? null,
       category: r.category ?? null,
       description: r.description ?? null,
       project_id: r.project_id ?? null,
@@ -148,6 +162,7 @@ export default async function DataSortingPage() {
   ].sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime());
 
   const projectList = projects.map((p) => ({ id: p.id, name: p.Project_Name ?? `Project ${p.id}` }));
+  const farmList = farms.map((f) => ({ id: f.id, name: f.Farm_Name ?? `Farm ${f.id}` }));
 
-  return <DataSortingClient items={items} projects={projectList} />;
+  return <DataSortingClient items={items} projects={projectList} farms={farmList} />;
 }

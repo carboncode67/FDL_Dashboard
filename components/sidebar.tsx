@@ -29,7 +29,6 @@ const dataNav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/contacts", label: "Farmers", icon: BookUser },
   { href: "/lab-members", label: "Lab Members", icon: Users },
-  { href: "/lab-uploads", label: "Data Uploads", icon: Upload },
   { href: "/data-sorting", label: "Data Sorting", icon: SlidersHorizontal },
   { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
   { href: "/activity-report", label: "Activity Report", icon: BarChart2 },

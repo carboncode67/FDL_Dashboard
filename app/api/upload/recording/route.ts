@@ -3,9 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
 import { resolveFarmId, findFieldAndFarmByLocation, findFieldByLocation, firstPointFromGeoJSON } from "@/lib/proximity";
 import fs from "fs";
+import { pipeline } from "stream/promises";
+import { Readable } from "stream";
 import path from "path";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 
@@ -21,14 +24,18 @@ export async function POST(request: Request) {
     const ticket_ref = (formData.get("ticket_ref") as string) ?? "";
     const gpsTrack = (formData.get("gpsTrack") as string) ?? "";
 
+    if (!file || file.size === 0) {
+      return NextResponse.json({ error: "No audio file received" }, { status: 400 });
+    }
+
     const dir = path.join(DATA_DIR, "recordings");
     fs.mkdirSync(dir, { recursive: true });
 
-    let filename = "";
-    if (file && file.size > 0) {
-      filename = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-      fs.writeFileSync(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
-    }
+    const filename = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    await pipeline(
+      Readable.fromWeb(file.stream() as Parameters<typeof Readable.fromWeb>[0]),
+      fs.createWriteStream(path.join(dir, filename))
+    );
 
     let gpsFilename: string | null = null;
     if (gpsTrack) {
@@ -37,7 +44,6 @@ export async function POST(request: Request) {
     }
 
     const firstPt = gpsTrack ? firstPointFromGeoJSON(gpsTrack) : null;
-
     const ptLat = firstPt?.lat ?? null;
     const ptLng = firstPt?.lng ?? null;
 
@@ -49,7 +55,7 @@ export async function POST(request: Request) {
           farm_id: farmId,
           field_id: fieldId,
           media_type: "recording",
-          filename: filename || null,
+          filename,
           gps_filename: gpsFilename,
           latitude: ptLat,
           longitude: ptLng,

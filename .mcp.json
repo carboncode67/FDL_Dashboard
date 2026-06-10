@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "NocoDB Base - FDL": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "http://nocodb.casata.org/mcp/nc3c2e6s5ahwim37",
+        "--header",
+        "xc-mcp-token: neMxsDHVaPKPUHV8GHqV1FUteuuZolsl",
+        "--allow-http"
+      ]
+    }
+  }
+}

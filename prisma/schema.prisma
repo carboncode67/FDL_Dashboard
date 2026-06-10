@@ -341,6 +341,7 @@ model Photo {
   ticket_ref  String?                         // human-readable OFEDashBot reference
   category    String?   @db.VarChar(100)
   description String?
+  stage       String?   @db.VarChar(50)
   received_at DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
@@ -365,6 +366,7 @@ model Recording {
   ticket_ref   String?                         // human-readable OFEDashBot reference
   category     String?   @db.VarChar(100)
   description  String?
+  stage        String?   @db.VarChar(50)
   received_at  DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
@@ -389,6 +391,7 @@ model Note {
   ticket_ref  String?                         // human-readable OFEDashBot reference
   category    String?   @db.VarChar(100)
   description String?
+  stage       String?   @db.VarChar(50)
   received_at DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
@@ -413,6 +416,7 @@ model Location {
   ticket_ref     String?                         // human-readable OFEDashBot reference
   category       String?   @db.VarChar(100)
   description    String?
+  stage          String?   @db.VarChar(50)
   received_at    DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
@@ -441,6 +445,7 @@ model LabMemberUpload {
   status         Int       @default(1)
   category       String?   @db.VarChar(100)
   description    String?
+  stage          String?   @db.VarChar(50)
   received_at    DateTime  @default(now())
 
   User    User?    @relation(fields: [lab_member_id], references: [id])

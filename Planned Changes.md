@@ -38,8 +38,13 @@
 					Farmer Uploads
 						Images
 						Recordings
+							Raw
+							Markdown
 						Notes
 						GPS Tracks
+						Documents
+							Raw
+							Markdown
 					Consultant Uploads
 						Images
 						Recordings
@@ -52,9 +57,12 @@
 					Spatial Data
 						Boundaries.gpks (containing field and experiment zone areas)
 					Tests 
-						Soil_test_results.pdf
-						Biomass_Datasheet.csv
-					
+						raw
+							Soil_test_results.pdf
+							Biomass_Datasheet.csv
+						processed
+							soil_test.csv
+							biomass.csv
 	
 	
 	The full file structure will be created when the sync client is run, regardless of whether all folders have data. Once the sync command is run, a validation methodology has to be developed to allow data to be pushed or pulled without everwriting changes.
@@ -73,7 +81,29 @@
 - [ ] 19. **Increase the Prominence of Experiment** Add Experiment to the Data Sorting Table and add an Experiments Tab to the "Field Operations" group that shows the experiment information from the experiment Tab in the Farms page. (all fields for now).
 - [ ] 20. **Merge Data Uploads and Data Sorting Tabs** 
 - [x] 21. **Add a log out option** When the user clicks on their name in the top left corner, a small window pops up that lets the user log out. 
-- [ ] 
+- [ ] 22. **Data Upload Categories** To be added to data sorting catagories
+	- [ ] Biomass sample
+	- [ ] Grazing Measurement
+	- [ ] Plant ID
+	- [ ] Implement
+	- [ ] Equipment Model Number
+	- [ ] Chemical Label
+	- [ ] Soil Sample
+	- [ ] Pest/Disease
+	- [ ] Harvest
+	- [ ] Planting
+	- [ ] Other
+- [ ] 23. **Remove data uploads page** (just data organization is needed, data uploads are still visible in farm page)
+- [ ] 24. **Overhaul of data organization** Instead of a pidly little side bar with a few fields, when a user clicks on a data item in the data sorting page, it should open a full page that shows all editable fields:
+		* Farm
+		* Project
+		* Category
+		* Status
+		* Stage (explained below)
+	and a map of where the data was collected (if it has spatial data).
+	The page should also have next and previous buttons at the bottom, and the ability to filter which types of data will be advanced to, for example, if filtering by farm, the "Next" button will skip uploads that dont pertain to the selected farm, likewise for other fields. 
+- [ ] 25. **Change Site Name to FDL Dashboard**
+
 
 
 
