@@ -82,11 +82,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   <div><span className="text-slate-500">Phone</span><p className="font-medium mt-0.5">{contact.phone ?? "—"}</p></div>
                   <div><span className="text-slate-500">Email</span><p className="font-medium mt-0.5">{contact.email ?? "—"}</p></div>
                   <div>
-                    <span className="text-slate-500">WhatsApp</span>
+                    <span className="text-slate-500">Messaging Channel</span>
                     <p className="font-medium mt-0.5">
-                      <Badge variant={contact.whatsapp ? "default" : "outline"}>
-                        {contact.whatsapp ? "Yes" : "No"}
-                      </Badge>
+                      {contact.channel === "whatsapp" && <Badge className="bg-emerald-100 text-emerald-700">WhatsApp</Badge>}
+                      {contact.channel === "sms" && <Badge className="bg-blue-100 text-blue-700">SMS</Badge>}
+                      {!contact.channel && <Badge variant="outline">Not set</Badge>}
                     </p>
                   </div>
                   <div>
@@ -183,7 +183,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                         <TableCell className="text-xs">{r.start_time?.toLocaleString() ?? "—"}</TableCell>
                         <TableCell className="text-xs">{r.end_time?.toLocaleString() ?? "—"}</TableCell>
                         <TableCell>
-                          <Badge variant={r.gps_filename ? "default" : "outline"}>
+                          <Badge variant={r.gps_filename ? "default" : "default"}>
                             {r.gps_filename ? "Yes" : "No"}
                           </Badge>
                         </TableCell>

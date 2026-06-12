@@ -24,6 +24,7 @@ export default async function EditContactPage({ params }: { params: Promise<{ id
         phone: contact.phone,
         email: contact.email,
         whatsapp: contact.whatsapp,
+        channel: contact.channel ?? null,
         farms_id: contact.farms_id,
       }}
     />

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil, MessageCircle } from "lucide-react";
+import { Pencil } from "lucide-react";
 
 interface ContactRow {
   id: number;
@@ -12,6 +12,7 @@ interface ContactRow {
   phone: string | null;
   email: string | null;
   whatsapp: boolean;
+  channel: string | null;
   farm_name: string | null;
   created_at: string;
 }
@@ -32,15 +33,13 @@ export function ContactsClient({ data }: { data: ContactRow[] }) {
       },
     },
     {
-      key: "whatsapp",
-      header: "WhatsApp",
+      key: "channel",
+      header: "Channel",
       render: (row: Record<string, unknown>) => {
         const r = row as unknown as ContactRow;
-        return r.whatsapp ? (
-          <MessageCircle className="h-4 w-4 text-green-600" />
-        ) : (
-          <span className="text-slate-300">—</span>
-        );
+        if (r.channel === "whatsapp") return <Badge className="bg-emerald-100 text-emerald-700 text-xs">WhatsApp</Badge>;
+        if (r.channel === "sms") return <Badge className="bg-blue-100 text-blue-700 text-xs">SMS</Badge>;
+        return <span className="text-slate-300">—</span>;
       },
     },
     {

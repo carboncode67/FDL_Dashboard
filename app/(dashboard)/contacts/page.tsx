@@ -12,6 +12,7 @@ export default async function ContactsPage() {
     phone: c.phone,
     email: c.email,
     whatsapp: c.whatsapp,
+    channel: c.channel ?? null,
     farm_name: c.Farm?.Farm_Name ?? null,
     created_at: c.created_at.toISOString(),
   }));

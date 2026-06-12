@@ -2,9 +2,14 @@ import { prisma } from "@/lib/prisma";
 import { WhatsAppClient } from "./whatsapp-client";
 
 export default async function WhatsAppPage() {
-  // Fetch all WhatsApp contacts with their farm and last submission date
+  // Fetch all messaging contacts: anyone with a channel set (whatsapp or sms)
   const contacts = await prisma.contact.findMany({
-    where: { whatsapp: true },
+    where: {
+      OR: [
+        { whatsapp: true },
+        { channel: { not: null } },
+      ],
+    },
     include: {
       Farm: { select: { id: true, Farm_Name: true } },
       Notes: { orderBy: { received_at: "desc" }, take: 1 },

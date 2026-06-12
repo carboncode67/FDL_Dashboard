@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -27,6 +26,7 @@ interface ContactFormProps {
     phone?: string | null;
     email?: string | null;
     whatsapp?: boolean | null;
+    channel?: string | null;
     farms_id?: number | null;
     is_lab_member?: boolean | null;
   };
@@ -36,7 +36,7 @@ export function ContactForm({ onSuccess, contactId, farms = [], initialData }: C
   const [name, setName] = useState(initialData?.name ?? "");
   const [phone, setPhone] = useState(initialData?.phone ?? "");
   const [email, setEmail] = useState(initialData?.email ?? "");
-  const [whatsapp, setWhatsapp] = useState(initialData?.whatsapp ?? false);
+  const [channel, setChannel] = useState(initialData?.channel ?? "");
   const [isLabMember, setIsLabMember] = useState(initialData?.is_lab_member ?? false);
   const [farmsId, setFarmsId] = useState(
     initialData?.farms_id ? String(initialData.farms_id) : ""
@@ -54,7 +54,8 @@ export function ContactForm({ onSuccess, contactId, farms = [], initialData }: C
           name,
           phone: phone || null,
           email: email || null,
-          whatsapp,
+          channel: channel || null,
+          whatsapp: channel === "whatsapp",
           is_lab_member: isLabMember,
           farms_id: isLabMember ? null : (farmsId ? parseInt(farmsId) : null),
         }),
@@ -82,15 +83,18 @@ export function ContactForm({ onSuccess, contactId, farms = [], initialData }: C
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       </div>
 
-      <div className="flex items-center gap-3">
-        <Checkbox
-          id="whatsapp"
-          checked={whatsapp}
-          onCheckedChange={(v) => setWhatsapp(v === true)}
-        />
-        <Label htmlFor="whatsapp" className="cursor-pointer font-normal">
-          Reachable via WhatsApp
-        </Label>
+      <div className="space-y-1.5">
+        <Label>Messaging Channel</Label>
+        <Select value={channel} onValueChange={(v) => setChannel(v ?? "")}>
+          <SelectTrigger>
+            <SelectValue placeholder="— None —" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">— None —</SelectItem>
+            <SelectItem value="whatsapp">WhatsApp</SelectItem>
+            <SelectItem value="sms">SMS</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex items-center gap-3">

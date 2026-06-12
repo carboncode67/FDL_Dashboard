@@ -14,6 +14,7 @@ interface EditContactClientProps {
     phone: string | null;
     email: string | null;
     whatsapp: boolean;
+    channel: string | null;
     farms_id: number | null;
   };
 }
@@ -26,7 +27,7 @@ export default function EditContactClient({ contactId, farms, initialData }: Edi
         <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
           <Link href="/contacts" className="hover:text-slate-900">Contacts</Link>
           <span>/</span>
-          <Link href={`/contacts/${contactId}`} className="hover:text-slate-900">{initialData.name}</Link>
+          <Link href={`/contacts/${contactId}`} className="hover:text-slate.900">{initialData.name}</Link>
           <span>/</span>
           <span>Edit</span>
         </div>
