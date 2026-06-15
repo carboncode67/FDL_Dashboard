@@ -7,13 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, X } from "lucide-react";
-import FieldSelectorMapWrapper from "@/components/field-selector-map-wrapper";
-import { FieldBoundaryUpload } from "@/components/field-boundary-upload";
 
+type FarmOption      = { id: number; Farm_Name: string | null };
 type TestOption      = { id: number; Test_Name: string | null };
 type DroneOption     = { id: number; Name: string | null };
 type TreatmentOption = { id: number; Treatment_Name: string | null };
-type FarmField       = { id: number; Name: string | null; geometry: string | null };
 type ProjectOption   = { id: number; Project_Name: string | null };
 
 const ASSIGNMENT_STATUSES = ["Planned", "Collected", "Completed", "Cancelled"] as const;
@@ -23,109 +21,56 @@ type DroneRow     = { drone_id: number; n_flights: string; expected_date: string
 type TreatmentRow = { treatment_id: number; is_continuous: boolean; rate: string; rate_unit: string };
 
 interface Props {
-  farmId:       number;
-  farmName:     string | null;
-  experimentId?: number;
-  experiment: {
-    experiment_name: string | null;
-    start_date:      string | null;
-    end_date:        string | null;
-    project_id:      number | null;
-    hypothesis:      string | null;
-    experiment_desc: string | null;
-    measurements:    string | null;
-    criteria:        string | null;
-    lab_description: string | null;
-    tests:      { test_id: number; n_samples: number | null; expected_date: string | null; status: string | null }[];
-    drones:     { drone_id: number; n_flights: number | null; expected_date: string | null; status: string | null }[];
-    treatments: { treatment_id: number; is_continuous: boolean; rate: number | null; rate_unit: string | null }[];
-    field_ids:  number[];
-  } | null;
+  farms:         FarmOption[];
   allTests:      TestOption[];
   allDrones:     DroneOption[];
   allTreatments: TreatmentOption[];
   allProjects:   ProjectOption[];
-  farmFields:    FarmField[];
-  farmUploadPins: { id: number; lat: number; lng: number; type: "photo" | "note" | "lab" }[];
 }
 
 const TEXTAREA = "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 const SELECT   = "h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm";
 
-export default function ExperimentFormClient({
-  farmId, farmName, experimentId, experiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmUploadPins,
-}: Props) {
-  const router   = useRouter();
+export default function ExperimentNewClient({ farms, allTests, allDrones, allTreatments, allProjects }: Props) {
+  const router  = useRouter();
   const [saving, setSaving] = useState(false);
 
-  const [expName,      setExpName]      = useState(experiment?.experiment_name ?? "");
-  const [startDate,    setStartDate]    = useState(experiment?.start_date ?? "");
-  const [endDate,      setEndDate]      = useState(experiment?.end_date ?? "");
-  const [projectId,    setProjectId]    = useState<string>(experiment?.project_id?.toString() ?? "");
-  const [hypothesis,   setHypothesis]   = useState(experiment?.hypothesis ?? "");
-  const [expDesc,      setExpDesc]      = useState(experiment?.experiment_desc ?? "");
-  const [measurements, setMeasurements] = useState(experiment?.measurements ?? "");
-  const [criteria,     setCriteria]     = useState(experiment?.criteria ?? "");
-  const [labDesc,      setLabDesc]      = useState(experiment?.lab_description ?? "");
+  const [farmMode,     setFarmMode]     = useState<"existing" | "new">("existing");
+  const [farmId,       setFarmId]       = useState(farms[0]?.id.toString() ?? "");
+  const [newFarmName,  setNewFarmName]  = useState("");
+  const [expName,      setExpName]      = useState("");
+  const [startDate,    setStartDate]    = useState("");
+  const [endDate,      setEndDate]      = useState("");
+  const [projectId,    setProjectId]    = useState("");
+  const [hypothesis,   setHypothesis]   = useState("");
+  const [expDesc,      setExpDesc]      = useState("");
+  const [measurements, setMeasurements] = useState("");
+  const [criteria,     setCriteria]     = useState("");
+  const [labDesc,      setLabDesc]      = useState("");
 
-  const [testRows, setTestRows] = useState<TestRow[]>(
-    experiment?.tests.length
-      ? experiment.tests.map((t) => ({
-          test_id:       t.test_id,
-          n_samples:     t.n_samples?.toString() ?? "",
-          expected_date: t.expected_date ?? "",
-          status:        t.status ?? "",
-        }))
-      : []
-  );
-
-  const [droneRows, setDroneRows] = useState<DroneRow[]>(
-    experiment?.drones.length
-      ? experiment.drones.map((d) => ({
-          drone_id:      d.drone_id,
-          n_flights:     d.n_flights?.toString() ?? "",
-          expected_date: d.expected_date ?? "",
-          status:        d.status ?? "",
-        }))
-      : []
-  );
-
-  const [treatmentRows, setTreatmentRows] = useState<TreatmentRow[]>(
-    experiment?.treatments.length
-      ? experiment.treatments.map((t) => ({
-          treatment_id:  t.treatment_id,
-          is_continuous: t.is_continuous,
-          rate:          t.rate?.toString() ?? "",
-          rate_unit:     t.rate_unit ?? "",
-        }))
-      : []
-  );
-
-  const [selectedFieldIds, setSelectedFieldIds] = useState<Set<number>>(
-    new Set(experiment?.field_ids ?? [])
-  );
-
-  function toggleField(id: number) {
-    setSelectedFieldIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  const fieldsWithGeometry = farmFields.filter((f) => f.geometry);
+  const [testRows,      setTestRows]      = useState<TestRow[]>([]);
+  const [droneRows,     setDroneRows]     = useState<DroneRow[]>([]);
+  const [treatmentRows, setTreatmentRows] = useState<TreatmentRow[]>([]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const url    = experimentId
-      ? `/api/experiments/${farmId}/${experimentId}`
-      : `/api/experiments/${farmId}`;
-    const method = experimentId ? "PUT" : "POST";
     try {
-      await fetch(url, {
-        method,
+      let resolvedFarmId = farmId;
+      if (farmMode === "new") {
+        if (!newFarmName.trim()) return;
+        const res = await fetch("/api/farms", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ Farm_Name: newFarmName.trim() }),
+        });
+        if (!res.ok) throw new Error("Failed to create farm");
+        const created = await res.json();
+        resolvedFarmId = String(created.id);
+      }
+      if (!resolvedFarmId) return;
+      await fetch(`/api/experiments/${resolvedFarmId}`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           experiment_name: expName || null,
@@ -161,10 +106,10 @@ export default function ExperimentFormClient({
               rate:          r.rate ? parseFloat(r.rate) : null,
               rate_unit:     r.rate_unit || null,
             })),
-          field_ids: Array.from(selectedFieldIds),
+          field_ids: [],
         }),
       });
-      router.push(`/farms/${farmId}/experiments`);
+      router.push("/experiments");
     } finally {
       setSaving(false);
     }
@@ -174,29 +119,60 @@ export default function ExperimentFormClient({
     <div className="max-w-2xl space-y-6">
       <div>
         <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-          <Link href="/farms" className="hover:text-slate-900">Farms</Link>
+          <Link href="/experiments" className="hover:text-slate-900">Experiments</Link>
           <span>/</span>
-          <Link href={`/farms/${farmId}`} className="hover:text-slate-900">
-            {farmName ?? `Farm #${farmId}`}
-          </Link>
-          <span>/</span>
-          <Link href={`/farms/${farmId}/experiments`} className="hover:text-slate-900">Experiments</Link>
-          <span>/</span>
-          <span>{experiment ? "Edit" : "New"}</span>
+          <span>New</span>
         </div>
-        <h2 className="text-2xl font-bold text-slate-900">
-          {experiment ? "Edit Experiment" : "Add Experiment"}
-        </h2>
+        <h2 className="text-2xl font-bold text-slate-900">New Experiment</h2>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* ── Experiment Card ── */}
+        {/* Farm */}
+        <div className="bg-white border rounded-lg p-6 space-y-4">
+          <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Farm</h3>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label>Farm <span className="text-red-500">*</span></Label>
+              <button
+                type="button"
+                className="text-xs text-blue-600 hover:underline"
+                onClick={() => {
+                  setFarmMode(farmMode === "existing" ? "new" : "existing");
+                  setNewFarmName("");
+                }}
+              >
+                {farmMode === "existing" ? "or create new" : "or select existing"}
+              </button>
+            </div>
+            {farmMode === "existing" ? (
+              <select
+                required
+                className={`w-full ${SELECT}`}
+                value={farmId}
+                onChange={(e) => setFarmId(e.target.value)}
+              >
+                <option value="">— Select a farm —</option>
+                {farms.map((f) => (
+                  <option key={f.id} value={f.id}>{f.Farm_Name ?? `Farm #${f.id}`}</option>
+                ))}
+              </select>
+            ) : (
+              <Input
+                required
+                placeholder="New farm name"
+                value={newFarmName}
+                onChange={(e) => setNewFarmName(e.target.value)}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Experiment Card */}
         <div className="bg-white border rounded-lg p-6 space-y-4">
           <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Experiment Card</h3>
-
           <div className="space-y-1.5">
-            <Label>Experiment Name</Label>
-            <Input value={expName} onChange={(e) => setExpName(e.target.value)} />
+            <Label>Experiment Name <span className="text-red-500">*</span></Label>
+            <Input value={expName} onChange={(e) => setExpName(e.target.value)} required />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -239,10 +215,9 @@ export default function ExperimentFormClient({
           </div>
         </div>
 
-        {/* ── Lab Design ── */}
+        {/* Lab Design */}
         <div className="bg-white border rounded-lg p-6 space-y-4">
           <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Lab Design</h3>
-
           <div className="space-y-1.5">
             <Label>Description</Label>
             <textarea rows={3} className={TEXTAREA} value={labDesc} onChange={(e) => setLabDesc(e.target.value)} />
@@ -257,9 +232,9 @@ export default function ExperimentFormClient({
                   className={`flex-1 min-w-32 ${SELECT}`}
                   value={row.test_id}
                   onChange={(e) => {
-                    const updated = [...testRows];
-                    updated[i] = { ...updated[i], test_id: parseInt(e.target.value) };
-                    setTestRows(updated);
+                    const u = [...testRows];
+                    u[i] = { ...u[i], test_id: parseInt(e.target.value) };
+                    setTestRows(u);
                   }}
                 >
                   {allTests.map((t) => (
@@ -272,9 +247,9 @@ export default function ExperimentFormClient({
                   className="w-28"
                   value={row.n_samples}
                   onChange={(e) => {
-                    const updated = [...testRows];
-                    updated[i] = { ...updated[i], n_samples: e.target.value };
-                    setTestRows(updated);
+                    const u = [...testRows];
+                    u[i] = { ...u[i], n_samples: e.target.value };
+                    setTestRows(u);
                   }}
                 />
                 <Input
@@ -282,18 +257,18 @@ export default function ExperimentFormClient({
                   className="w-40"
                   value={row.expected_date}
                   onChange={(e) => {
-                    const updated = [...testRows];
-                    updated[i] = { ...updated[i], expected_date: e.target.value };
-                    setTestRows(updated);
+                    const u = [...testRows];
+                    u[i] = { ...u[i], expected_date: e.target.value };
+                    setTestRows(u);
                   }}
                 />
                 <select
                   className={`w-36 ${SELECT}`}
                   value={row.status}
                   onChange={(e) => {
-                    const updated = [...testRows];
-                    updated[i] = { ...updated[i], status: e.target.value };
-                    setTestRows(updated);
+                    const u = [...testRows];
+                    u[i] = { ...u[i], status: e.target.value };
+                    setTestRows(u);
                   }}
                 >
                   <option value="">— Status —</option>
@@ -301,7 +276,12 @@ export default function ExperimentFormClient({
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
-                <Button type="button" variant="ghost" size="icon" onClick={() => setTestRows(testRows.filter((_, idx) => idx !== i))}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setTestRows(testRows.filter((_, idx) => idx !== i))}
+                >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -327,9 +307,9 @@ export default function ExperimentFormClient({
                   className={`flex-1 min-w-32 ${SELECT}`}
                   value={row.drone_id}
                   onChange={(e) => {
-                    const updated = [...droneRows];
-                    updated[i] = { ...updated[i], drone_id: parseInt(e.target.value) };
-                    setDroneRows(updated);
+                    const u = [...droneRows];
+                    u[i] = { ...u[i], drone_id: parseInt(e.target.value) };
+                    setDroneRows(u);
                   }}
                 >
                   {allDrones.map((d) => (
@@ -342,9 +322,9 @@ export default function ExperimentFormClient({
                   className="w-28"
                   value={row.n_flights}
                   onChange={(e) => {
-                    const updated = [...droneRows];
-                    updated[i] = { ...updated[i], n_flights: e.target.value };
-                    setDroneRows(updated);
+                    const u = [...droneRows];
+                    u[i] = { ...u[i], n_flights: e.target.value };
+                    setDroneRows(u);
                   }}
                 />
                 <Input
@@ -352,18 +332,18 @@ export default function ExperimentFormClient({
                   className="w-40"
                   value={row.expected_date}
                   onChange={(e) => {
-                    const updated = [...droneRows];
-                    updated[i] = { ...updated[i], expected_date: e.target.value };
-                    setDroneRows(updated);
+                    const u = [...droneRows];
+                    u[i] = { ...u[i], expected_date: e.target.value };
+                    setDroneRows(u);
                   }}
                 />
                 <select
                   className={`w-36 ${SELECT}`}
                   value={row.status}
                   onChange={(e) => {
-                    const updated = [...droneRows];
-                    updated[i] = { ...updated[i], status: e.target.value };
-                    setDroneRows(updated);
+                    const u = [...droneRows];
+                    u[i] = { ...u[i], status: e.target.value };
+                    setDroneRows(u);
                   }}
                 >
                   <option value="">— Status —</option>
@@ -371,7 +351,12 @@ export default function ExperimentFormClient({
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
-                <Button type="button" variant="ghost" size="icon" onClick={() => setDroneRows(droneRows.filter((_, idx) => idx !== i))}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setDroneRows(droneRows.filter((_, idx) => idx !== i))}
+                >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -397,9 +382,9 @@ export default function ExperimentFormClient({
                   className={`flex-1 min-w-36 ${SELECT}`}
                   value={row.treatment_id}
                   onChange={(e) => {
-                    const updated = [...treatmentRows];
-                    updated[i] = { ...updated[i], treatment_id: parseInt(e.target.value) };
-                    setTreatmentRows(updated);
+                    const u = [...treatmentRows];
+                    u[i] = { ...u[i], treatment_id: parseInt(e.target.value) };
+                    setTreatmentRows(u);
                   }}
                 >
                   {allTreatments.map((t) => (
@@ -410,9 +395,9 @@ export default function ExperimentFormClient({
                   className={`w-36 ${SELECT}`}
                   value={row.is_continuous ? "continuous" : "categorical"}
                   onChange={(e) => {
-                    const updated = [...treatmentRows];
-                    updated[i] = { ...updated[i], is_continuous: e.target.value === "continuous" };
-                    setTreatmentRows(updated);
+                    const u = [...treatmentRows];
+                    u[i] = { ...u[i], is_continuous: e.target.value === "continuous" };
+                    setTreatmentRows(u);
                   }}
                 >
                   <option value="continuous">Continuous</option>
@@ -425,9 +410,9 @@ export default function ExperimentFormClient({
                   className="w-24"
                   value={row.rate}
                   onChange={(e) => {
-                    const updated = [...treatmentRows];
-                    updated[i] = { ...updated[i], rate: e.target.value };
-                    setTreatmentRows(updated);
+                    const u = [...treatmentRows];
+                    u[i] = { ...u[i], rate: e.target.value };
+                    setTreatmentRows(u);
                   }}
                 />
                 <Input
@@ -435,9 +420,9 @@ export default function ExperimentFormClient({
                   className="w-24"
                   value={row.rate_unit}
                   onChange={(e) => {
-                    const updated = [...treatmentRows];
-                    updated[i] = { ...updated[i], rate_unit: e.target.value };
-                    setTreatmentRows(updated);
+                    const u = [...treatmentRows];
+                    u[i] = { ...u[i], rate_unit: e.target.value };
+                    setTreatmentRows(u);
                   }}
                 />
                 <Button
@@ -466,60 +451,13 @@ export default function ExperimentFormClient({
               </Button>
             )}
           </div>
-
-          {/* Upload Field Boundaries */}
-          <div className="space-y-1.5">
-            <Label>Upload Field Boundaries</Label>
-            <p className="text-xs text-slate-500">Upload a GeoJSON, shapefile, or GeoPackage to add new fields to this farm. After upload, select the new fields on the map below.</p>
-            <FieldBoundaryUpload farmId={farmId} fieldCount={farmFields.length} />
-          </div>
-
-          {/* Linked Fields */}
-          <div className="space-y-2">
-            <Label>Linked Fields</Label>
-            {farmFields.length === 0 ? (
-              <p className="text-sm text-slate-400 italic">No fields have been added to this farm yet.</p>
-            ) : fieldsWithGeometry.length > 0 ? (
-              <>
-                <p className="text-xs text-slate-500">Click a field polygon to select or deselect it.</p>
-                <FieldSelectorMapWrapper
-                  fields={fieldsWithGeometry.map((f) => ({ id: f.id, name: f.Name, geometry: f.geometry }))}
-                  selectedIds={Array.from(selectedFieldIds)}
-                  onToggle={toggleField}
-                  uploadPins={farmUploadPins}
-                />
-                {selectedFieldIds.size > 0 && (
-                  <p className="text-xs text-slate-500">
-                    Selected:{" "}
-                    {farmFields
-                      .filter((f) => selectedFieldIds.has(f.id))
-                      .map((f) => f.Name ?? `Field #${f.id}`)
-                      .join(", ")}
-                  </p>
-                )}
-              </>
-            ) : (
-              <div className="space-y-2 border rounded-md p-3">
-                {farmFields.map((f) => (
-                  <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedFieldIds.has(f.id)}
-                      onChange={() => toggleField(f.id)}
-                    />
-                    {f.Name ?? `Field #${f.id}`}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="flex gap-3">
-          <Button type="submit" disabled={saving}>
-            {saving ? "Saving..." : "Save"}
+          <Button type="submit" disabled={saving || (farmMode === "existing" ? !farmId : !newFarmName.trim())}>
+            {saving ? "Saving..." : "Create"}
           </Button>
-          <Button type="button" variant="outline" onClick={() => router.push(`/farms/${farmId}/experiments`)}>
+          <Button type="button" variant="outline" onClick={() => router.push("/experiments")}>
             Cancel
           </Button>
         </div>

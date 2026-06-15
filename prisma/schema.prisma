@@ -48,17 +48,19 @@ model Project {
   created_at       DateTime?
   updated_at       DateTime?
 
-  TreatmentProtocols TreatmentProtocol[]
-  ExperimentZones    ExperimentZone[]
-  ProjectFarms       ProjectFarm[]
-  ProjectLabMembers  ProjectLabMember[]
-  Photos             Photo[]
-  Notes              Note[]
-  Recordings         Recording[]
-  Locations          Location[]
-  Videos             Video[]
-  Documents          Document[]
-  LabMemberUploads   LabMemberUpload[]
+  TreatmentProtocols     TreatmentProtocol[]
+  ExperimentZones        ExperimentZone[]
+  ProjectFarms           ProjectFarm[]
+  ProjectLabMembers      ProjectLabMember[]
+  FarmExperiments        FarmExperiment[]
+  Photos                 Photo[]
+  Notes                  Note[]
+  Recordings             Recording[]
+  Locations              Location[]
+  Videos                 Video[]
+  Documents              Document[]
+  LabMemberUploads       LabMemberUpload[]
+  ReportingSubscriptions ReportingSubscription[]
 
   @@map("Projects")
   @@schema("pgntarg2udzj1f3")
@@ -467,8 +469,10 @@ model LabMemberUpload {
 model FarmExperiment {
   id               Int       @id @default(autoincrement())
   farm_id          Int?
+  project_id       Int?
   experiment_name  String?
   start_date       DateTime? @db.Date
+  end_date         DateTime? @db.Date
   hypothesis       String?
   experiment_desc  String?
   measurements     String?
@@ -478,6 +482,7 @@ model FarmExperiment {
   updated_at       DateTime  @updatedAt
 
   Farm                   Farm?                   @relation(fields: [farm_id], references: [id])
+  Project                Project?                @relation(fields: [project_id], references: [id])
   ExperimentTests        ExperimentTest[]
   ExperimentDroneFlights ExperimentDroneFlight[]
   ExperimentTreatments   ExperimentTreatment[]
@@ -618,14 +623,16 @@ model WhatsAppContactCard {
 
 model ReportingSubscription {
   id           Int       @id @default(autoincrement())
-  label        String                          // e.g. "Agrivoltaics team"
+  project_id   Int?
   emails       String                          // semicolon-separated list
   frequency    String    @default("weekly")    // weekly | biweekly | monthly
   active       Boolean   @default(true)
-  contact_ids  String                          // JSON array of contact IDs
+  contact_ids  String?                         // legacy; contacts now derived from project at send time
   last_sent_at DateTime?
   created_at   DateTime  @default(now())
   updated_at   DateTime  @updatedAt
+
+  Project      Project?  @relation(fields: [project_id], references: [id])
 
   @@map("Reporting_Subscriptions")
   @@schema("pgntarg2udzj1f3")

@@ -9,17 +9,21 @@ interface ExperimentRow {
   farm_id: number | null;
   experiment_name: string | null;
   farm_name: string | null;
+  farmer_name: string | null;
   fields: string | null;
+  field_geometries: { id: number; geometry: string }[];
   treatments: string[];
   start_date: string | null;
+  end_date: string | null;
 }
 
-export function ExperimentsClient({ data }: { data: ExperimentRow[] }) {
+export function ExperimentsClient({ data, canCreate }: { data: ExperimentRow[]; canCreate?: boolean }) {
   const router = useRouter();
 
   const columns = [
     { key: "experiment_name", header: "Experiment Name", sortable: true },
     { key: "farm_name", header: "Farm", sortable: true },
+    { key: "farmer_name", header: "Farmer", sortable: true },
     { key: "fields", header: "Fields", sortable: true },
     {
       key: "treatments",
@@ -39,6 +43,7 @@ export function ExperimentsClient({ data }: { data: ExperimentRow[] }) {
       },
     },
     { key: "start_date", header: "Start Date", sortable: true },
+    { key: "end_date", header: "End Date", sortable: true },
   ];
 
   return (
@@ -46,7 +51,9 @@ export function ExperimentsClient({ data }: { data: ExperimentRow[] }) {
       title="Experiments"
       data={data as unknown as Record<string, unknown>[]}
       columns={columns}
-      searchKeys={["experiment_name", "farm_name"]}
+      searchKeys={["experiment_name", "farm_name", "farmer_name"]}
+      onAdd={canCreate ? () => router.push("/experiments/new") : undefined}
+      addLabel="New Experiment"
       onRowClick={(row) => {
         const r = row as unknown as ExperimentRow;
         if (r.farm_id) router.push(`/farms/${r.farm_id}/experiments/${r.id}`);

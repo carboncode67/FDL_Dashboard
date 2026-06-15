@@ -16,8 +16,10 @@ import {
   Map,
   Layers,
   TestTube,
+  FlaskConical,
 } from "lucide-react";
 import { format } from "date-fns";
+import Link from "next/link";
 
 async function getDashboardData() {
   const now = new Date();
@@ -32,6 +34,7 @@ async function getDashboardData() {
     upcomingTestCount,
     upcomingTests,
     projects,
+    recentExperiments,
   ] = await Promise.all([
     prisma.project.count(),
     prisma.project.groupBy({
@@ -66,6 +69,17 @@ async function getDashboardData() {
     prisma.project.findMany({
       select: { id: true, Project_Name: true, title: true },
       orderBy: { id: "asc" },
+    }),
+    prisma.farmExperiment.findMany({
+      orderBy: { updated_at: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        experiment_name: true,
+        updated_at: true,
+        farm_id: true,
+        Farm: { select: { Farm_Name: true } },
+      },
     }),
   ]);
 
@@ -112,6 +126,7 @@ async function getDashboardData() {
     projectStats,
     upcomingTestCount,
     upcomingTests,
+    recentExperiments,
   };
 }
 
@@ -252,6 +267,49 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Recent Experiments */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <FlaskConical className="h-4 w-4 text-slate-500" />
+            Recent Experiments
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {data.recentExperiments.length === 0 ? (
+            <p className="text-sm text-slate-500 py-4 text-center">No experiments yet</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Experiment Name</TableHead>
+                  <TableHead>Farm</TableHead>
+                  <TableHead>Last Edited</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.recentExperiments.map((exp) => (
+                  <TableRow key={exp.id} className="hover:bg-slate-50">
+                    <TableCell className="font-medium">
+                      <Link
+                        href={`/farms/${exp.farm_id}/experiments/${exp.id}`}
+                        className="hover:underline text-blue-600"
+                      >
+                        {exp.experiment_name ?? `Experiment #${exp.id}`}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{exp.Farm?.Farm_Name ?? "—"}</TableCell>
+                    <TableCell className="text-slate-500">
+                      {format(new Date(exp.updated_at), "MMM d, yyyy")}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Upcoming Tests Table */}
       <Card>

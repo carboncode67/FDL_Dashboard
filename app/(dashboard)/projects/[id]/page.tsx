@@ -20,6 +20,7 @@ import {
 import Link from "next/link";
 import { RelationPicker } from "@/components/relation-picker";
 import { DocumentUpload } from "@/components/document-upload";
+import { UnlinkExperimentButton } from "./unlink-experiment-button";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,29 +31,39 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const showEdit = canEdit(role);
   const showDelete = canDelete(role, editMode);
 
-  const [project, allFarms, allLabMembers] = await Promise.all([
+  const [project, allExperiments, allLabMembers] = await Promise.all([
     prisma.project.findUnique({
       where: { id: projectId },
       include: {
-        ProjectFarms: { include: { Farm: true } },
+        FarmExperiments: {
+          include: {
+            Farm: { select: { id: true, Farm_Name: true } },
+            ExperimentFields: { select: { field_id: true } },
+          },
+          orderBy: { id: "asc" },
+        },
         ProjectLabMembers: { include: { User: true } },
         TreatmentProtocols: { include: { Treatment: true } },
         ExperimentZones: { include: { Farm: true } },
         Documents: { orderBy: { uploaded_at: "desc" } },
       },
     }),
-    prisma.farm.findMany({ select: { id: true, Farm_Name: true } }),
+    prisma.farmExperiment.findMany({
+      where: { project_id: null },
+      select: { id: true, experiment_name: true, farm_id: true, Farm: { select: { Farm_Name: true } } },
+      orderBy: { experiment_name: "asc" },
+    }),
     prisma.user.findMany({ select: { id: true, name: true, email: true } }),
   ]);
 
   if (!project) notFound();
 
-  const linkedFarmIds = new Set(project.ProjectFarms.map((pf) => pf.Farms_id));
   const linkedMemberIds = new Set(project.ProjectLabMembers.map((pm) => pm.user_id));
 
-  const availableFarms = allFarms
-    .filter((f) => !linkedFarmIds.has(f.id))
-    .map((f) => ({ id: f.id, name: f.Farm_Name ?? `Farm #${f.id}` }));
+  const availableExperiments = allExperiments.map((e) => ({
+    id: e.id,
+    name: `${e.experiment_name ?? `Experiment #${e.id}`}${e.Farm?.Farm_Name ? ` (${e.Farm.Farm_Name})` : ""}`,
+  }));
 
   const availableMembers = allLabMembers
     .filter((m) => !linkedMemberIds.has(m.id))
@@ -87,7 +98,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="farms">Farms ({project.ProjectFarms.length})</TabsTrigger>
+          <TabsTrigger value="experiments">Experiments ({project.FarmExperiments.length})</TabsTrigger>
           <TabsTrigger value="lab-members">Lab Members ({project.ProjectLabMembers.length})</TabsTrigger>
           <TabsTrigger value="protocols">Treatment Protocols ({project.TreatmentProtocols.length})</TabsTrigger>
           <TabsTrigger value="zones">Experiment Zones ({project.ExperimentZones.length})</TabsTrigger>
@@ -109,24 +120,50 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           </Card>
         </TabsContent>
 
-        <TabsContent value="farms" className="mt-4">
+        <TabsContent value="experiments" className="mt-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Associated Farms</CardTitle>
-              <RelationPicker label="Farm" options={availableFarms} apiPath={`/api/projects/${project.id}/farms`} />
+              <CardTitle className="text-base">Associated Experiments</CardTitle>
+              {showEdit && (
+                <RelationPicker label="Experiment" options={availableExperiments} apiPath={`/api/projects/${project.id}/experiments`} />
+              )}
             </CardHeader>
             <CardContent>
-              {project.ProjectFarms.length === 0 ? (
-                <p className="text-sm text-slate-500">No farms associated</p>
+              {project.FarmExperiments.length === 0 ? (
+                <p className="text-sm text-slate-500">No experiments linked to this project</p>
               ) : (
                 <Table>
-                  <TableHeader><TableRow><TableHead>Farm Name</TableHead><TableHead>County</TableHead><TableHead>State</TableHead></TableRow></TableHeader>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Experiment</TableHead>
+                      <TableHead>Farm</TableHead>
+                      <TableHead>Start Date</TableHead>
+                      <TableHead>Fields</TableHead>
+                      {showEdit && <TableHead></TableHead>}
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
-                    {project.ProjectFarms.map((pf) => (
-                      <TableRow key={pf.Farms_id}>
-                        <TableCell><Link href={`/farms/${pf.Farm.id}`} className="text-blue-600 hover:underline">{pf.Farm.Farm_Name ?? `Farm #${pf.Farm.id}`}</Link></TableCell>
-                        <TableCell>{pf.Farm.County ?? "—"}</TableCell>
-                        <TableCell>{pf.Farm.State ?? "—"}</TableCell>
+                    {project.FarmExperiments.map((exp) => (
+                      <TableRow key={exp.id}>
+                        <TableCell>
+                          <Link href={`/farms/${exp.farm_id}/experiments/${exp.id}`} className="text-blue-600 hover:underline">
+                            {exp.experiment_name ?? `Experiment #${exp.id}`}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          {exp.Farm ? (
+                            <Link href={`/farms/${exp.Farm.id}`} className="text-blue-600 hover:underline">
+                              {exp.Farm.Farm_Name ?? `Farm #${exp.Farm.id}`}
+                            </Link>
+                          ) : "—"}
+                        </TableCell>
+                        <TableCell>{exp.start_date ? new Date(exp.start_date).toLocaleDateString() : "—"}</TableCell>
+                        <TableCell>{exp.ExperimentFields.length}</TableCell>
+                        {showEdit && (
+                          <TableCell>
+                            <UnlinkExperimentButton projectId={project.id} experimentId={exp.id} />
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>

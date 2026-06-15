@@ -54,7 +54,16 @@ export function startScheduler() {
       if (!isDue) continue;
 
       try {
-        const contactIds = JSON.parse(sub.contact_ids) as number[];
+        if (!sub.project_id) {
+          console.warn(`[Scheduler] Subscription #${sub.id} has no project set — skipping`);
+          continue;
+        }
+
+        const contacts   = await prisma.contact.findMany({
+          where: { Farm: { ProjectFarms: { some: { Projects_id: sub.project_id } } } },
+          select: { id: true },
+        });
+        const contactIds = contacts.map(c => c.id);
         const farmers    = await buildReportData(contactIds, 14);
         const html       = generateReportHtml(farmers, 14);
         const emails     = sub.emails.split(";").map(e => e.trim()).filter(Boolean);
@@ -71,9 +80,9 @@ export function startScheduler() {
           data:  { last_sent_at: now },
         });
 
-        console.log(`[Scheduler] Sent report "${sub.label}" to ${emails.join(", ")}`);
+        console.log(`[Scheduler] Sent report for project #${sub.project_id} to ${emails.join(", ")}`);
       } catch (e) {
-        console.error(`[Scheduler] Failed to send report "${sub.label}":`, e);
+        console.error(`[Scheduler] Failed to send report for subscription #${sub.id}:`, e);
       }
     }
   });

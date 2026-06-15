@@ -24,7 +24,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ farmId:
   const body = await req.json();
 
   const {
-    experiment_name, start_date, hypothesis, experiment_desc,
+    experiment_name, start_date, end_date, project_id, hypothesis, experiment_desc,
     measurements, criteria, lab_description,
     tests = [], drones = [], treatments = [], field_ids = [],
   } = body;
@@ -42,8 +42,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ farmId:
   const experiment = await prisma.farmExperiment.create({
     data: {
       farm_id: farmIdInt,
+      project_id: project_id ? Number(project_id) : null,
       experiment_name: experiment_name || null,
       start_date: start_date ? new Date(start_date) : null,
+      end_date: end_date ? new Date(end_date) : null,
       hypothesis: hypothesis || null,
       experiment_desc: experiment_desc || null,
       measurements: measurements || null,

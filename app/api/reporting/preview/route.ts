@@ -21,7 +21,12 @@ export async function GET(req: NextRequest) {
       where: { id: Number(subId) },
     });
     if (!sub) return new NextResponse("Subscription not found", { status: 404 });
-    contactIds = JSON.parse(sub.contact_ids) as number[];
+    if (!sub.project_id) return new NextResponse("Subscription has no project set", { status: 400 });
+    const contacts = await prisma.contact.findMany({
+      where: { Farm: { ProjectFarms: { some: { Projects_id: sub.project_id } } } },
+      select: { id: true },
+    });
+    contactIds = contacts.map(c => c.id);
   } else if (contactsRaw) {
     contactIds = contactsRaw.split(",").map(Number).filter(Boolean);
   } else {

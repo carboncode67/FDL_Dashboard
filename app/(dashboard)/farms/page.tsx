@@ -16,8 +16,6 @@ export default async function FarmsPage() {
     id: f.id,
     Farm_Name: f.Farm_Name,
     Farmer_Name: f.Contacts[0]?.name ?? null,
-    County: f.County,
-    State: f.State,
     is_active: f.is_active,
     created_at: f.created_at ? f.created_at.toISOString() : null,
     updated_at: f.updated_at ? f.updated_at.toISOString() : null,

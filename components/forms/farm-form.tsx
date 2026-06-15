@@ -9,8 +9,6 @@ interface FarmFormProps {
   onSuccess?: () => void;
   initialData?: {
     Farm_Name?: string | null;
-    County?: string | null;
-    State?: string | null;
     farm_summary?: string | null;
     is_active?: boolean;
   };
@@ -19,8 +17,6 @@ interface FarmFormProps {
 
 export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
   const [farmName, setFarmName] = useState(initialData?.Farm_Name ?? "");
-  const [county, setCounty] = useState(initialData?.County ?? "");
-  const [state, setState] = useState(initialData?.State ?? "");
   const [summary, setSummary] = useState(initialData?.farm_summary ?? "");
   const [isActive, setIsActive] = useState(initialData?.is_active ?? true);
   const [saving, setSaving] = useState(false);
@@ -36,8 +32,6 @@ export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           Farm_Name: farmName,
-          County: county,
-          State: state,
           farm_summary: summary || null,
           is_active: isActive,
         }),
@@ -51,8 +45,6 @@ export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5"><Label>Farm Name</Label><Input value={farmName} onChange={(e) => setFarmName(e.target.value)} required /></div>
-      <div className="space-y-1.5"><Label>County</Label><Input value={county} onChange={(e) => setCounty(e.target.value)} /></div>
-      <div className="space-y-1.5"><Label>State</Label><Input value={state} onChange={(e) => setState(e.target.value)} /></div>
       <div className="space-y-1.5">
         <Label>Farmer Summary (Markdown)</Label>
         <textarea

@@ -12,15 +12,28 @@ interface Contact {
   farm_name: string | null;
 }
 
+interface ProjectWithContacts {
+  id: number;
+  Project_Name: string | null;
+  contacts: { id: number; name: string; farm_name: string | null }[];
+}
+
 interface Subscription {
   id: number;
-  label: string;
+  project_id: number | null;
+  Project: { id: number; Project_Name: string | null } | null;
   emails: string;
   frequency: string;
   active: boolean;
-  contact_ids: number[];
   last_sent_at: Date | string | null;
 }
+
+type SubscriptionFormData = {
+  project_id: number;
+  emails: string;
+  frequency: string;
+  active: boolean;
+};
 
 const FREQ_LABELS: Record<string, string> = {
   weekly: "Weekly",
@@ -29,49 +42,58 @@ const FREQ_LABELS: Record<string, string> = {
 };
 
 function SubscriptionForm({
-  contacts,
+  projects,
   initial,
   onSave,
   onCancel,
 }: {
-  contacts: Contact[];
+  projects: ProjectWithContacts[];
   initial?: Partial<Subscription>;
-  onSave: (data: Omit<Subscription, "id" | "last_sent_at">) => void;
+  onSave: (data: SubscriptionFormData) => void;
   onCancel: () => void;
 }) {
-  const [label,      setLabel]      = useState(initial?.label ?? "");
-  const [emails,     setEmails]     = useState(initial?.emails ?? "");
-  const [frequency,  setFrequency]  = useState(initial?.frequency ?? "weekly");
-  const [active,     setActive]     = useState(initial?.active ?? true);
-  const [selected,   setSelected]   = useState<Set<number>>(new Set(initial?.contact_ids ?? []));
+  const [projectId, setProjectId] = useState<number | "">(initial?.project_id ?? "");
+  const [emails,    setEmails]    = useState(initial?.emails ?? "");
+  const [frequency, setFrequency] = useState(initial?.frequency ?? "weekly");
+  const [active,    setActive]    = useState(initial?.active ?? true);
 
-  function toggle(id: number) {
-    setSelected(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
+  const selectedProject = projects.find(p => p.id === Number(projectId)) ?? null;
 
   function handleSubmit() {
-    if (!label.trim() || !emails.trim() || selected.size === 0) {
-      alert("Please fill in all fields and select at least one farmer.");
+    if (!projectId || !emails.trim()) {
+      alert("Please select a project and enter recipient emails.");
       return;
     }
-    onSave({ label, emails, frequency, active, contact_ids: Array.from(selected) });
+    onSave({ project_id: Number(projectId), emails, frequency, active });
   }
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-slate-600 mb-1">Subscription name</label>
-          <input
+          <label className="block text-xs font-medium text-slate-600 mb-1">Project</label>
+          <select
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            value={label}
-            onChange={e => setLabel(e.target.value)}
-            placeholder="e.g. Agrivoltaics team"
-          />
+            value={projectId}
+            onChange={e => setProjectId(e.target.value === "" ? "" : Number(e.target.value))}
+          >
+            <option value="">— Select a project —</option>
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.Project_Name ?? `Project #${p.id}`}
+              </option>
+            ))}
+          </select>
+          {selectedProject && (
+            <p className="text-xs text-slate-500 mt-1">
+              {selectedProject.contacts.length} farmer{selectedProject.contacts.length !== 1 ? "s" : ""} associated
+              {selectedProject.contacts.length > 0 && (
+                <span className="ml-1 text-slate-400">
+                  ({selectedProject.contacts.map(c => c.name).join(", ")})
+                </span>
+              )}
+            </p>
+          )}
         </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-slate-600 mb-1">Recipients (separate multiple with ;)</label>
@@ -102,35 +124,6 @@ function SubscriptionForm({
         </div>
       </div>
 
-      <div>
-        <label className="block text-xs font-medium text-slate-600 mb-2">
-          Farmers to include ({selected.size} selected)
-        </label>
-        <div className="border border-slate-200 rounded-lg divide-y max-h-56 overflow-y-auto">
-          {contacts.map(c => (
-            <div
-              key={c.id}
-              className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-50"
-              onClick={() => toggle(c.id)}
-            >
-              {selected.has(c.id)
-                ? <CheckSquare className="h-4 w-4 text-emerald-600 shrink-0" />
-                : <Square className="h-4 w-4 text-slate-300 shrink-0" />
-              }
-              <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium text-slate-800">{c.name}</span>
-                {c.farm_name && <span className="text-xs text-slate-400 ml-2">{c.farm_name}</span>}
-              </div>
-            </div>
-          ))}
-          {contacts.length === 0 && (
-            <p className="text-xs text-slate-400 px-3 py-3">
-              No WhatsApp farmers registered yet. Add them in the Farmers page first.
-            </p>
-          )}
-        </div>
-      </div>
-
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onCancel}>Cancel</Button>
         <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSubmit}>
@@ -143,39 +136,44 @@ function SubscriptionForm({
 
 export function ActivityReportClient({
   contacts,
+  projects,
   initialSubscriptions,
 }: {
   contacts: Contact[];
+  projects: ProjectWithContacts[];
   initialSubscriptions: Subscription[];
 }) {
-  const [subs,      setSubs]      = useState<Subscription[]>(initialSubscriptions);
-  const [creating,  setCreating]  = useState(false);
-  const [editing,   setEditing]   = useState<number | null>(null);
-  const [sending,   setSending]   = useState<number | null>(null);
-  const [notice,    setNotice]    = useState("");
-  // Standalone viewer
+  const [subs,     setSubs]     = useState<Subscription[]>(initialSubscriptions);
+  const [creating, setCreating] = useState(false);
+  const [editing,  setEditing]  = useState<number | null>(null);
+  const [sending,  setSending]  = useState<number | null>(null);
+  const [notice,   setNotice]   = useState("");
+  // Standalone preview viewer
   const [viewSelected, setViewSelected] = useState<Set<number>>(new Set());
-  const [viewLoading,  setViewLoading]  = useState(false);
 
-  async function handleCreate(data: Omit<Subscription, "id" | "last_sent_at">) {
+  async function handleCreate(data: SubscriptionFormData) {
     const res = await fetch("/api/reporting", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
     const created = await res.json();
-    setSubs(prev => [{ ...created, contact_ids: data.contact_ids }, ...prev]);
+    setSubs(prev => [created, ...prev]);
     setCreating(false);
   }
 
-  async function handleUpdate(id: number, data: Omit<Subscription, "id" | "last_sent_at">) {
-    const res = await fetch(`/api/reporting/${id}`, {
+  async function handleUpdate(id: number, data: SubscriptionFormData) {
+    await fetch(`/api/reporting/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    const updated = await res.json();
-    setSubs(prev => prev.map(s => s.id === id ? { ...updated, contact_ids: data.contact_ids } : s));
+    const project = projects.find(p => p.id === data.project_id) ?? null;
+    setSubs(prev => prev.map(s =>
+      s.id === id
+        ? { ...s, ...data, Project: project ? { id: project.id, Project_Name: project.Project_Name } : null }
+        : s
+    ));
     setEditing(null);
   }
 
@@ -188,7 +186,7 @@ export function ActivityReportClient({
   async function handleSend(id: number) {
     setSending(id);
     try {
-      const res = await fetch(`/api/reporting/${id}`, { method: "POST" });
+      const res  = await fetch(`/api/reporting/${id}`, { method: "POST" });
       const data = await res.json();
       if (res.ok) {
         setNotice(`Report sent to ${data.sent_to.join(", ")}`);
@@ -215,13 +213,9 @@ export function ActivityReportClient({
   function toggleViewFarmer(id: number) {
     setViewSelected(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
-  }
-
-  function getContactNames(ids: number[]) {
-    return ids.map(id => contacts.find(c => c.id === id)?.name ?? `#${id}`).join(", ");
   }
 
   return (
@@ -260,10 +254,10 @@ export function ActivityReportClient({
             size="sm"
             className="bg-slate-700 hover:bg-slate-800 text-white text-xs h-8"
             onClick={previewCustom}
-            disabled={viewSelected.size === 0 || viewLoading}
+            disabled={viewSelected.size === 0}
           >
             <Eye className="h-3 w-3 mr-1" />
-            {viewLoading ? "Loading..." : `Preview (${viewSelected.size} farmer${viewSelected.size !== 1 ? "s" : ""})`}
+            {`Preview (${viewSelected.size} farmer${viewSelected.size !== 1 ? "s" : ""})`}
           </Button>
         </div>
         <div className="border border-slate-200 rounded-lg divide-y max-h-48 overflow-y-auto">
@@ -289,7 +283,7 @@ export function ActivityReportClient({
 
       {creating && (
         <SubscriptionForm
-          contacts={contacts}
+          projects={projects}
           onSave={handleCreate}
           onCancel={() => setCreating(false)}
         />
@@ -306,7 +300,7 @@ export function ActivityReportClient({
         <div key={sub.id} className="bg-white border border-slate-200 rounded-xl p-5">
           {editing === sub.id ? (
             <SubscriptionForm
-              contacts={contacts}
+              projects={projects}
               initial={sub}
               onSave={data => handleUpdate(sub.id, data)}
               onCancel={() => setEditing(null)}
@@ -316,7 +310,9 @@ export function ActivityReportClient({
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-900">{sub.label}</span>
+                    <span className="font-semibold text-slate-900">
+                      {sub.Project?.Project_Name ?? "(No project)"}
+                    </span>
                     <Badge className={sub.active
                       ? "bg-emerald-100 text-emerald-800 text-xs"
                       : "bg-slate-100 text-slate-500 text-xs"}>
@@ -328,9 +324,6 @@ export function ActivityReportClient({
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
                     To: {sub.emails}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Farmers: {getContactNames(sub.contact_ids)}
                   </p>
                   {sub.last_sent_at && (
                     <p className="text-xs text-slate-400 mt-1">

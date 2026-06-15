@@ -11,7 +11,7 @@ export default async function EditExperimentPage({
   const farmId = parseInt(id);
   const expId  = parseInt(experimentId);
 
-  const [farm, farmExperiment, allTests, allDrones, allTreatments, farmFields] = await Promise.all([
+  const [farm, farmExperiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmPhotos, farmNotes, farmLabUps] = await Promise.all([
     prisma.farm.findUnique({ where: { id: farmId }, select: { id: true, Farm_Name: true } }),
     prisma.farmExperiment.findUnique({
       where: { id: expId },
@@ -25,23 +25,45 @@ export default async function EditExperimentPage({
     prisma.test.findMany({ select: { id: true, Test_Name: true }, orderBy: { Test_Name: "asc" } }),
     prisma.drone.findMany({ select: { id: true, Name: true }, orderBy: { Name: "asc" } }),
     prisma.treatment.findMany({ select: { id: true, Treatment_Name: true }, orderBy: { Treatment_Name: "asc" } }),
+    prisma.project.findMany({ select: { id: true, Project_Name: true }, orderBy: { Project_Name: "asc" } }),
     prisma.field.findMany({
       where: { Farms_id: farmId },
       select: { id: true, Name: true, geometry: true },
       orderBy: { Name: "asc" },
     }),
+    prisma.photo.findMany({
+      where: { farm_id: farmId, latitude: { not: null }, longitude: { not: null } },
+      select: { id: true, latitude: true, longitude: true },
+    }),
+    prisma.note.findMany({
+      where: { farm_id: farmId, latitude: { not: null }, longitude: { not: null } },
+      select: { id: true, latitude: true, longitude: true },
+    }),
+    prisma.labMemberUpload.findMany({
+      where: { farm_id: farmId, latitude: { not: null }, longitude: { not: null } },
+      select: { id: true, latitude: true, longitude: true },
+    }),
   ]);
 
   if (!farm || !farmExperiment) notFound();
+
+  const farmUploadPins = [
+    ...farmPhotos.map((p) => ({ id: p.id, lat: p.latitude!, lng: p.longitude!, type: "photo" as const })),
+    ...farmNotes.map((n)  => ({ id: n.id, lat: n.latitude!, lng: n.longitude!, type: "note"  as const })),
+    ...farmLabUps.map((l) => ({ id: l.id, lat: l.latitude!, lng: l.longitude!, type: "lab"   as const })),
+  ];
 
   return (
     <ExperimentFormClient
       farmId={farm.id}
       farmName={farm.Farm_Name}
       experimentId={expId}
+      allProjects={allProjects}
       experiment={{
         experiment_name: farmExperiment.experiment_name,
         start_date:      farmExperiment.start_date?.toISOString().slice(0, 10) ?? null,
+        end_date:        farmExperiment.end_date?.toISOString().slice(0, 10) ?? null,
+        project_id:      farmExperiment.project_id ?? null,
         hypothesis:      farmExperiment.hypothesis,
         experiment_desc: farmExperiment.experiment_desc,
         measurements:    farmExperiment.measurements,
@@ -71,6 +93,7 @@ export default async function EditExperimentPage({
       allDrones={allDrones}
       allTreatments={allTreatments}
       farmFields={farmFields}
+      farmUploadPins={farmUploadPins}
     />
   );
 }

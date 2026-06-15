@@ -28,7 +28,7 @@ export async function PUT(req: Request, { params }: Params) {
   const body = await req.json();
 
   const {
-    experiment_name, start_date, hypothesis, experiment_desc,
+    experiment_name, start_date, end_date, project_id, hypothesis, experiment_desc,
     measurements, criteria, lab_description,
     tests = [], drones = [], treatments = [], field_ids = [],
   } = body;
@@ -53,8 +53,10 @@ export async function PUT(req: Request, { params }: Params) {
   const experiment = await prisma.farmExperiment.update({
     where: { id: experimentIdInt },
     data: {
+      project_id: project_id !== undefined ? (project_id ? Number(project_id) : null) : undefined,
       experiment_name: experiment_name || null,
       start_date: start_date ? new Date(start_date) : null,
+      end_date: end_date !== undefined ? (end_date ? new Date(end_date) : null) : undefined,
       hypothesis: hypothesis || null,
       experiment_desc: experiment_desc || null,
       measurements: measurements || null,

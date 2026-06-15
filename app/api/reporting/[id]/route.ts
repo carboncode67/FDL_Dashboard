@@ -9,11 +9,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const sub = await prisma.reportingSubscription.update({
     where: { id: Number(id) },
     data: {
-      label:       body.label,
-      emails:      body.emails,
-      frequency:   body.frequency,
-      active:      body.active,
-      contact_ids: JSON.stringify(body.contact_ids ?? []),
+      project_id: body.project_id ?? null,
+      emails:     body.emails,
+      frequency:  body.frequency,
+      active:     body.active,
     },
   });
   return NextResponse.json(sub);
@@ -31,8 +30,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     where: { id: Number(id) },
   });
   if (!sub) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!sub.project_id) return NextResponse.json({ error: "Subscription has no project set" }, { status: 400 });
 
-  const contactIds = JSON.parse(sub.contact_ids) as number[];
+  const contacts   = await prisma.contact.findMany({
+    where: { Farm: { ProjectFarms: { some: { Projects_id: sub.project_id } } } },
+    select: { id: true },
+  });
+  const contactIds = contacts.map(c => c.id);
   const farmers    = await buildReportData(contactIds, 14);
   const emails     = sub.emails.split(";").map(e => e.trim()).filter(Boolean);
 

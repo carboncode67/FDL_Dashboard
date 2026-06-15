@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -12,7 +13,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { KeyRound, LogOut } from "lucide-react";
+import { ChangePasswordForm } from "@/components/forms/change-password-form";
 import type { Role } from "@/lib/roles";
 
 interface HeaderProps {
@@ -30,6 +38,7 @@ const roleLabels: Record<Role, string> = {
 export function Header({ title, editMode, role }: HeaderProps) {
   const { data: session } = useSession();
   const router = useRouter();
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const name = session?.user?.name || session?.user?.email || "User";
   const initials = name
     .split(" ")
@@ -71,6 +80,16 @@ export function Header({ title, editMode, role }: HeaderProps) {
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem
+              onClick={() => setChangePasswordOpen(true)}
+              className="cursor-pointer"
+            >
+              <KeyRound className="mr-2 h-4 w-4" />
+              Change Password
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem
               onClick={async () => { await signOut({ redirect: false }); router.push("/login"); }}
               className="text-red-600 cursor-pointer"
             >
@@ -80,6 +99,18 @@ export function Header({ title, editMode, role }: HeaderProps) {
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <Dialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+          </DialogHeader>
+          <ChangePasswordForm
+            email={session?.user?.email ?? ""}
+            onSuccess={() => setChangePasswordOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

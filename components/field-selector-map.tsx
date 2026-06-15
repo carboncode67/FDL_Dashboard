@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet"
+import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 
@@ -11,10 +11,18 @@ interface SelectableField {
   geometry: string | null
 }
 
+interface UploadPin {
+  id: number
+  lat: number
+  lng: number
+  type: "photo" | "note" | "lab"
+}
+
 interface FieldSelectorMapProps {
   fields: SelectableField[]
   selectedIds: number[]
   onToggle: (id: number) => void
+  uploadPins?: UploadPin[]
 }
 
 function extractLatLngs(geojsonStr: string): [number, number][] {
@@ -62,10 +70,23 @@ function BoundsAdjuster({ bounds }: { bounds: L.LatLngBoundsExpression }) {
   return null
 }
 
-export default function FieldSelectorMap({ fields, selectedIds, onToggle }: FieldSelectorMapProps) {
-  const allLatLngs: [number, number][] = fields.flatMap((f) =>
-    f.geometry ? extractLatLngs(f.geometry) : []
-  )
+const PIN_COLORS = {
+  photo: "#3b82f6",
+  note:  "#8b5cf6",
+  lab:   "#f97316",
+}
+
+const PIN_LABELS = {
+  photo: "Photo",
+  note:  "Note",
+  lab:   "Lab upload",
+}
+
+export default function FieldSelectorMap({ fields, selectedIds, onToggle, uploadPins = [] }: FieldSelectorMapProps) {
+  const allLatLngs: [number, number][] = [
+    ...fields.flatMap((f) => f.geometry ? extractLatLngs(f.geometry) : []),
+    ...uploadPins.map((p) => [p.lat, p.lng] as [number, number]),
+  ]
   const bounds = allLatLngs.length >= 2 ? L.latLngBounds(allLatLngs) : null
   const center: [number, number] = allLatLngs.length > 0 ? allLatLngs[0] : [39.5, -98.35]
 
@@ -102,6 +123,22 @@ export default function FieldSelectorMap({ fields, selectedIds, onToggle }: Fiel
             </GeoJSON>
           )
         })}
+
+        {uploadPins.map((p) => (
+          <CircleMarker
+            key={`pin-${p.type}-${p.id}`}
+            center={[p.lat, p.lng]}
+            radius={5}
+            pathOptions={{
+              color:       PIN_COLORS[p.type],
+              fillColor:   PIN_COLORS[p.type],
+              fillOpacity: 0.8,
+              weight: 1,
+            }}
+          >
+            <Popup><span style={{ fontSize: 12 }}>{PIN_LABELS[p.type]}</span></Popup>
+          </CircleMarker>
+        ))}
       </MapContainer>
     </div>
   )

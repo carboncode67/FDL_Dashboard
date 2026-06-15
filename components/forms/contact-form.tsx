@@ -22,22 +22,21 @@ interface ContactFormProps {
   onSuccess?: () => void;
   contactId?: number;
   farms?: FarmOption[];
+  hideFarmSelector?: boolean;
   initialData?: {
     name?: string | null;
     phone?: string | null;
     email?: string | null;
     whatsapp?: boolean | null;
     farms_id?: number | null;
-    is_lab_member?: boolean | null;
   };
 }
 
-export function ContactForm({ onSuccess, contactId, farms = [], initialData }: ContactFormProps) {
+export function ContactForm({ onSuccess, contactId, farms = [], hideFarmSelector = false, initialData }: ContactFormProps) {
   const [name, setName] = useState(initialData?.name ?? "");
   const [phone, setPhone] = useState(initialData?.phone ?? "");
   const [email, setEmail] = useState(initialData?.email ?? "");
   const [whatsapp, setWhatsapp] = useState(initialData?.whatsapp ?? false);
-  const [isLabMember, setIsLabMember] = useState(initialData?.is_lab_member ?? false);
   const [farmsId, setFarmsId] = useState(
     initialData?.farms_id ? String(initialData.farms_id) : ""
   );
@@ -55,8 +54,7 @@ export function ContactForm({ onSuccess, contactId, farms = [], initialData }: C
           phone: phone || null,
           email: email || null,
           whatsapp,
-          is_lab_member: isLabMember,
-          farms_id: isLabMember ? null : (farmsId ? parseInt(farmsId) : null),
+          farms_id: farmsId ? parseInt(farmsId) : null,
         }),
       });
       onSuccess?.();
@@ -93,21 +91,7 @@ export function ContactForm({ onSuccess, contactId, farms = [], initialData }: C
         </Label>
       </div>
 
-      <div className="flex items-center gap-3">
-        <Checkbox
-          id="is_lab_member"
-          checked={isLabMember}
-          onCheckedChange={(v) => {
-            setIsLabMember(v === true);
-            if (v === true) setFarmsId("");
-          }}
-        />
-        <Label htmlFor="is_lab_member" className="cursor-pointer font-normal">
-          Lab member (uploads auto-assigned by GPS proximity)
-        </Label>
-      </div>
-
-      {!isLabMember && (
+      {!hideFarmSelector && (
         <div className="space-y-1.5">
           <Label>Linked Farm</Label>
           <Select value={farmsId} onValueChange={(v) => setFarmsId(v ?? "")}>

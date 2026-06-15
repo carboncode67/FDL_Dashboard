@@ -9,8 +9,6 @@ interface FarmRow {
   id: number;
   Farm_Name: string | null;
   Farmer_Name: string | null;
-  County: string | null;
-  State: string | null;
   is_active: boolean;
   created_at: string | null;
   updated_at: string | null;
@@ -31,8 +29,6 @@ export function FarmsClient({ data, canCreate }: { data: FarmRow[]; canCreate?: 
   const columns = [
     { key: "Farm_Name", header: "Farm Name", sortable: true },
     { key: "Farmer_Name", header: "Farmer Name", sortable: true },
-    { key: "County", header: "County", sortable: true },
-    { key: "State", header: "State", sortable: true },
     {
       key: "is_active",
       header: "Active",
@@ -89,7 +85,7 @@ export function FarmsClient({ data, canCreate }: { data: FarmRow[]; canCreate?: 
       title="Farms"
       data={data as unknown as Record<string, unknown>[]}
       columns={columns}
-      searchKeys={["Farm_Name", "Farmer_Name", "County", "State"]}
+      searchKeys={["Farm_Name", "Farmer_Name"]}
       onAdd={canCreate ? () => router.push("/farms/new") : undefined}
       addLabel="New Farm"
       onRowClick={(row) => router.push(`/farms/${(row as unknown as FarmRow).id}`)}

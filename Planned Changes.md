@@ -123,10 +123,25 @@
 - [x] 32. **Link specific fields to Experiments** In the experiments tab in Farms>Farm>Experiments, there should be a way to link each experiment to specific fields for that farm. Ideally this would be done using an interactive map that also shows field observations from the datalogger app, to help identify which fields are which.
 - [x] 33. **Remove Farm Delete button when Delete mode is off**
 - [x] 34. **Add capacity for multiple experiments in a single farm**
-- [ ] 35. **Update Dashboard** 
-	- [ ] Add recently edited experiments
-	- [ ] 
+- [x] 35. **Update Dashboard** 
+	- [x] Add recently edited experiments
+- [x] 36. **Remove County and State from Farms/New field**
+- [x] 37. **Remove lab member check box from new farmer** 
+- [x]  38. **Add "Create New Experiment" button to Experiments Page** This is intended to be an alternate pathway to onboarding a new farmer/farm. The new experiment form would have all the fields shown in the Experiments Table, Experiment Name is the only Text only box, the rest (Farm, Farmer Treatments) have an option to link to existing entries or create new ones
+- [x] 39. **Link experiment to project directly** in projects page, add dropdown to link to existing experiments.
+- [x] 40. **Add Fields directly to experiment** In the experiment page (Farms>Farm>Experiment) add upload fields box that allows fields to be added to farm and experiment directly. 
+- [ ] 41. **Add upcoming tests/activities table to each experiment** In experiment view, there should be a box showing planned activities (drone flights, tests etc) arranged in the order they are scheduled (soonest first) **Change this to the Farm overview page, show a small table called "Planned Activities" that shows the upcoming activities, including activity planned, experiment, date.
+- [x] 42. **Add experiment(s) summary to farm summary** In the Farm Overview tab, show experiment summary cards (Same view as https://fdl.casata.org/farms/43/experiments) **These cards are what should be displayed in the farm overview page, with expanded information minimap planned activites etc, currently these cards are hard to view (only shown when finished adding additional experiment) and have a lot of white space that could be used to display useful info.
+- [x] 43. **Add more summary information for experiment overview** Add a mini map of fields, start and end dates, farmer name, farm name.)
+- [x] 44. **Projects are linked to experiments not to farms** Instead of linking farms to projects, link experiments to projects
 
+- [ ] 45. **Make Activity reports project based** Currently, the Activity reports page allows the user to add an arbitrary subscription name, and then the user selects which farmers to get information about, however, it should be restructured so the user selects the project to receive info on, then that project provides both the name (project name) and the farmers who's activities will be reported (All farmers associated with that project)
+- [ ] 46. Merge video implementation and whatsapp handling changes from [remote](https://github.com/DigitAgforOFE/FDL_Dashboard)
+
+
+- [ ] Capability to delete any field when delete mode is on (currently no way to delete lab member, treatments, crops, drones.)
+- [ ] Add download button for data files to the page
+- [ ] 
 
 
 

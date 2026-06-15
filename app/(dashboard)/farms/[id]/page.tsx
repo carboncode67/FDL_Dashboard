@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
-import { canEdit, canDelete, type Role } from "@/lib/roles";
+import { canCreate, canEdit, canDelete, type Role } from "@/lib/roles";
 import { DeleteFarmButton } from "./delete-button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,7 @@ import ReactMarkdown from "react-markdown";
 import { FarmExperimentsTab } from "@/components/farm-experiments-tab";
 import { FieldBoundaryUpload } from "@/components/field-boundary-upload";
 import { DocumentUpload } from "@/components/document-upload";
+import { AddContactButton } from "@/components/add-contact-button";
 
 const STATUS_LABELS: Record<number, { label: string; variant: "default" | "secondary" | "outline" }> = {
   1: { label: "Unassigned", variant: "outline" },
@@ -38,6 +39,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
 
   const [session, editMode] = await Promise.all([auth(), getEditMode()]);
   const role = (session?.user?.role ?? "viewer") as Role;
+  const showCreate = canCreate(role);
   const showEdit = canEdit(role);
   const showDelete = canDelete(role, editMode);
 
@@ -90,6 +92,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
       where: { farm_id: farmId },
       orderBy: { id: "asc" },
       include: {
+        Project:               { select: { id: true, Project_Name: true, Status: true, Year_Started: true } },
         ExperimentTests:        { include: { Test:      { select: { id: true, Test_Name: true } } } },
         ExperimentDroneFlights: { include: { Drone:     { select: { id: true, Name: true } } } },
         ExperimentTreatments:   { include: { Treatment: { select: { id: true, Treatment_Name: true } } } },
@@ -106,6 +109,14 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
   const availableProjects = allProjects
     .filter((p) => !linkedProjectIds.has(p.id))
     .map((p) => ({ id: p.id, name: p.Project_Name ?? `Project #${p.id}` }));
+
+  const linkedProjects = [
+    ...new Map(
+      farmExperiments
+        .filter((e) => e.project_id && e.Project)
+        .map((e) => [e.project_id, e.Project!])
+    ).values(),
+  ];
 
   // Build merged upload list for the Data Uploads tab table
   type UploadRow = {
@@ -200,6 +211,45 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
 
   const totalUploads = uploadRows.length;
 
+  const mappedExperiments = farmExperiments.map((fe) => ({
+    id: fe.id,
+    experiment_name: fe.experiment_name,
+    start_date: fe.start_date?.toISOString() ?? null,
+    end_date: fe.end_date?.toISOString() ?? null,
+    hypothesis: fe.hypothesis,
+    experiment_desc: fe.experiment_desc,
+    measurements: fe.measurements,
+    criteria: fe.criteria,
+    lab_description: fe.lab_description,
+    tests: fe.ExperimentTests.map((et) => ({
+      id: et.id,
+      test_id: et.test_id,
+      test_name: et.Test.Test_Name,
+      n_samples: et.n_samples,
+      expected_date: et.expected_date?.toISOString() ?? null,
+      status: et.status ?? null,
+    })),
+    drones: fe.ExperimentDroneFlights.map((ed) => ({
+      id: ed.id,
+      drone_id: ed.drone_id,
+      drone_name: ed.Drone.Name,
+      n_flights: ed.n_flights,
+      expected_date: ed.expected_date?.toISOString() ?? null,
+      status: ed.status ?? null,
+    })),
+    treatments: fe.ExperimentTreatments.map((et) => ({
+      treatment_id:   et.treatment_id,
+      treatment_name: et.Treatment.Treatment_Name,
+      is_continuous:  et.is_continuous,
+      rate:           et.rate !== null ? Number(et.rate) : null,
+      rate_unit:      et.rate_unit ?? null,
+    })),
+    field_ids: fe.ExperimentFields.map((ef) => ef.field_id),
+  }));
+
+  const farmFieldNames = farm.Fields.map((f) => ({ id: f.id, name: f.Name }));
+  const fieldGeometries = farm.Fields.map((f) => ({ id: f.id, geometry: f.geometry ?? null }));
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
@@ -236,44 +286,129 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
 
         {/* ── Overview ── */}
         <TabsContent value="overview" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Farm Details</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-slate-500">Farm Name</span><p className="font-medium mt-0.5">{farm.Farm_Name ?? "—"}</p></div>
-                <div><span className="text-slate-500">Farmer Name</span><p className="font-medium mt-0.5">{primaryContact?.name ?? "—"}</p></div>
-                <div><span className="text-slate-500">County</span><p className="font-medium mt-0.5">{farm.County ?? "—"}</p></div>
-                <div><span className="text-slate-500">State</span><p className="font-medium mt-0.5">{farm.State ?? "—"}</p></div>
-                <div><span className="text-slate-500">Phone</span><p className="font-medium mt-0.5">{primaryContact?.phone ?? "—"}</p></div>
-                <div><span className="text-slate-500">Email</span><p className="font-medium mt-0.5">{primaryContact?.email ?? "—"}</p></div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Farm details + linked projects side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Farm Details</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div><span className="text-slate-500">Farm Name</span><p className="font-medium mt-0.5">{farm.Farm_Name ?? "—"}</p></div>
+                  <div><span className="text-slate-500">Farmer Name</span><p className="font-medium mt-0.5">{primaryContact?.name ?? "—"}</p></div>
+                  <div><span className="text-slate-500">Phone</span><p className="font-medium mt-0.5">{primaryContact?.phone ?? "—"}</p></div>
+                  <div><span className="text-slate-500">Email</span><p className="font-medium mt-0.5">{primaryContact?.email ?? "—"}</p></div>
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Linked Experiments ({farm.ProjectFarms.length})</CardTitle>
-              <RelationPicker label="Project" options={availableProjects} apiPath={`/api/farms/${farm.id}/projects`} />
-            </CardHeader>
-            <CardContent>
-              {farm.ProjectFarms.length === 0 ? (
-                <p className="text-sm text-slate-500">No experiments linked</p>
-              ) : (
-                <Table>
-                  <TableHeader><TableRow><TableHead>Project Name</TableHead><TableHead>Status</TableHead><TableHead>Year Started</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {farm.ProjectFarms.map((pf) => (
-                      <TableRow key={pf.Projects_id}>
-                        <TableCell><Link href={`/projects/${pf.Project.id}`} className="text-blue-600 hover:underline">{pf.Project.Project_Name ?? `Project #${pf.Project.id}`}</Link></TableCell>
-                        <TableCell><Badge variant={pf.Project.Status === "Active" ? "default" : "secondary"}>{pf.Project.Status ?? "—"}</Badge></TableCell>
-                        <TableCell>{pf.Project.Year_Started ?? "—"}</TableCell>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Linked Projects ({linkedProjects.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {linkedProjects.length === 0 ? (
+                  <p className="text-sm text-slate-500">No projects linked — assign an experiment to a project to link it here.</p>
+                ) : (
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Project Name</TableHead><TableHead>Status</TableHead><TableHead>Year Started</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                      {linkedProjects.map((proj) => (
+                        <TableRow key={proj.id}>
+                          <TableCell><Link href={`/projects/${proj.id}`} className="text-blue-600 hover:underline">{proj.Project_Name ?? `Project #${proj.id}`}</Link></TableCell>
+                          <TableCell><Badge variant={proj.Status === "Active" ? "default" : "secondary"}>{proj.Status ?? "—"}</Badge></TableCell>
+                          <TableCell>{proj.Year_Started ?? "—"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Planned Activities — all upcoming tests/drones across all experiments */}
+          {(() => {
+            const allActivities = mappedExperiments.flatMap((exp) => [
+              ...exp.tests
+                .filter((t) => t.expected_date)
+                .map((t) => ({
+                  type: "Test",
+                  name: t.test_name ?? `Test #${t.test_id}`,
+                  experiment: exp.experiment_name ?? `Experiment #${exp.id}`,
+                  experiment_id: exp.id,
+                  expected_date: t.expected_date!,
+                  status: t.status,
+                })),
+              ...exp.drones
+                .filter((d) => d.expected_date)
+                .map((d) => ({
+                  type: "Drone Flight",
+                  name: d.drone_name ?? `Drone #${d.drone_id}`,
+                  experiment: exp.experiment_name ?? `Experiment #${exp.id}`,
+                  experiment_id: exp.id,
+                  expected_date: d.expected_date!,
+                  status: d.status,
+                })),
+            ]).sort((a, b) => a.expected_date.localeCompare(b.expected_date));
+
+            if (allActivities.length === 0) return null;
+            return (
+              <Card>
+                <CardHeader><CardTitle className="text-base">Planned Activities</CardTitle></CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Activity</TableHead>
+                        <TableHead>Experiment</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Status</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {allActivities.map((a, i) => (
+                        <TableRow key={i}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">{a.type}</Badge>
+                              <span className="font-medium text-sm">{a.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Link href={`/farms/${farm.id}/experiments/${a.experiment_id}`} className="text-blue-600 hover:underline text-sm">
+                              {a.experiment}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-sm">{new Date(a.expected_date).toLocaleDateString()}</TableCell>
+                          <TableCell>{a.status ? <Badge variant="secondary" className="text-xs">{a.status}</Badge> : <span className="text-slate-400 text-xs">—</span>}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
+          {/* Experiment summary cards (compact) */}
+          {farmExperiments.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-slate-700">Experiments</h3>
+                <Link href={`/farms/${farm.id}/experiments/new`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+                  + Add Experiment
+                </Link>
+              </div>
+              <FarmExperimentsTab
+                farmId={farm.id}
+                experiments={mappedExperiments}
+                farmFieldNames={farmFieldNames}
+                farmName={farm.Farm_Name}
+                farmerName={primaryContact?.name ?? null}
+                fieldGeometries={fieldGeometries}
+                compact
+              />
+            </div>
+          )}
 
           <FarmMap
             fields={farm.Fields.map((f) => ({
@@ -300,9 +435,9 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Contacts</CardTitle>
-              <Link href={`/contacts/new`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-                + New Contact
-              </Link>
+              {showCreate && (
+                <AddContactButton farmId={farm.id} farmName={farm.Farm_Name} />
+              )}
             </CardHeader>
             <CardContent>
               {farm.Contacts.length === 0 ? (
@@ -365,41 +500,11 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
         <TabsContent value="experiments" className="mt-4">
           <FarmExperimentsTab
             farmId={farm.id}
-            experiments={farmExperiments.map((fe) => ({
-              id: fe.id,
-              experiment_name: fe.experiment_name,
-              start_date: fe.start_date?.toISOString() ?? null,
-              hypothesis: fe.hypothesis,
-              experiment_desc: fe.experiment_desc,
-              measurements: fe.measurements,
-              criteria: fe.criteria,
-              lab_description: fe.lab_description,
-              tests: fe.ExperimentTests.map((et) => ({
-                id: et.id,
-                test_id: et.test_id,
-                test_name: et.Test.Test_Name,
-                n_samples: et.n_samples,
-                expected_date: et.expected_date?.toISOString() ?? null,
-                status: et.status ?? null,
-              })),
-              drones: fe.ExperimentDroneFlights.map((ed) => ({
-                id: ed.id,
-                drone_id: ed.drone_id,
-                drone_name: ed.Drone.Name,
-                n_flights: ed.n_flights,
-                expected_date: ed.expected_date?.toISOString() ?? null,
-                status: ed.status ?? null,
-              })),
-              treatments: fe.ExperimentTreatments.map((et) => ({
-                treatment_id:   et.treatment_id,
-                treatment_name: et.Treatment.Treatment_Name,
-                is_continuous:  et.is_continuous,
-                rate:           et.rate !== null ? Number(et.rate) : null,
-                rate_unit:      et.rate_unit ?? null,
-              })),
-              field_ids: fe.ExperimentFields.map((ef) => ef.field_id),
-            }))}
-            farmFieldNames={farm.Fields.map((f) => ({ id: f.id, name: f.Name }))}
+            experiments={mappedExperiments}
+            farmFieldNames={farmFieldNames}
+            farmName={farm.Farm_Name}
+            farmerName={primaryContact?.name ?? null}
+            fieldGeometries={fieldGeometries}
           />
         </TabsContent>
 

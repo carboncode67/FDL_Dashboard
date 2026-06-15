@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
+import { ExperimentFieldsMapWrapper } from "@/components/experiment-fields-map-wrapper";
 
 export type ExperimentTestItem = {
   id: number;
@@ -38,6 +39,7 @@ export type ExperimentData = {
   id: number;
   experiment_name: string | null;
   start_date:      string | null;
+  end_date:        string | null;
   hypothesis:      string | null;
   experiment_desc: string | null;
   measurements:    string | null;
@@ -50,21 +52,34 @@ export type ExperimentData = {
 };
 
 type FieldName = { id: number; name: string | null };
+type FieldGeometry = { id: number; geometry: string | null };
 
 interface Props {
-  farmId:         number;
-  experiments:    ExperimentData[];
-  farmFieldNames: FieldName[];
+  farmId:          number;
+  experiments:     ExperimentData[];
+  farmFieldNames:  FieldName[];
+  farmName?:       string | null;
+  farmerName?:     string | null;
+  fieldGeometries?: FieldGeometry[];
+  compact?:        boolean;
 }
 
 function ExperimentCard({
   farmId,
   experiment,
   farmFieldNames,
+  farmName,
+  farmerName,
+  fieldGeometries = [],
+  compact = false,
 }: {
-  farmId: number;
-  experiment: ExperimentData;
-  farmFieldNames: FieldName[];
+  farmId:          number;
+  experiment:      ExperimentData;
+  farmFieldNames:  FieldName[];
+  farmName?:       string | null;
+  farmerName?:     string | null;
+  fieldGeometries?: FieldGeometry[];
+  compact?:        boolean;
 }) {
   const hasData = !!(
     experiment.experiment_name ||
@@ -101,6 +116,18 @@ function ExperimentCard({
             <p className="text-sm text-slate-500 italic">No experiment info yet.</p>
           ) : (
             <div className="grid grid-cols-2 gap-4 text-sm">
+              {farmName && (
+                <div>
+                  <span className="text-slate-500">Farm</span>
+                  <p className="font-medium mt-0.5">{farmName}</p>
+                </div>
+              )}
+              {farmerName && (
+                <div>
+                  <span className="text-slate-500">Farmer</span>
+                  <p className="font-medium mt-0.5">{farmerName}</p>
+                </div>
+              )}
               <div>
                 <span className="text-slate-500">Start Date</span>
                 <p className="font-medium mt-0.5">
@@ -109,6 +136,12 @@ function ExperimentCard({
                     : "—"}
                 </p>
               </div>
+              {experiment.end_date && (
+                <div>
+                  <span className="text-slate-500">End Date</span>
+                  <p className="font-medium mt-0.5">{new Date(experiment.end_date).toLocaleDateString()}</p>
+                </div>
+              )}
               {experiment.hypothesis && (
                 <div className="col-span-2">
                   <span className="text-slate-500">Hypothesis</span>
@@ -141,11 +174,22 @@ function ExperimentCard({
               )}
             </div>
           )}
+          {(() => {
+            const linkedGeometries = fieldGeometries.filter(
+              (fg) => experiment.field_ids.includes(fg.id) && fg.geometry
+            );
+            if (linkedGeometries.length === 0) return null;
+            return (
+              <div className="mt-4">
+                <ExperimentFieldsMapWrapper fields={linkedGeometries} />
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
-      {/* Lab Design */}
-      {(experiment.lab_description || experiment.tests.length > 0 || experiment.drones.length > 0 || experiment.treatments.length > 0) && (
+      {/* Lab Design — hidden in compact/overview mode */}
+      {!compact && (experiment.lab_description || experiment.tests.length > 0 || experiment.drones.length > 0 || experiment.treatments.length > 0) && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Lab Design</CardTitle>
@@ -222,17 +266,19 @@ function ExperimentCard({
   );
 }
 
-export function FarmExperimentsTab({ farmId, experiments, farmFieldNames }: Props) {
+export function FarmExperimentsTab({ farmId, experiments, farmFieldNames, farmName, farmerName, fieldGeometries, compact }: Props) {
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Link
-          href={`/farms/${farmId}/experiments/new`}
-          className={cn(buttonVariants({ size: "sm" }))}
-        >
-          <Plus className="h-4 w-4 mr-1" /> Add Experiment
-        </Link>
-      </div>
+      {!compact && (
+        <div className="flex justify-end">
+          <Link
+            href={`/farms/${farmId}/experiments/new`}
+            className={cn(buttonVariants({ size: "sm" }))}
+          >
+            <Plus className="h-4 w-4 mr-1" /> Add Experiment
+          </Link>
+        </div>
+      )}
 
       {experiments.length === 0 ? (
         <Card>
@@ -241,13 +287,17 @@ export function FarmExperimentsTab({ farmId, experiments, farmFieldNames }: Prop
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {experiments.map((exp) => (
             <ExperimentCard
               key={exp.id}
               farmId={farmId}
               experiment={exp}
               farmFieldNames={farmFieldNames}
+              farmName={farmName}
+              farmerName={farmerName}
+              fieldGeometries={fieldGeometries}
+              compact={compact}
             />
           ))}
         </div>
