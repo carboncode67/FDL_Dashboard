@@ -439,6 +439,8 @@ model LabMemberUpload {
   category       String?   @db.VarChar(100)
   description    String?
   received_at    DateTime  @default(now())
+  ticket_ref     String?
+  farmer_name    String?
 
   LabMember LabMember? @relation(fields: [lab_member_id], references: [id])
   Farm      Farm?      @relation(fields: [farm_id], references: [id])

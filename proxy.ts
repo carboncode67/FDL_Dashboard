@@ -11,10 +11,12 @@ export default auth((req) => {
   // These endpoints are called by external services (OFEDashBot) and must
   // not require a browser session. Upload and file-serving are already here;
   // contacts (token resolution) and whatsapp/send (send-message bridge) are added.
-  const isMobileApi = nextUrl.pathname.startsWith("/api/upload")    ||
-                      nextUrl.pathname.startsWith("/api/files")     ||
-                      nextUrl.pathname.startsWith("/api/contacts")  ||
-                      nextUrl.pathname.startsWith("/api/whatsapp");
+  const isMobileApi = nextUrl.pathname.startsWith("/api/upload")             ||
+                      nextUrl.pathname.startsWith("/api/files")              ||
+                      nextUrl.pathname.startsWith("/api/contacts")           ||
+                      nextUrl.pathname.startsWith("/api/whatsapp")           ||
+                      nextUrl.pathname.startsWith("/api/lab-members")        ||
+                      nextUrl.pathname.startsWith("/api/lab-member-upload");
 
   if (isApiAuth || isMobileApi) return NextResponse.next();
   if (isAuthPage) {

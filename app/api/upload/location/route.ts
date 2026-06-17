@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { name = null, track_data, start_time = "", end_time = "" } = body;
+    const { name = null, track_data, start_time = "", end_time = "", ticket_ref = "" } = body;
 
     const dir = path.join(DATA_DIR, "locations");
     fs.mkdirSync(dir, { recursive: true });

@@ -62,6 +62,7 @@ export async function POST(request: Request) {
           note: note || null,
           timestamp: timestamp ? new Date(timestamp) : null,
           status: 2,
+          ticket_ref: ticket_ref || null,
         },
       });
     }
