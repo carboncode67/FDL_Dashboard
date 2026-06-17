@@ -2,7 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { TestForm } from "@/components/forms/test-form";
+import { TestSchemaBuilder } from "@/components/test-schema-builder";
 import Link from "next/link";
+
+type Column = { col_index: number; field_type: "text" | "number"; label: string };
 
 interface Props {
   test: {
@@ -13,9 +16,10 @@ interface Props {
     Methodology: string | null;
     Data_Processing_Instructions: string | null;
   };
+  fieldDefs: Column[];
 }
 
-export default function EditTestClient({ test }: Props) {
+export default function EditTestClient({ test, fieldDefs }: Props) {
   const router = useRouter();
   return (
     <div className="max-w-2xl space-y-6">
@@ -29,6 +33,10 @@ export default function EditTestClient({ test }: Props) {
       </div>
       <div className="bg-white border rounded-lg p-6">
         <TestForm testId={test.id} initialData={test} onSuccess={() => router.push("/tests")} />
+      </div>
+      <div className="bg-white border rounded-lg p-6 space-y-3">
+        <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Data Template</h3>
+        <TestSchemaBuilder testId={test.id} initialColumns={fieldDefs} />
       </div>
     </div>
   );

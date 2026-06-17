@@ -10,9 +10,15 @@ import { Plus, X } from "lucide-react";
 import FieldSelectorMapWrapper from "@/components/field-selector-map-wrapper";
 import { FieldBoundaryUpload } from "@/components/field-boundary-upload";
 
+type FieldDef = { id: number; col_index: number; field_type: string; label: string };
 type TestOption      = { id: number; Test_Name: string | null };
 type DroneOption     = { id: number; Name: string | null };
-type TreatmentOption = { id: number; Treatment_Name: string | null };
+type TreatmentOption = {
+  id:               number;
+  Treatment_Name:   string | null;
+  allow_extra_rows: boolean;
+  TreatmentFieldDefinitions: FieldDef[];
+};
 type FarmField       = { id: number; Name: string | null; geometry: string | null };
 type ProjectOption   = { id: number; Project_Name: string | null };
 
@@ -21,6 +27,7 @@ const ASSIGNMENT_STATUSES = ["Planned", "Collected", "Completed", "Cancelled"] a
 type TestRow      = { test_id: number; n_samples: string; expected_date: string; status: string };
 type DroneRow     = { drone_id: number; n_flights: string; expected_date: string; status: string };
 type TreatmentRow = { treatment_id: number; is_continuous: boolean; rate: string; rate_unit: string };
+type TreatmentValueRow = { treatment_id: number; field_def_id: number; row_index: number; value: string };
 
 interface Props {
   farmId:       number;
@@ -40,6 +47,7 @@ interface Props {
     drones:     { drone_id: number; n_flights: number | null; expected_date: string | null; status: string | null }[];
     treatments: { treatment_id: number; is_continuous: boolean; rate: number | null; rate_unit: string | null }[];
     field_ids:  number[];
+    treatmentValues: TreatmentValueRow[];
   } | null;
   allTests:      TestOption[];
   allDrones:     DroneOption[];
@@ -101,6 +109,10 @@ export default function ExperimentFormClient({
       : []
   );
 
+  const [treatmentValues, setTreatmentValues] = useState<TreatmentValueRow[]>(
+    experiment?.treatmentValues ?? []
+  );
+
   const [selectedFieldIds, setSelectedFieldIds] = useState<Set<number>>(
     new Set(experiment?.field_ids ?? [])
   );
@@ -112,6 +124,58 @@ export default function ExperimentFormClient({
       else next.add(id);
       return next;
     });
+  }
+
+  function getTreatmentOption(treatmentId: number): TreatmentOption | undefined {
+    return allTreatments.find((t) => t.id === treatmentId);
+  }
+
+  function seedInitialValueRow(treatmentId: number, fieldDefs: FieldDef[]) {
+    if (fieldDefs.length === 0) return;
+    setTreatmentValues((prev) => {
+      const hasRows = prev.some((v) => v.treatment_id === treatmentId);
+      if (hasRows) return prev;
+      return [
+        ...prev,
+        ...fieldDefs.map((def) => ({ treatment_id: treatmentId, field_def_id: def.id, row_index: 0, value: "" })),
+      ];
+    });
+  }
+
+  function addValueRow(treatmentId: number, fieldDefs: FieldDef[]) {
+    const existingRows = treatmentValues.filter((v) => v.treatment_id === treatmentId);
+    const maxRow = existingRows.length > 0 ? Math.max(...existingRows.map((v) => v.row_index)) : -1;
+    const newRowIndex = maxRow + 1;
+    const newRows: TreatmentValueRow[] = fieldDefs.map((def) => ({
+      treatment_id: treatmentId,
+      field_def_id: def.id,
+      row_index:    newRowIndex,
+      value:        "",
+    }));
+    setTreatmentValues((prev) => [...prev, ...newRows]);
+  }
+
+  function removeValueRow(treatmentId: number, rowIndex: number) {
+    setTreatmentValues((prev) =>
+      prev
+        .filter((v) => !(v.treatment_id === treatmentId && v.row_index === rowIndex))
+        .map((v) => {
+          if (v.treatment_id === treatmentId && v.row_index > rowIndex) {
+            return { ...v, row_index: v.row_index - 1 };
+          }
+          return v;
+        })
+    );
+  }
+
+  function updateValueCell(treatmentId: number, rowIndex: number, fieldDefId: number, value: string) {
+    setTreatmentValues((prev) =>
+      prev.map((v) =>
+        v.treatment_id === treatmentId && v.row_index === rowIndex && v.field_def_id === fieldDefId
+          ? { ...v, value }
+          : v
+      )
+    );
   }
 
   const fieldsWithGeometry = farmFields.filter((f) => f.geometry);
@@ -161,6 +225,9 @@ export default function ExperimentFormClient({
               rate:          r.rate ? parseFloat(r.rate) : null,
               rate_unit:     r.rate_unit || null,
             })),
+          treatmentValues: treatmentValues.filter((v) =>
+            treatmentRows.some((r) => r.treatment_id === v.treatment_id)
+          ),
           field_ids: Array.from(selectedFieldIds),
         }),
       });
@@ -391,76 +458,148 @@ export default function ExperimentFormClient({
           {/* Farm Level Treatments */}
           <div className="space-y-2">
             <Label>Farm Level Treatments</Label>
-            {treatmentRows.map((row, i) => (
-              <div key={i} className="flex gap-2 items-center flex-wrap border rounded-md p-2 bg-slate-50">
-                <select
-                  className={`flex-1 min-w-36 ${SELECT}`}
-                  value={row.treatment_id}
-                  onChange={(e) => {
-                    const updated = [...treatmentRows];
-                    updated[i] = { ...updated[i], treatment_id: parseInt(e.target.value) };
-                    setTreatmentRows(updated);
-                  }}
-                >
-                  {allTreatments.map((t) => (
-                    <option key={t.id} value={t.id}>{t.Treatment_Name ?? `Treatment #${t.id}`}</option>
-                  ))}
-                </select>
-                <select
-                  className={`w-36 ${SELECT}`}
-                  value={row.is_continuous ? "continuous" : "categorical"}
-                  onChange={(e) => {
-                    const updated = [...treatmentRows];
-                    updated[i] = { ...updated[i], is_continuous: e.target.value === "continuous" };
-                    setTreatmentRows(updated);
-                  }}
-                >
-                  <option value="continuous">Continuous</option>
-                  <option value="categorical">Categorical</option>
-                </select>
-                <Input
-                  type="number"
-                  step="any"
-                  placeholder="Rate"
-                  className="w-24"
-                  value={row.rate}
-                  onChange={(e) => {
-                    const updated = [...treatmentRows];
-                    updated[i] = { ...updated[i], rate: e.target.value };
-                    setTreatmentRows(updated);
-                  }}
-                />
-                <Input
-                  placeholder="Unit"
-                  className="w-24"
-                  value={row.rate_unit}
-                  onChange={(e) => {
-                    const updated = [...treatmentRows];
-                    updated[i] = { ...updated[i], rate_unit: e.target.value };
-                    setTreatmentRows(updated);
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setTreatmentRows(treatmentRows.filter((_, idx) => idx !== i))}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+            {treatmentRows.map((row, i) => {
+              const option         = getTreatmentOption(row.treatment_id);
+              const fieldDefs      = option?.TreatmentFieldDefinitions ?? [];
+              const allowExtraRows = option?.allow_extra_rows ?? false;
+              const rowValues      = treatmentValues.filter((v) => v.treatment_id === row.treatment_id);
+              const rowIndices     = [...new Set(rowValues.map((v) => v.row_index))].sort((a, b) => a - b);
+
+              return (
+                <div key={i} className="border rounded-md p-3 bg-slate-50 space-y-2">
+                  <div className="flex gap-2 items-center flex-wrap">
+                    <select
+                      className={`flex-1 min-w-36 ${SELECT}`}
+                      value={row.treatment_id}
+                      onChange={(e) => {
+                        const newId  = parseInt(e.target.value);
+                        const newOpt = allTreatments.find((t) => t.id === newId);
+                        const updated = [...treatmentRows];
+                        updated[i] = { ...updated[i], treatment_id: newId };
+                        setTreatmentRows(updated);
+                        setTreatmentValues((prev) => prev.filter((v) => v.treatment_id !== row.treatment_id));
+                        if (newOpt && newOpt.TreatmentFieldDefinitions.length > 0) {
+                          seedInitialValueRow(newId, newOpt.TreatmentFieldDefinitions);
+                        }
+                      }}
+                    >
+                      {allTreatments.map((t) => (
+                        <option key={t.id} value={t.id}>{t.Treatment_Name ?? `Treatment #${t.id}`}</option>
+                      ))}
+                    </select>
+                    <select
+                      className={`w-36 ${SELECT}`}
+                      value={row.is_continuous ? "continuous" : "categorical"}
+                      onChange={(e) => {
+                        const updated = [...treatmentRows];
+                        updated[i] = { ...updated[i], is_continuous: e.target.value === "continuous" };
+                        setTreatmentRows(updated);
+                      }}
+                    >
+                      <option value="continuous">Continuous</option>
+                      <option value="categorical">Categorical</option>
+                    </select>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="Rate"
+                      className="w-24"
+                      value={row.rate}
+                      onChange={(e) => {
+                        const updated = [...treatmentRows];
+                        updated[i] = { ...updated[i], rate: e.target.value };
+                        setTreatmentRows(updated);
+                      }}
+                    />
+                    <Input
+                      placeholder="Unit"
+                      className="w-24"
+                      value={row.rate_unit}
+                      onChange={(e) => {
+                        const updated = [...treatmentRows];
+                        updated[i] = { ...updated[i], rate_unit: e.target.value };
+                        setTreatmentRows(updated);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setTreatmentRows(treatmentRows.filter((_, idx) => idx !== i));
+                        setTreatmentValues((prev) => prev.filter((v) => v.treatment_id !== row.treatment_id));
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Template value rows */}
+                  {fieldDefs.length > 0 && (
+                    <div className="ml-2 space-y-1">
+                      {/* Column headers */}
+                      <div className="flex gap-2 text-xs font-medium text-slate-500 pb-0.5">
+                        {fieldDefs.map((def) => (
+                          <span key={def.id} className="flex-1 min-w-20">{def.label}</span>
+                        ))}
+                        <span className="w-7" />
+                      </div>
+                      {/* Value rows */}
+                      {rowIndices.map((ri) => (
+                        <div key={ri} className="flex gap-2 items-center">
+                          {fieldDefs.map((def) => {
+                            const cell = rowValues.find((v) => v.field_def_id === def.id && v.row_index === ri);
+                            return (
+                              <Input
+                                key={def.id}
+                                type={def.field_type === "number" ? "number" : "text"}
+                                step="any"
+                                className="flex-1 min-w-20 h-8 text-sm"
+                                value={cell?.value ?? ""}
+                                onChange={(e) => updateValueCell(row.treatment_id, ri, def.id, e.target.value)}
+                              />
+                            );
+                          })}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => removeValueRow(row.treatment_id, ri)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                      {allowExtraRows && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => addValueRow(row.treatment_id, fieldDefs)}
+                        >
+                          <Plus className="h-3 w-3 mr-1" /> Add Row
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {allTreatments.length > 0 && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() =>
+                onClick={() => {
+                  const first = allTreatments[0];
                   setTreatmentRows([
                     ...treatmentRows,
-                    { treatment_id: allTreatments[0].id, is_continuous: true, rate: "", rate_unit: "" },
-                  ])
-                }
+                    { treatment_id: first.id, is_continuous: true, rate: "", rate_unit: "" },
+                  ]);
+                  seedInitialValueRow(first.id, first.TreatmentFieldDefinitions);
+                }}
               >
                 <Plus className="h-3.5 w-3.5 mr-1" /> Add Treatment
               </Button>

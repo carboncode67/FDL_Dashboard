@@ -3,9 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
 import { resolveFarmId, findFieldAndFarmByLocation, findFieldByLocation, firstPointFromGeoJSON } from "@/lib/proximity";
 import fs from "fs";
-import { pipeline } from "stream/promises";
 import { Readable } from "stream";
 import path from "path";
+import Busboy from "busboy";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -17,25 +17,78 @@ export async function POST(request: Request) {
   if ("error" in auth) return auth.error;
 
   try {
-    const formData = await request.formData();
-    const file = formData.get("file") as File | null;
-    const startTime = (formData.get("startTime") as string) ?? "";
-    const endTime = (formData.get("endTime") as string) ?? "";
-    const ticket_ref = (formData.get("ticket_ref") as string) ?? "";
-    const gpsTrack = (formData.get("gpsTrack") as string) ?? "";
+    const contentType = request.headers.get("content-type") ?? "";
+    if (!contentType.includes("multipart/form-data")) {
+      return NextResponse.json({ error: "Expected multipart/form-data" }, { status: 400 });
+    }
 
-    if (!file || file.size === 0) {
-      return NextResponse.json({ error: "No audio file received" }, { status: 400 });
+    if (!request.body) {
+      return NextResponse.json({ error: "No request body" }, { status: 400 });
     }
 
     const dir = path.join(DATA_DIR, "recordings");
     fs.mkdirSync(dir, { recursive: true });
 
-    const filename = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-    await pipeline(
-      Readable.fromWeb(file.stream() as Parameters<typeof Readable.fromWeb>[0]),
-      fs.createWriteStream(path.join(dir, filename))
-    );
+    const { fields, filename } = await new Promise<{
+      fields: Record<string, string>;
+      filename: string | null;
+    }>((resolve, reject) => {
+      const bb = Busboy({
+        headers: { "content-type": contentType },
+        limits: { fieldSize: 10 * 1024 * 1024 }, // 10 MB for gpsTrack field
+      });
+
+      const fields: Record<string, string> = {};
+      let filename: string | null = null;
+      let fileWritePromise: Promise<void> | null = null;
+
+      bb.on("file", (_fieldname, fileStream, info) => {
+        filename = `${Date.now()}_${info.filename.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const writeStream = fs.createWriteStream(path.join(dir, filename));
+        fileStream.pipe(writeStream);
+        fileWritePromise = new Promise<void>((res, rej) => {
+          writeStream.on("finish", res);
+          writeStream.on("error", rej);
+          fileStream.on("error", rej);
+        });
+      });
+
+      bb.on("field", (name, value) => {
+        fields[name] = value;
+      });
+
+      bb.on("finish", async () => {
+        try {
+          if (fileWritePromise) await fileWritePromise;
+          resolve({ fields, filename });
+        } catch (err) {
+          reject(err);
+        }
+      });
+
+      bb.on("error", reject);
+
+      Readable.fromWeb(
+        request.body as Parameters<typeof Readable.fromWeb>[0]
+      ).pipe(bb);
+    });
+
+    if (!filename) {
+      console.error("[upload/recording] 400: no file field in multipart body");
+      return NextResponse.json({ error: "No audio file received" }, { status: 400 });
+    }
+
+    const stat = fs.statSync(path.join(dir, filename));
+    if (stat.size === 0) {
+      fs.unlinkSync(path.join(dir, filename));
+      console.error("[upload/recording] 400: empty file received:", filename);
+      return NextResponse.json({ error: "Empty audio file received" }, { status: 400 });
+    }
+
+    const startTime = fields.startTime ?? "";
+    const endTime = fields.endTime ?? "";
+    const ticket_ref = fields.ticket_ref ?? "";
+    const gpsTrack = fields.gpsTrack ?? "";
 
     let gpsFilename: string | null = null;
     if (gpsTrack) {

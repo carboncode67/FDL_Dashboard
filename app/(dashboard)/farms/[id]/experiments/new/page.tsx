@@ -10,7 +10,15 @@ export default async function NewExperimentPage({ params }: { params: Promise<{ 
     prisma.farm.findUnique({ where: { id: farmId }, select: { id: true, Farm_Name: true } }),
     prisma.test.findMany({ select: { id: true, Test_Name: true }, orderBy: { Test_Name: "asc" } }),
     prisma.drone.findMany({ select: { id: true, Name: true }, orderBy: { Name: "asc" } }),
-    prisma.treatment.findMany({ select: { id: true, Treatment_Name: true }, orderBy: { Treatment_Name: "asc" } }),
+    prisma.treatment.findMany({
+      select: {
+        id:               true,
+        Treatment_Name:   true,
+        allow_extra_rows: true,
+        TreatmentFieldDefinitions: { orderBy: { col_index: "asc" } },
+      },
+      orderBy: { Treatment_Name: "asc" },
+    }),
     prisma.project.findMany({ select: { id: true, Project_Name: true }, orderBy: { Project_Name: "asc" } }),
     prisma.field.findMany({
       where: { Farms_id: farmId },

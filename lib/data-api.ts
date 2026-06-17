@@ -67,6 +67,24 @@ function fName(f: { Farm_Name?: string | null; title?: string | null } | null): 
   return f?.Farm_Name ?? f?.title ?? null;
 }
 
+// Resolve project for an upload: direct project_id takes precedence; fall back
+// to the farm's project via FarmExperiment / ProjectFarm linkage.
+function resolveProject(
+  directProjectId: number | null,
+  directProject: { Project_Name?: string | null; title?: string | null } | null,
+  farmId: number | null,
+  farmToProject: Map<number, { id: number; name: string | null }>
+): { project_id: number | null; project_name: string | null } {
+  if (directProjectId != null) {
+    return { project_id: directProjectId, project_name: pName(directProject) };
+  }
+  if (farmId != null) {
+    const fp = farmToProject.get(farmId);
+    if (fp) return { project_id: fp.id, project_name: fp.name };
+  }
+  return { project_id: null, project_name: null };
+}
+
 export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpload[]> {
   const typesToInclude = opts.types ?? ([...UPLOAD_TABLES] as UploadTable[]);
 
@@ -75,6 +93,27 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
     ...(opts.farm_id != null && { farm_id: opts.farm_id }),
     ...(opts.status?.length && { status: { in: opts.status } }),
   };
+
+  // Build farm→project fallback map from experiment and direct junction linkages
+  const [farmExpLinks, projectFarmLinks] = await Promise.all([
+    prisma.farmExperiment.findMany({
+      where: { farm_id: { not: null }, project_id: { not: null } },
+      select: { farm_id: true, project_id: true, Project: { select: { Project_Name: true, title: true } } },
+    }),
+    prisma.projectFarm.findMany({
+      select: { Farms_id: true, Projects_id: true, Project: { select: { Project_Name: true, title: true } } },
+    }),
+  ]);
+
+  const farmToProject = new Map<number, { id: number; name: string | null }>();
+  for (const fe of farmExpLinks) {
+    if (!fe.farm_id || !fe.project_id || farmToProject.has(fe.farm_id)) continue;
+    farmToProject.set(fe.farm_id, { id: fe.project_id, name: pName(fe.Project) });
+  }
+  for (const pf of projectFarmLinks) {
+    if (farmToProject.has(pf.Farms_id)) continue;
+    farmToProject.set(pf.Farms_id, { id: pf.Projects_id, name: pName(pf.Project) });
+  }
 
   const [photos, notes, recordings, locations, labUploads] = await Promise.all([
     typesToInclude.includes("photos")
@@ -97,7 +136,7 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
   const results: NormalizedUpload[] = [];
 
   for (const row of photos) {
-    const proj = pName(row.Project);
+    const { project_id, project_name: proj } = resolveProject(row.project_id, row.Project, row.farm_id, farmToProject);
     const farm = fName(row.Farm);
     results.push({
       id: row.id,
@@ -105,7 +144,7 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       type: "photo",
       filename: row.filename,
       content: null,
-      project_id: row.project_id,
+      project_id,
       project_name: proj,
       farm_id: row.farm_id,
       farm_name: farm,
@@ -121,7 +160,7 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
   }
 
   for (const row of notes) {
-    const proj = pName(row.Project);
+    const { project_id, project_name: proj } = resolveProject(row.project_id, row.Project, row.farm_id, farmToProject);
     const farm = fName(row.Farm);
     const filename = `note_${row.id}.txt`;
     results.push({
@@ -130,7 +169,7 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       type: "note",
       filename,
       content: row.content,
-      project_id: row.project_id,
+      project_id,
       project_name: proj,
       farm_id: row.farm_id,
       farm_name: farm,
@@ -146,7 +185,7 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
   }
 
   for (const row of recordings) {
-    const proj = pName(row.Project);
+    const { project_id, project_name: proj } = resolveProject(row.project_id, row.Project, row.farm_id, farmToProject);
     const farm = fName(row.Farm);
     results.push({
       id: row.id,
@@ -154,7 +193,7 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       type: "recording",
       filename: row.filename,
       content: null,
-      project_id: row.project_id,
+      project_id,
       project_name: proj,
       farm_id: row.farm_id,
       farm_name: farm,
@@ -170,7 +209,7 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
   }
 
   for (const row of locations) {
-    const proj = pName(row.Project);
+    const { project_id, project_name: proj } = resolveProject(row.project_id, row.Project, row.farm_id, farmToProject);
     const farm = fName(row.Farm);
     const filename = row.track_filename ?? `location_${row.id}.json`;
     results.push({
@@ -179,7 +218,7 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       type: "location",
       filename,
       content: null,
-      project_id: row.project_id,
+      project_id,
       project_name: proj,
       farm_id: row.farm_id,
       farm_name: farm,
@@ -195,7 +234,7 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
   }
 
   for (const row of labUploads) {
-    const proj = pName(row.Project);
+    const { project_id, project_name: proj } = resolveProject(row.project_id, row.Project, row.farm_id, farmToProject);
     const farm = fName(row.Farm);
     const isNote = row.media_type === "note";
     const filename = isNote ? `note_${row.id}.txt` : (row.filename ?? `upload_${row.id}`);
@@ -205,7 +244,7 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       type: row.media_type,
       filename,
       content: row.content,
-      project_id: row.project_id,
+      project_id,
       project_name: proj,
       farm_id: row.farm_id,
       farm_name: farm,

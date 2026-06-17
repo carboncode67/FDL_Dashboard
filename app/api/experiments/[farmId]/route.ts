@@ -6,6 +6,7 @@ const INCLUDE = {
   ExperimentDroneFlights: { include: { Drone:     { select: { id: true, Name: true } } } },
   ExperimentTreatments:   { include: { Treatment: { select: { id: true, Treatment_Name: true } } } },
   ExperimentFields:       { select: { field_id: true } },
+  ExperimentTreatmentValues: { orderBy: [{ treatment_id: "asc" as const }, { field_def_id: "asc" as const }, { row_index: "asc" as const }] },
 };
 
 export async function GET(_: Request, { params }: { params: Promise<{ farmId: string }> }) {
@@ -26,7 +27,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ farmId:
   const {
     experiment_name, start_date, end_date, project_id, hypothesis, experiment_desc,
     measurements, criteria, lab_description,
-    tests = [], drones = [], treatments = [], field_ids = [],
+    tests = [], drones = [], treatments = [], field_ids = [], treatmentValues = [],
   } = body;
 
   const treatmentCreateData = (treatments as { treatment_id: number; is_continuous?: boolean; rate?: number | null; rate_unit?: string | null }[])
@@ -72,6 +73,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ farmId:
     },
     include: INCLUDE,
   });
+
+  if (treatmentValues.length > 0) {
+    await prisma.experimentTreatmentValue.createMany({
+      data: (treatmentValues as { treatment_id: number; field_def_id: number; row_index: number; value: string }[])
+        .map((v) => ({
+          experiment_id: experiment.id,
+          treatment_id:  v.treatment_id,
+          field_def_id:  v.field_def_id,
+          row_index:     v.row_index,
+          value:         v.value || null,
+        })),
+    });
+  }
 
   return NextResponse.json(experiment, { status: 201 });
 }

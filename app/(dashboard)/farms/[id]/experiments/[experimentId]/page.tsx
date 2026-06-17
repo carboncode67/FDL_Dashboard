@@ -11,7 +11,7 @@ export default async function EditExperimentPage({
   const farmId = parseInt(id);
   const expId  = parseInt(experimentId);
 
-  const [farm, farmExperiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmPhotos, farmNotes, farmLabUps] = await Promise.all([
+  const [farm, farmExperiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmPhotos, farmNotes, farmLabUps, existingValues] = await Promise.all([
     prisma.farm.findUnique({ where: { id: farmId }, select: { id: true, Farm_Name: true } }),
     prisma.farmExperiment.findUnique({
       where: { id: expId },
@@ -24,7 +24,15 @@ export default async function EditExperimentPage({
     }),
     prisma.test.findMany({ select: { id: true, Test_Name: true }, orderBy: { Test_Name: "asc" } }),
     prisma.drone.findMany({ select: { id: true, Name: true }, orderBy: { Name: "asc" } }),
-    prisma.treatment.findMany({ select: { id: true, Treatment_Name: true }, orderBy: { Treatment_Name: "asc" } }),
+    prisma.treatment.findMany({
+      select: {
+        id:               true,
+        Treatment_Name:   true,
+        allow_extra_rows: true,
+        TreatmentFieldDefinitions: { orderBy: { col_index: "asc" } },
+      },
+      orderBy: { Treatment_Name: "asc" },
+    }),
     prisma.project.findMany({ select: { id: true, Project_Name: true }, orderBy: { Project_Name: "asc" } }),
     prisma.field.findMany({
       where: { Farms_id: farmId },
@@ -42,6 +50,10 @@ export default async function EditExperimentPage({
     prisma.labMemberUpload.findMany({
       where: { farm_id: farmId, latitude: { not: null }, longitude: { not: null } },
       select: { id: true, latitude: true, longitude: true },
+    }),
+    prisma.experimentTreatmentValue.findMany({
+      where: { experiment_id: expId },
+      orderBy: [{ treatment_id: "asc" }, { field_def_id: "asc" }, { row_index: "asc" }],
     }),
   ]);
 
@@ -88,6 +100,12 @@ export default async function EditExperimentPage({
           rate_unit:     t.rate_unit ?? null,
         })),
         field_ids: farmExperiment.ExperimentFields.map((ef) => ef.field_id),
+        treatmentValues: existingValues.map((v) => ({
+          treatment_id: v.treatment_id,
+          field_def_id: v.field_def_id,
+          row_index:    v.row_index,
+          value:        v.value ?? "",
+        })),
       }}
       allTests={allTests}
       allDrones={allDrones}

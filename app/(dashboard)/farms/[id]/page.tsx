@@ -95,13 +95,32 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
         Project:               { select: { id: true, Project_Name: true, Status: true, Year_Started: true } },
         ExperimentTests:        { include: { Test:      { select: { id: true, Test_Name: true } } } },
         ExperimentDroneFlights: { include: { Drone:     { select: { id: true, Name: true } } } },
-        ExperimentTreatments:   { include: { Treatment: { select: { id: true, Treatment_Name: true } } } },
-        ExperimentFields:       { select: { field_id: true } },
+        ExperimentTreatments: {
+          include: {
+            Treatment: {
+              select: {
+                id: true,
+                Treatment_Name: true,
+                TreatmentFieldDefinitions: { orderBy: { col_index: "asc" } },
+              },
+            },
+          },
+        },
+        ExperimentFields: { select: { field_id: true } },
       },
     }),
   ]);
 
   if (!farm) notFound();
+
+  const expIds = farmExperiments.map((fe) => fe.id);
+  const allTreatmentValues = expIds.length > 0
+    ? await prisma.experimentTreatmentValue.findMany({
+        where: { experiment_id: { in: expIds } },
+        include: { FieldDef: { select: { id: true, label: true } } },
+        orderBy: [{ treatment_id: "asc" }, { row_index: "asc" }, { field_def_id: "asc" }],
+      })
+    : [];
 
   const primaryContact = farm.Contacts.find((c) => !c.is_lab_member);
 
@@ -237,13 +256,24 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
       expected_date: ed.expected_date?.toISOString() ?? null,
       status: ed.status ?? null,
     })),
-    treatments: fe.ExperimentTreatments.map((et) => ({
-      treatment_id:   et.treatment_id,
-      treatment_name: et.Treatment.Treatment_Name,
-      is_continuous:  et.is_continuous,
-      rate:           et.rate !== null ? Number(et.rate) : null,
-      rate_unit:      et.rate_unit ?? null,
-    })),
+    treatments: fe.ExperimentTreatments.map((et) => {
+      const fieldDefs = et.Treatment.TreatmentFieldDefinitions;
+      const vals      = allTreatmentValues.filter(
+        (v) => v.experiment_id === fe.id && v.treatment_id === et.treatment_id
+      );
+      const rowIdxs = [...new Set(vals.map((v) => v.row_index))].sort((a, b) => a - b);
+      return {
+        treatment_id:   et.treatment_id,
+        treatment_name: et.Treatment.Treatment_Name,
+        is_continuous:  et.is_continuous,
+        rate:           et.rate !== null ? Number(et.rate) : null,
+        rate_unit:      et.rate_unit ?? null,
+        field_columns:  fieldDefs.map((d) => d.label),
+        field_rows:     rowIdxs.map((ri) =>
+          fieldDefs.map((def) => vals.find((v) => v.field_def_id === def.id && v.row_index === ri)?.value ?? "")
+        ),
+      };
+    }),
     field_ids: fe.ExperimentFields.map((ef) => ef.field_id),
   }));
 

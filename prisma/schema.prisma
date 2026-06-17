@@ -139,16 +139,18 @@ model Dualex {
 }
 
 model Treatment {
-  id             Int       @id @default(autoincrement())
-  title          String?
-  Treatment_Name String?
-  Description    String?
-  Notes          String?
-  created_at     DateTime?
-  updated_at     DateTime?
+  id               Int       @id @default(autoincrement())
+  title            String?
+  Treatment_Name   String?
+  Description      String?
+  Notes            String?
+  allow_extra_rows Boolean   @default(false)
+  created_at       DateTime?
+  updated_at       DateTime?
 
-  TreatmentProtocols    TreatmentProtocol[]
-  ExperimentTreatments  ExperimentTreatment[]
+  TreatmentProtocols        TreatmentProtocol[]
+  ExperimentTreatments      ExperimentTreatment[]
+  TreatmentFieldDefinitions TreatmentFieldDefinition[]
 
   @@map("Treatments")
   @@schema("pgntarg2udzj1f3")
@@ -201,20 +203,21 @@ model ExperimentZone {
 }
 
 model Test {
-  id                          Int       @id @default(autoincrement())
-  title                       String?
-  Test_Name                   String?
-  Test_Description            String?
-  Cost                        Decimal?
-  Planned_Date                DateTime?
-  Completed_Date              DateTime?
-  Methodology                 String?
+  id                           Int       @id @default(autoincrement())
+  title                        String?
+  Test_Name                    String?
+  Test_Description             String?
+  Cost                         Decimal?
+  Planned_Date                 DateTime?
+  Completed_Date               DateTime?
+  Methodology                  String?
   Data_Processing_Instructions String?
-  created_at                  DateTime?
-  updated_at                  DateTime?
+  created_at                   DateTime?
+  updated_at                   DateTime?
 
-  FieldTests       FieldTest[]
-  ExperimentTests  ExperimentTest[]
+  FieldTests           FieldTest[]
+  ExperimentTests      ExperimentTest[]
+  TestFieldDefinitions TestFieldDefinition[]
 
   @@map("Tests")
   @@schema("pgntarg2udzj1f3")
@@ -546,6 +549,50 @@ model ExperimentField {
 
   @@id([experiment_id, field_id])
   @@map("Experiment_Fields")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model TestFieldDefinition {
+  id         Int    @id @default(autoincrement())
+  test_id    Int
+  col_index  Int
+  field_type String @default("text")
+  label      String
+
+  Test Test @relation(fields: [test_id], references: [id], onDelete: Cascade)
+
+  @@unique([test_id, col_index])
+  @@map("Test_Field_Definitions")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model TreatmentFieldDefinition {
+  id           Int    @id @default(autoincrement())
+  treatment_id Int
+  col_index    Int
+  field_type   String @default("text")
+  label        String
+
+  Treatment Treatment                  @relation(fields: [treatment_id], references: [id], onDelete: Cascade)
+  Values    ExperimentTreatmentValue[]
+
+  @@unique([treatment_id, col_index])
+  @@map("Treatment_Field_Definitions")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model ExperimentTreatmentValue {
+  id            Int     @id @default(autoincrement())
+  experiment_id Int
+  treatment_id  Int
+  field_def_id  Int
+  row_index     Int
+  value         String?
+
+  FieldDef TreatmentFieldDefinition @relation(fields: [field_def_id], references: [id], onDelete: Cascade)
+
+  @@unique([experiment_id, treatment_id, field_def_id, row_index])
+  @@map("Experiment_Treatment_Values")
   @@schema("pgntarg2udzj1f3")
 }
 

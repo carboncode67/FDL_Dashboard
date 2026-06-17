@@ -9,6 +9,7 @@ const INCLUDE = {
   ExperimentDroneFlights: { include: { Drone:     { select: { id: true, Name: true } } } },
   ExperimentTreatments:   { include: { Treatment: { select: { id: true, Treatment_Name: true } } } },
   ExperimentFields:       { select: { field_id: true } },
+  ExperimentTreatmentValues: { orderBy: [{ treatment_id: "asc" as const }, { field_def_id: "asc" as const }, { row_index: "asc" as const }] },
 };
 
 type Params = { params: Promise<{ farmId: string; experimentId: string }> };
@@ -30,7 +31,7 @@ export async function PUT(req: Request, { params }: Params) {
   const {
     experiment_name, start_date, end_date, project_id, hypothesis, experiment_desc,
     measurements, criteria, lab_description,
-    tests = [], drones = [], treatments = [], field_ids = [],
+    tests = [], drones = [], treatments = [], field_ids = [], treatmentValues = [],
   } = body;
 
   const treatmentCreateData = (treatments as { treatment_id: number; is_continuous?: boolean; rate?: number | null; rate_unit?: string | null }[])
@@ -44,6 +45,7 @@ export async function PUT(req: Request, { params }: Params) {
   const fieldCreateData = (field_ids as number[]).map((fid) => ({ field_id: fid }));
 
   await prisma.$transaction([
+    prisma.experimentTreatmentValue.deleteMany({ where: { experiment_id: experimentIdInt } }),
     prisma.experimentTest.deleteMany({ where: { experiment_id: experimentIdInt } }),
     prisma.experimentDroneFlight.deleteMany({ where: { experiment_id: experimentIdInt } }),
     prisma.experimentTreatment.deleteMany({ where: { experiment_id: experimentIdInt } }),
@@ -83,6 +85,19 @@ export async function PUT(req: Request, { params }: Params) {
     },
     include: INCLUDE,
   });
+
+  if (treatmentValues.length > 0) {
+    await prisma.experimentTreatmentValue.createMany({
+      data: (treatmentValues as { treatment_id: number; field_def_id: number; row_index: number; value: string }[])
+        .map((v) => ({
+          experiment_id: experimentIdInt,
+          treatment_id:  v.treatment_id,
+          field_def_id:  v.field_def_id,
+          row_index:     v.row_index,
+          value:         v.value || null,
+        })),
+    });
+  }
 
   return NextResponse.json(experiment);
 }

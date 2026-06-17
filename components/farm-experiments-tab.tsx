@@ -33,6 +33,8 @@ export type ExperimentTreatmentItem = {
   is_continuous:  boolean | null;
   rate:           number | null;
   rate_unit:      string | null;
+  field_columns:  string[];
+  field_rows:     string[][];
 };
 
 export type ExperimentData = {
@@ -241,18 +243,42 @@ function ExperimentCard({
             {experiment.treatments.length > 0 && (
               <div>
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Farm Level Treatments</p>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {experiment.treatments.map((t, i) => (
-                    <div key={i} className="flex items-center gap-3 text-sm py-1 border-b last:border-0">
-                      <span className="flex-1 font-medium">{t.treatment_name ?? `Treatment #${t.treatment_id}`}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {t.is_continuous === false ? "Categorical" : "Continuous"}
-                      </Badge>
-                      {(t.rate != null || t.rate_unit) && (
-                        <span className="text-slate-500">
-                          {t.rate != null ? t.rate : ""}
-                          {t.rate_unit ? ` ${t.rate_unit}` : ""}
-                        </span>
+                    <div key={i} className="py-1 border-b last:border-0">
+                      <div className="flex items-center gap-3 text-sm">
+                        <span className="flex-1 font-medium">{t.treatment_name ?? `Treatment #${t.treatment_id}`}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {t.is_continuous === false ? "Categorical" : "Continuous"}
+                        </Badge>
+                        {(t.rate != null || t.rate_unit) && (
+                          <span className="text-slate-500 text-xs">
+                            {t.rate != null ? t.rate : ""}
+                            {t.rate_unit ? ` ${t.rate_unit}` : ""}
+                          </span>
+                        )}
+                      </div>
+                      {t.field_columns.length > 0 && t.field_rows.length > 0 && (
+                        <div className="mt-1.5 ml-1 overflow-x-auto">
+                          <table className="text-xs border-collapse">
+                            <thead>
+                              <tr>
+                                {t.field_columns.map((col) => (
+                                  <th key={col} className="text-left text-slate-400 font-medium pr-6 pb-0.5">{col}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {t.field_rows.map((row, ri) => (
+                                <tr key={ri}>
+                                  {row.map((val, ci) => (
+                                    <td key={ci} className="text-slate-700 pr-6 py-0.5">{val || "—"}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       )}
                     </div>
                   ))}

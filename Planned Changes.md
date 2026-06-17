@@ -139,10 +139,11 @@
 - [ ] 46. Merge video implementation and whatsapp handling changes from [remote](https://github.com/DigitAgforOFE/FDL_Dashboard)
 
 
-- [ ] Capability to delete any field when delete mode is on (currently no way to delete lab member, treatments, crops, drones.)
-- [ ] Add download button for data files to the page
-- [ ] 
+- [ ] 47. Capability to delete any field when delete mode is on (currently no way to delete lab member, treatments, crops, drones.)
+- [ ] 48. Add download button for data files to the page
+- [ ] 49. **Modular treatment builder** in order to be able to assign complex treatments to a project with ease, I need to create a modular treatment builder that can be used with farmer specific treatments, I need to make a module builder that allows customizable fields to be created in the Dashboard UI that can than be used flexibly in farm level treatments. For example, making a generic treatment called Cover Crop Mix, with blank text fields for species and numeric fields for proportion. Then, when adding a farm level cover crop treatment, the species and proportion values can be filled in, and additional rows added as needed until that treatment is complete.  Another example would be for fertilizer, where the user could create a treatment type with 3 text and 3 numerical rows to create a customizable NPK treatment for each experiment. When creating a new Treatment Type template, the user would specify the Treatment Name, and then the column titles for each modular field, and if the template allows additional rows to be added by the user (for example, cover crop mixes will usually have different number of species, but fertilizer will almost always just need NPK)
 
+	
 
 
 
