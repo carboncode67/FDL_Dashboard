@@ -9,12 +9,13 @@ const INCLUDE = {
   ExperimentDroneFlights: { include: { Drone:     { select: { id: true, Name: true } } } },
   ExperimentTreatments:   { include: { Treatment: { select: { id: true, Treatment_Name: true } } } },
   ExperimentFields:       { select: { field_id: true } },
-  ExperimentTreatmentValues: { orderBy: [{ treatment_id: "asc" as const }, { field_def_id: "asc" as const }, { row_index: "asc" as const }] },
 };
 
 type Params = { params: Promise<{ farmId: string; experimentId: string }> };
 
 export async function GET(_: Request, { params }: Params) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { experimentId } = await params;
   const experiment = await prisma.farmExperiment.findUniqueOrThrow({
     where: { id: parseInt(experimentId) },
@@ -34,15 +35,27 @@ export async function PUT(req: Request, { params }: Params) {
     tests = [], drones = [], treatments = [], field_ids = [], treatmentValues = [],
   } = body;
 
-  const treatmentCreateData = (treatments as { treatment_id: number; is_continuous?: boolean; rate?: number | null; rate_unit?: string | null }[])
+  const treatmentCreateData = (treatments as { treatment_id: number; is_continuous?: boolean; has_control_treatment?: boolean; control_treatment_type?: string | null; control_treatment_number?: number | null }[])
     .map((t) => ({
-      treatment_id:  t.treatment_id,
-      is_continuous: t.is_continuous ?? true,
-      rate:          t.rate ?? null,
-      rate_unit:     t.rate_unit || null,
+      treatment_id:             t.treatment_id,
+      is_continuous:            t.is_continuous ?? true,
+      has_control_treatment:    t.has_control_treatment ?? false,
+      control_treatment_type:   t.control_treatment_type || null,
+      control_treatment_number: t.control_treatment_number ?? null,
     }));
 
   const fieldCreateData = (field_ids as number[]).map((fid) => ({ field_id: fid }));
+
+  // Capture existing assignments before deleting, so we can detect newly added ones
+  const existing = await prisma.farmExperiment.findUnique({
+    where: { id: experimentIdInt },
+    select: {
+      ExperimentTests:        { select: { test_id: true } },
+      ExperimentDroneFlights: { select: { drone_id: true } },
+    },
+  });
+  const oldTestIds  = new Set((existing?.ExperimentTests  ?? []).map((r) => r.test_id));
+  const oldDroneIds = new Set((existing?.ExperimentDroneFlights ?? []).map((r) => r.drone_id));
 
   await prisma.$transaction([
     prisma.experimentTreatmentValue.deleteMany({ where: { experiment_id: experimentIdInt } }),
@@ -97,6 +110,29 @@ export async function PUT(req: Request, { params }: Params) {
           value:         v.value || null,
         })),
     });
+  }
+
+  // Auto-create tasks from templates for newly added tests/drones
+  const newTestIds  = (tests  as { test_id: number }[]).map((t) => t.test_id).filter((id) => !oldTestIds.has(id));
+  const newDroneIds = (drones as { drone_id: number }[]).map((d) => d.drone_id).filter((id) => !oldDroneIds.has(id));
+
+  if (newTestIds.length > 0 || newDroneIds.length > 0) {
+    const [testTemplates, droneTemplates] = await Promise.all([
+      newTestIds.length  > 0 ? prisma.taskTemplate.findMany({ where: { test_id:  { in: newTestIds  } } }) : Promise.resolve([]),
+      newDroneIds.length > 0 ? prisma.taskTemplate.findMany({ where: { drone_id: { in: newDroneIds } } }) : Promise.resolve([]),
+    ]);
+    const allTemplates = [...testTemplates, ...droneTemplates];
+    if (allTemplates.length > 0) {
+      await prisma.task.createMany({
+        data: allTemplates.map((t) => ({
+          experiment_id:  experimentIdInt,
+          description:    t.description,
+          classification: t.classification,
+          priority:       t.priority,
+          status:         "not started",
+        })),
+      });
+    }
   }
 
   return NextResponse.json(experiment);
