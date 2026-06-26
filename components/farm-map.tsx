@@ -60,6 +60,8 @@ export interface FarmMapProps {
   notes: MapNote[]
   farmId: number
   labUploads?: LabUploadPin[]
+  farmLat?: number
+  farmLng?: number
 }
 
 function extractLatLngs(geojsonStr: string): [number, number][] {
@@ -107,7 +109,7 @@ function BoundsAdjuster({ bounds }: { bounds: L.LatLngBoundsExpression }) {
   return null
 }
 
-export default function FarmMap({ fields, zones, photos, notes, farmId, labUploads = [] }: FarmMapProps) {
+export default function FarmMap({ fields, zones, photos, notes, farmId, labUploads = [], farmLat, farmLng }: FarmMapProps) {
   const [gpsTracks, setGpsTracks] = useState<GpsTrack[]>([])
 
   useEffect(() => {
@@ -126,7 +128,12 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
   ]
 
   const bounds = allLatLngs.length >= 2 ? L.latLngBounds(allLatLngs) : null
-  const center: [number, number] = allLatLngs.length > 0 ? allLatLngs[0] : [39.5, -98.35]
+  const center: [number, number] =
+    allLatLngs.length > 0
+      ? allLatLngs[0]
+      : farmLat != null && farmLng != null
+        ? [farmLat, farmLng]
+        : [39.5, -98.35]
 
   const hasData =
     fields.some((f) => f.geometry) ||

@@ -25,6 +25,7 @@ import { FarmExperimentsTab } from "@/components/farm-experiments-tab";
 import { FieldBoundaryUpload } from "@/components/field-boundary-upload";
 import { DocumentUpload } from "@/components/document-upload";
 import { AddContactButton } from "@/components/add-contact-button";
+import { DrawFieldButton } from "@/components/draw-field-button";
 
 const STATUS_LABELS: Record<number, { label: string; variant: "default" | "secondary" | "outline" }> = {
   1: { label: "Unassigned", variant: "outline" },
@@ -94,7 +95,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
       include: {
         Project:               { select: { id: true, Project_Name: true, Status: true, Year_Started: true } },
         ExperimentTests:        { include: { Test:      { select: { id: true, Test_Name: true } } } },
-        ExperimentDroneFlights: { include: { Drone:     { select: { id: true, Name: true } } } },
+        ExperimentDroneFlights: { include: { Drone: { select: { id: true, Name: true } }, DroneFlightRecords: { orderBy: { flight_date: "asc" } } } },
         ExperimentTreatments: {
           include: {
             Treatment: {
@@ -255,6 +256,11 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
       n_flights: ed.n_flights,
       expected_date: ed.expected_date?.toISOString() ?? null,
       status: ed.status ?? null,
+      flightRecords: ed.DroneFlightRecords.map((fr) => ({
+        id:           fr.id,
+        flight_date:  fr.flight_date?.toISOString() ?? null,
+        flight_status: fr.flight_status,
+      })),
     })),
     treatments: fe.ExperimentTreatments.map((et) => {
       const fieldDefs = et.Treatment.TreatmentFieldDefinitions;
@@ -263,12 +269,13 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
       );
       const rowIdxs = [...new Set(vals.map((v) => v.row_index))].sort((a, b) => a - b);
       return {
-        treatment_id:   et.treatment_id,
-        treatment_name: et.Treatment.Treatment_Name,
-        is_continuous:  et.is_continuous,
-        rate:           et.rate !== null ? Number(et.rate) : null,
-        rate_unit:      et.rate_unit ?? null,
-        field_columns:  fieldDefs.map((d) => d.label),
+        treatment_id:             et.treatment_id,
+        treatment_name:           et.Treatment.Treatment_Name,
+        is_continuous:            et.is_continuous,
+        has_control_treatment:    et.has_control_treatment,
+        control_treatment_type:   et.control_treatment_type ?? null,
+        control_treatment_number: et.control_treatment_number ?? null,
+        field_columns:            fieldDefs.map((d) => d.label),
         field_rows:     rowIdxs.map((ri) =>
           fieldDefs.map((def) => vals.find((v) => v.field_def_id === def.id && v.row_index === ri)?.value ?? "")
         ),
@@ -368,16 +375,32 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
                   expected_date: t.expected_date!,
                   status: t.status,
                 })),
-              ...exp.drones
-                .filter((d) => d.expected_date)
-                .map((d) => ({
-                  type: "Drone Flight",
-                  name: d.drone_name ?? `Drone #${d.drone_id}`,
-                  experiment: exp.experiment_name ?? `Experiment #${exp.id}`,
-                  experiment_id: exp.id,
-                  expected_date: d.expected_date!,
-                  status: d.status,
-                })),
+              // Drone assignments: expand into individual flight records when available,
+              // otherwise fall back to the planned expected_date
+              ...exp.drones.flatMap((d) => {
+                const records = d.flightRecords.filter((fr) => fr.flight_date);
+                if (records.length > 0) {
+                  return records.map((fr) => ({
+                    type: "Drone Flight",
+                    name: d.drone_name ?? `Drone #${d.drone_id}`,
+                    experiment: exp.experiment_name ?? `Experiment #${exp.id}`,
+                    experiment_id: exp.id,
+                    expected_date: fr.flight_date!,
+                    status: fr.flight_status,
+                  }));
+                }
+                if (d.expected_date) {
+                  return [{
+                    type: "Drone Flight",
+                    name: d.drone_name ?? `Drone #${d.drone_id}`,
+                    experiment: exp.experiment_name ?? `Experiment #${exp.id}`,
+                    experiment_id: exp.id,
+                    expected_date: d.expected_date,
+                    status: d.status,
+                  }];
+                }
+                return [];
+              }),
             ]).sort((a, b) => a.expected_date.localeCompare(b.expected_date));
 
             if (allActivities.length === 0) return null;
@@ -455,9 +478,15 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             photos={[]}
             notes={[]}
             farmId={farm.id}
+            farmLat={farm.latitude ?? undefined}
+            farmLng={farm.longitude ?? undefined}
           />
 
-          <FieldBoundaryUpload farmId={farm.id} fieldCount={farm.Fields.length} />
+          <FieldBoundaryUpload
+            farmId={farm.id}
+            fieldCount={farm.Fields.length}
+            drawButton={showCreate ? <DrawFieldButton farmId={farm.id} /> : undefined}
+          />
         </TabsContent>
 
         {/* ── Contacts ── */}
@@ -604,6 +633,8 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             notes={contactNotesPins}
             labUploads={labUploadPins}
             farmId={farm.id}
+            farmLat={farm.latitude ?? undefined}
+            farmLng={farm.longitude ?? undefined}
           />
 
           <Card>

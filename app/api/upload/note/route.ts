@@ -13,6 +13,20 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { content = "", latitude = null, longitude = null, timestamp = "", ticket_ref = "" } = body;
 
+    // Deduplicate: ticket_ref exact match, or identical content from same contact within 1 hour
+    if (auth.kind === "contact") {
+      if (ticket_ref) {
+        const existing = await prisma.note.findFirst({ where: { ticket_ref } });
+        if (existing) return NextResponse.json({ ok: true, duplicate: true, id: existing.id });
+      } else if (content) {
+        const cutoff = new Date(Date.now() - 60 * 60 * 1000);
+        const existing = await prisma.note.findFirst({
+          where: { contact_id: auth.contact.id, content, received_at: { gte: cutoff } },
+        });
+        if (existing) return NextResponse.json({ ok: true, duplicate: true, id: existing.id });
+      }
+    }
+
     if (auth.kind === "labMember") {
       const { farmId, fieldId } = await findFieldAndFarmByLocation(latitude ?? 0, longitude ?? 0);
       await prisma.labMemberUpload.create({

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,9 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { id: farmIdStr } = await params;
   const farmId = parseInt(farmIdStr);
   if (isNaN(farmId)) return NextResponse.json({ error: "Invalid farm ID" }, { status: 400 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 
@@ -15,15 +16,28 @@ interface ExperimentRow {
   treatments: string[];
   start_date: string | null;
   end_date: string | null;
+  project_name: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  created_by_name: string | null;
 }
 
-export function ExperimentsClient({ data, canCreate }: { data: ExperimentRow[]; canCreate?: boolean }) {
+export function ExperimentsClient({
+  data,
+  canCreate,
+  activeProjectFilter,
+}: {
+  data: ExperimentRow[];
+  canCreate?: boolean;
+  activeProjectFilter?: { count: number; names: string[] } | null;
+}) {
   const router = useRouter();
 
   const columns = [
     { key: "experiment_name", header: "Experiment Name", sortable: true },
     { key: "farm_name", header: "Farm", sortable: true },
     { key: "farmer_name", header: "Farmer", sortable: true },
+    { key: "project_name", header: "Project", sortable: true },
     { key: "fields", header: "Fields", sortable: true },
     {
       key: "treatments",
@@ -44,20 +58,53 @@ export function ExperimentsClient({ data, canCreate }: { data: ExperimentRow[]; 
     },
     { key: "start_date", header: "Start Date", sortable: true },
     { key: "end_date", header: "End Date", sortable: true },
+    {
+      key: "created_at",
+      header: "Created",
+      sortable: true,
+      render: (row: Record<string, unknown>) => {
+        const val = (row as unknown as ExperimentRow).created_at;
+        return val ? format(new Date(val), "MMM d, yyyy") : "—";
+      },
+    },
+    {
+      key: "updated_at",
+      header: "Updated",
+      sortable: true,
+      render: (row: Record<string, unknown>) => {
+        const val = (row as unknown as ExperimentRow).updated_at;
+        return val ? format(new Date(val), "MMM d, yyyy") : "—";
+      },
+    },
+    { key: "created_by_name", header: "Created By", sortable: true },
   ];
 
   return (
-    <DataTable
-      title="Experiments"
-      data={data as unknown as Record<string, unknown>[]}
-      columns={columns}
-      searchKeys={["experiment_name", "farm_name", "farmer_name"]}
-      onAdd={canCreate ? () => router.push("/experiments/new") : undefined}
-      addLabel="New Experiment"
-      onRowClick={(row) => {
-        const r = row as unknown as ExperimentRow;
-        if (r.farm_id) router.push(`/farms/${r.farm_id}/experiments/${r.id}`);
-      }}
-    />
+    <div className="space-y-4">
+      {activeProjectFilter && activeProjectFilter.count > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          Filtered to{" "}
+          <strong>
+            {activeProjectFilter.count} project{activeProjectFilter.count !== 1 ? "s" : ""}
+          </strong>
+          {activeProjectFilter.names.length > 0 && (
+            <>: {activeProjectFilter.names.join(", ")}</>
+          )}
+          . Change in <strong>Project Filters</strong> (header menu).
+        </div>
+      )}
+      <DataTable
+        title="Experiments"
+        data={data as unknown as Record<string, unknown>[]}
+        columns={columns}
+        searchKeys={["experiment_name", "farm_name", "farmer_name", "project_name"]}
+        onAdd={canCreate ? () => router.push("/experiments/new") : undefined}
+        addLabel="New Experiment"
+        onRowClick={(row) => {
+          const r = row as unknown as ExperimentRow;
+          if (r.farm_id) router.push(`/farms/${r.farm_id}/experiments/${r.id}`);
+        }}
+      />
+    </div>
   );
 }

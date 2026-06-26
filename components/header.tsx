@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -16,10 +16,13 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { KeyRound, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { KeyRound, LogOut, FolderKanban } from "lucide-react";
 import { ChangePasswordForm } from "@/components/forms/change-password-form";
 import type { Role } from "@/lib/roles";
 
@@ -27,6 +30,11 @@ interface HeaderProps {
   title: string;
   editMode?: boolean;
   role?: Role;
+}
+
+interface ProjectOption {
+  id: number;
+  name: string;
 }
 
 const roleLabels: Record<Role, string> = {
@@ -39,6 +47,12 @@ export function Header({ title, editMode, role }: HeaderProps) {
   const { data: session } = useSession();
   const router = useRouter();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [projectFilterOpen, setProjectFilterOpen] = useState(false);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [filterSelection, setFilterSelection] = useState<number[]>([]);
+  const [savingFilters, setSavingFilters] = useState(false);
+  const [loadingFilters, setLoadingFilters] = useState(false);
+
   const name = session?.user?.name || session?.user?.email || "User";
   const initials = name
     .split(" ")
@@ -46,6 +60,49 @@ export function Header({ title, editMode, role }: HeaderProps) {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+
+  async function openProjectFilters() {
+    setProjectFilterOpen(true);
+    setLoadingFilters(true);
+    try {
+      const [projRes, filterRes] = await Promise.all([
+        fetch("/api/projects"),
+        fetch("/api/profile/project-filters"),
+      ]);
+      const projData = await projRes.json();
+      const filterData = await filterRes.json();
+      setProjects(
+        (projData as Array<{ id: number; Project_Name: string | null }>).map((p) => ({
+          id: p.id,
+          name: p.Project_Name ?? `Project ${p.id}`,
+        }))
+      );
+      setFilterSelection(filterData.project_ids ?? []);
+    } finally {
+      setLoadingFilters(false);
+    }
+  }
+
+  function toggleProject(pid: number) {
+    setFilterSelection((prev) =>
+      prev.includes(pid) ? prev.filter((id) => id !== pid) : [...prev, pid]
+    );
+  }
+
+  async function saveFilters() {
+    setSavingFilters(true);
+    try {
+      await fetch("/api/profile/project-filters", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_ids: filterSelection }),
+      });
+      setProjectFilterOpen(false);
+      router.refresh();
+    } finally {
+      setSavingFilters(false);
+    }
+  }
 
   return (
     <header className="h-14 border-b border-slate-200 bg-white flex items-center justify-between px-6 shrink-0">
@@ -86,6 +143,13 @@ export function Header({ title, editMode, role }: HeaderProps) {
               <KeyRound className="mr-2 h-4 w-4" />
               Change Password
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={openProjectFilters}
+              className="cursor-pointer"
+            >
+              <FolderKanban className="mr-2 h-4 w-4" />
+              Project Filters
+            </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
@@ -109,6 +173,52 @@ export function Header({ title, editMode, role }: HeaderProps) {
             email={session?.user?.email ?? ""}
             onSuccess={() => setChangePasswordOpen(false)}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={projectFilterOpen} onOpenChange={setProjectFilterOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Project Filters</DialogTitle>
+            <DialogDescription>
+              Select which projects you want to see data for in Data Sorting and Experiments. Leave
+              all unchecked to see data from every project.
+            </DialogDescription>
+          </DialogHeader>
+          {loadingFilters ? (
+            <p className="text-sm text-slate-500 py-4 text-center">Loading…</p>
+          ) : (
+            <div className="max-h-72 overflow-y-auto space-y-2 py-1">
+              {projects.length === 0 ? (
+                <p className="text-sm text-slate-500">No projects found.</p>
+              ) : (
+                projects.map((p) => (
+                  <label key={p.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                    <input
+                      type="checkbox"
+                      checked={filterSelection.includes(p.id)}
+                      onChange={() => toggleProject(p.id)}
+                      className="h-4 w-4 rounded border-slate-300 accent-emerald-600"
+                    />
+                    {p.name}
+                  </label>
+                ))
+              )}
+            </div>
+          )}
+          <p className="text-xs text-slate-400">
+            {filterSelection.length === 0
+              ? "No filter — you see all projects."
+              : `${filterSelection.length} project${filterSelection.length !== 1 ? "s" : ""} selected.`}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProjectFilterOpen(false)} disabled={savingFilters}>
+              Cancel
+            </Button>
+            <Button onClick={saveFilters} disabled={savingFilters || loadingFilters}>
+              {savingFilters ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </header>

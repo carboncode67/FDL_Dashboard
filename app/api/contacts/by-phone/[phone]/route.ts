@@ -1,22 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
-/**
- * GET /api/contacts/by-phone/{phone}
- *
- * Used by OFEDashBot to resolve a WhatsApp/SMS phone number to a contact's
- * bearer token. Returns the contact if found, 404 if not registered.
- *
- * Matches on the last 10 digits to handle country-code variations
- * (e.g. "6072299837" stored vs "16072299837" received from Twilio).
- *
- * No auth required — this is an internal service endpoint on the private
- * network. Set FDL_SERVICE_TOKEN in OFEDashBot .env if you want to restrict it.
- */
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ phone: string }> }
 ) {
+  const svc = process.env.FDL_SERVICE_TOKEN;
+  const header = req.headers.get("authorization") ?? "";
+  const hasServiceToken = svc && header === `Bearer ${svc}`;
+
+  if (!hasServiceToken) {
+    const session = await auth();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { phone } = await params;
   const clean = phone.replace(/\D/g, "");
   if (!clean) return NextResponse.json({ error: "Invalid phone" }, { status: 400 });

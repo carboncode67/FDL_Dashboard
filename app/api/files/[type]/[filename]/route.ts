@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
 const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
-const ALLOWED_TYPES = ["photos", "recordings", "locations", "documents"] as const;
+const ALLOWED_TYPES = ["photos", "recordings", "locations", "documents", "depth_maps"] as const;
 
 const MIME_TYPES: Record<string, string> = {
   jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp",
@@ -14,10 +16,29 @@ const MIME_TYPES: Record<string, string> = {
   pdf: "application/pdf", json: "application/json",
 };
 
+async function isAuthorized(req: Request): Promise<boolean> {
+  const header = req.headers.get("authorization") ?? "";
+  if (header.startsWith("Bearer ")) {
+    const token = header.slice(7);
+    const contact = await prisma.contact.findFirst({ where: { token }, select: { id: true } });
+    if (contact) return true;
+    const labMember = await prisma.user.findFirst({ where: { bearer_token: token }, select: { id: true } });
+    if (labMember) return true;
+    return false;
+  }
+
+  const session = await auth();
+  return !!session?.user;
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ type: string; filename: string }> }
 ) {
+  if (!await isAuthorized(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { type, filename } = await params;
 
   if (!ALLOWED_TYPES.includes(type as (typeof ALLOWED_TYPES)[number])) {

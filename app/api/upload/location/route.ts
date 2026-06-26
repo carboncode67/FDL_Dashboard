@@ -17,6 +17,12 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name = null, track_data, start_time = "", end_time = "", ticket_ref = "" } = body;
 
+    // Deduplicate by ticket_ref before writing any file
+    if (auth.kind === "contact" && ticket_ref) {
+      const existing = await prisma.location.findFirst({ where: { ticket_ref } });
+      if (existing) return NextResponse.json({ ok: true, duplicate: true, id: existing.id });
+    }
+
     const dir = path.join(DATA_DIR, "locations");
     fs.mkdirSync(dir, { recursive: true });
 

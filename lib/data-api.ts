@@ -50,6 +50,8 @@ export interface NormalizedUpload {
   longitude: number | null;
   suggested_path: string;
   download_url: string;
+  depth_filename: string | null;
+  depth_download_url: string | null;
 }
 
 export interface QueryOptions {
@@ -156,6 +158,8 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       longitude: row.longitude,
       suggested_path: buildSuggestedPath(proj, farm, row.category, row.filename),
       download_url: `/api/data/files/photos/${row.id}`,
+      depth_filename: row.depth_filename ?? null,
+      depth_download_url: row.depth_filename ? `/api/data/files/depth/photos/${row.id}` : null,
     });
   }
 
@@ -181,6 +185,8 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       longitude: row.longitude,
       suggested_path: buildSuggestedPath(proj, farm, row.category, filename),
       download_url: `/api/data/files/notes/${row.id}`,
+      depth_filename: null,
+      depth_download_url: null,
     });
   }
 
@@ -205,6 +211,8 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       longitude: null,
       suggested_path: buildSuggestedPath(proj, farm, row.category, row.filename),
       download_url: `/api/data/files/recordings/${row.id}`,
+      depth_filename: null,
+      depth_download_url: null,
     });
   }
 
@@ -230,6 +238,8 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       longitude: null,
       suggested_path: buildSuggestedPath(proj, farm, row.category, filename),
       download_url: `/api/data/files/locations/${row.id}`,
+      depth_filename: null,
+      depth_download_url: null,
     });
   }
 
@@ -256,6 +266,8 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       longitude: row.longitude,
       suggested_path: buildSuggestedPath(proj, farm, row.category, filename),
       download_url: `/api/data/files/lab-member-uploads/${row.id}`,
+      depth_filename: row.depth_filename ?? null,
+      depth_download_url: row.depth_filename ? `/api/data/files/depth/lab-member-uploads/${row.id}` : null,
     });
   }
 

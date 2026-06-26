@@ -11,19 +11,19 @@ export default async function EditExperimentPage({
   const farmId = parseInt(id);
   const expId  = parseInt(experimentId);
 
-  const [farm, farmExperiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmPhotos, farmNotes, farmLabUps, existingValues] = await Promise.all([
+  const [farm, farmExperiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmPhotos, farmNotes, farmLabUps, existingValues, allUsers] = await Promise.all([
     prisma.farm.findUnique({ where: { id: farmId }, select: { id: true, Farm_Name: true } }),
     prisma.farmExperiment.findUnique({
       where: { id: expId },
       include: {
         ExperimentTests:        true,
-        ExperimentDroneFlights: true,
+        ExperimentDroneFlights: { include: { DroneFlightRecords: { orderBy: { flight_date: "asc" } } } },
         ExperimentTreatments:   true,
         ExperimentFields:       true,
       },
     }),
-    prisma.test.findMany({ select: { id: true, Test_Name: true }, orderBy: { Test_Name: "asc" } }),
-    prisma.drone.findMany({ select: { id: true, Name: true }, orderBy: { Name: "asc" } }),
+    prisma.test.findMany({ select: { id: true, Test_Name: true, TaskTemplates: { select: { id: true, description: true, classification: true, priority: true } } }, orderBy: { Test_Name: "asc" } }),
+    prisma.drone.findMany({ select: { id: true, Name: true, TaskTemplates: { select: { id: true, description: true, classification: true, priority: true } } }, orderBy: { Name: "asc" } }),
     prisma.treatment.findMany({
       select: {
         id:               true,
@@ -55,6 +55,7 @@ export default async function EditExperimentPage({
       where: { experiment_id: expId },
       orderBy: [{ treatment_id: "asc" }, { field_def_id: "asc" }, { row_index: "asc" }],
     }),
+    prisma.user.findMany({ select: { id: true, name: true, email: true }, orderBy: { name: "asc" } }),
   ]);
 
   if (!farm || !farmExperiment) notFound();
@@ -88,16 +89,39 @@ export default async function EditExperimentPage({
           status:        t.status ?? null,
         })),
         drones: farmExperiment.ExperimentDroneFlights.map((d) => ({
+          id:            d.id,
           drone_id:      d.drone_id,
           n_flights:     d.n_flights,
           expected_date: d.expected_date?.toISOString().slice(0, 10) ?? null,
           status:        d.status ?? null,
         })),
+        droneFlightRecordsMap: Object.fromEntries(
+          farmExperiment.ExperimentDroneFlights.map((d) => [
+            d.id,
+            d.DroneFlightRecords.map((r) => ({
+              id:                         r.id,
+              experiment_drone_flight_id: r.experiment_drone_flight_id,
+              flight_date:                r.flight_date?.toISOString().slice(0, 10) ?? null,
+              pilot:                      r.pilot,
+              flight_status:              r.flight_status,
+              total_acres:                r.total_acres ? Number(r.total_acres) : null,
+              total_images:               r.total_images,
+              needs_3d:                   r.needs_3d,
+              needs_ortho:                r.needs_ortho,
+              processed:                  r.processed,
+              data_storage_path:          r.data_storage_path,
+              tile_coverage_pct:          r.tile_coverage_pct ? Number(r.tile_coverage_pct) : null,
+              tile_size_m:                r.tile_size_m ? Number(r.tile_size_m) : null,
+              notes:                      r.notes,
+            })),
+          ])
+        ),
         treatments: farmExperiment.ExperimentTreatments.map((t) => ({
-          treatment_id:  t.treatment_id,
-          is_continuous: t.is_continuous ?? true,
-          rate:          t.rate !== null ? Number(t.rate) : null,
-          rate_unit:     t.rate_unit ?? null,
+          treatment_id:             t.treatment_id,
+          is_continuous:            t.is_continuous ?? true,
+          has_control_treatment:    t.has_control_treatment,
+          control_treatment_type:   t.control_treatment_type ?? null,
+          control_treatment_number: t.control_treatment_number ?? null,
         })),
         field_ids: farmExperiment.ExperimentFields.map((ef) => ef.field_id),
         treatmentValues: existingValues.map((v) => ({
@@ -112,6 +136,7 @@ export default async function EditExperimentPage({
       allTreatments={allTreatments}
       farmFields={farmFields}
       farmUploadPins={farmUploadPins}
+      allUsers={allUsers}
     />
   );
 }

@@ -11,15 +11,47 @@ interface FarmFormProps {
     Farm_Name?: string | null;
     farm_summary?: string | null;
     is_active?: boolean;
+    address?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
   };
   farmId?: number;
 }
+
+type GeoStatus = "idle" | "geocoding" | "ok" | "notfound";
 
 export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
   const [farmName, setFarmName] = useState(initialData?.Farm_Name ?? "");
   const [summary, setSummary] = useState(initialData?.farm_summary ?? "");
   const [isActive, setIsActive] = useState(initialData?.is_active ?? true);
+  const [address, setAddress] = useState(initialData?.address ?? "");
+  const [latitude, setLatitude] = useState<number | null>(initialData?.latitude ?? null);
+  const [longitude, setLongitude] = useState<number | null>(initialData?.longitude ?? null);
+  const [geoStatus, setGeoStatus] = useState<GeoStatus>("idle");
   const [saving, setSaving] = useState(false);
+
+  async function geocode(addr: string) {
+    if (!addr.trim()) return;
+    setGeoStatus("geocoding");
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1`,
+        { headers: { "Accept-Language": "en" } }
+      );
+      const data = await res.json();
+      if (data.length > 0) {
+        setLatitude(parseFloat(data[0].lat));
+        setLongitude(parseFloat(data[0].lon));
+        setGeoStatus("ok");
+      } else {
+        setLatitude(null);
+        setLongitude(null);
+        setGeoStatus("notfound");
+      }
+    } catch {
+      setGeoStatus("notfound");
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,6 +66,9 @@ export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
           Farm_Name: farmName,
           farm_summary: summary || null,
           is_active: isActive,
+          address: address || null,
+          latitude,
+          longitude,
         }),
       });
       onSuccess?.();
@@ -45,6 +80,22 @@ export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5"><Label>Farm Name</Label><Input value={farmName} onChange={(e) => setFarmName(e.target.value)} required /></div>
+      <div className="space-y-1.5">
+        <Label>Address</Label>
+        <div className="space-y-1">
+          <Input
+            value={address}
+            onChange={(e) => { setAddress(e.target.value); setGeoStatus("idle"); }}
+            onBlur={() => geocode(address)}
+            placeholder="123 County Rd, Town, State"
+          />
+          {geoStatus === "geocoding" && <p className="text-xs text-slate-500">Geocoding…</p>}
+          {geoStatus === "ok" && latitude != null && longitude != null && (
+            <p className="text-xs text-green-600">Geocoded ✓ ({latitude.toFixed(5)}, {longitude.toFixed(5)})</p>
+          )}
+          {geoStatus === "notfound" && <p className="text-xs text-amber-600">Address not found — map will use default center</p>}
+        </div>
+      </div>
       <div className="space-y-1.5">
         <Label>Farmer Summary (Markdown)</Label>
         <textarea

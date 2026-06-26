@@ -5,8 +5,22 @@ import { canDelete, type Role } from "@/lib/roles";
 import { DataSortingClient, UploadItem } from "./data-sorting-client";
 
 export default async function DataSortingPage() {
-  const [photos, notes, recordings, locations, labUploads, projects, farms, session, editMode] = await Promise.all([
+  const session = await auth();
+  const userId = session?.user?.id ?? null;
+
+  // Fetch user's project filter before the main query so we can apply it
+  const userFilterRecords = userId
+    ? await prisma.userProjectFilter.findMany({
+        where: { user_id: userId },
+        select: { project_id: true },
+      })
+    : [];
+  const filterIds = userFilterRecords.map((f) => f.project_id);
+  const projectWhere = filterIds.length > 0 ? { project_id: { in: filterIds } } : undefined;
+
+  const [photos, notes, recordings, locations, labUploads, projects, farms, editMode, annotationCounts] = await Promise.all([
     prisma.photo.findMany({
+      where: projectWhere,
       include: {
         Contact: { select: { name: true } },
         Farm:    { select: { Farm_Name: true } },
@@ -15,6 +29,7 @@ export default async function DataSortingPage() {
       orderBy: { received_at: "desc" },
     }),
     prisma.note.findMany({
+      where: projectWhere,
       include: {
         Contact: { select: { name: true } },
         Farm:    { select: { Farm_Name: true } },
@@ -23,6 +38,7 @@ export default async function DataSortingPage() {
       orderBy: { received_at: "desc" },
     }),
     prisma.recording.findMany({
+      where: projectWhere,
       include: {
         Contact: { select: { name: true } },
         Farm:    { select: { Farm_Name: true } },
@@ -31,6 +47,7 @@ export default async function DataSortingPage() {
       orderBy: { received_at: "desc" },
     }),
     prisma.location.findMany({
+      where: projectWhere,
       include: {
         Contact: { select: { name: true } },
         Farm:    { select: { Farm_Name: true } },
@@ -39,6 +56,7 @@ export default async function DataSortingPage() {
       orderBy: { received_at: "desc" },
     }),
     prisma.labMemberUpload.findMany({
+      where: projectWhere,
       include: {
         User: { select: { name: true } },
         Farm:      { select: { Farm_Name: true } },
@@ -54,12 +72,26 @@ export default async function DataSortingPage() {
       select: { id: true, Farm_Name: true },
       orderBy: { Farm_Name: "asc" },
     }),
-    auth(),
     getEditMode(),
+    prisma.annotation.groupBy({ by: ["upload_id", "upload_table"], _count: { id: true } }),
   ]);
 
   const role = (session?.user?.role ?? "viewer") as Role;
+
+  // Build active filter info for the banner
+  const activeProjectFilter = filterIds.length > 0
+    ? {
+        count: filterIds.length,
+        names: projects
+          .filter((p) => filterIds.includes(p.id))
+          .map((p) => p.Project_Name ?? `Project ${p.id}`),
+      }
+    : undefined;
   const showDelete = canDelete(role, editMode);
+
+  const annCountMap = new Map(
+    annotationCounts.map((a) => [`${a.upload_table}-${a.upload_id}`, a._count.id])
+  );
 
   const items: UploadItem[] = [
     ...photos.map((r) => ({
@@ -85,8 +117,10 @@ export default async function DataSortingPage() {
       gps_track: null,
       merge_group_id: r.merge_group_id ?? null,
       end_time: null,
+      annotation_count: annCountMap.get(`photos-${r.id}`) ?? 0,
     })),
     ...notes.map((r) => ({
+      annotation_count: 0,
       id: r.id,
       table: "notes" as const,
       uploader: r.Contact?.name ?? null,
@@ -111,6 +145,7 @@ export default async function DataSortingPage() {
       end_time: null,
     })),
     ...recordings.map((r) => ({
+      annotation_count: 0,
       id: r.id,
       table: "recordings" as const,
       uploader: r.Contact?.name ?? null,
@@ -135,6 +170,7 @@ export default async function DataSortingPage() {
       end_time: r.end_time?.toISOString() ?? null,
     })),
     ...locations.map((r) => ({
+      annotation_count: 0,
       id: r.id,
       table: "locations" as const,
       uploader: r.Contact?.name ?? null,
@@ -159,6 +195,7 @@ export default async function DataSortingPage() {
       end_time: null,
     })),
     ...labUploads.map((r) => ({
+      annotation_count: annCountMap.get(`lab-member-uploads-${r.id}`) ?? 0,
       id: r.id,
       table: "lab-member-uploads" as const,
       uploader: r.User?.name ?? null,
@@ -187,5 +224,13 @@ export default async function DataSortingPage() {
   const projectList = projects.map((p) => ({ id: p.id, name: p.Project_Name ?? `Project ${p.id}` }));
   const farmList = farms.map((f) => ({ id: f.id, name: f.Farm_Name ?? `Farm ${f.id}` }));
 
-  return <DataSortingClient items={items} projects={projectList} farms={farmList} canDelete={showDelete} />;
+  return (
+    <DataSortingClient
+      items={items}
+      projects={projectList}
+      farms={farmList}
+      canDelete={showDelete}
+      activeProjectFilter={activeProjectFilter}
+    />
+  );
 }

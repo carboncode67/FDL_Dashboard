@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 const INCLUDE = {
   TreatmentFieldDefinitions: { orderBy: { col_index: "asc" as const } },
 };
 
 export async function GET() {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const treatments = await prisma.treatment.findMany({
     orderBy: { Treatment_Name: "asc" },
     include: INCLUDE,
@@ -14,6 +18,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { Treatment_Name, Description, Notes, allow_extra_rows, fieldDefs = [] } = await req.json();
   const treatment = await prisma.treatment.create({
     data: {

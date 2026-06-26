@@ -9,11 +9,12 @@ import { cn } from "@/lib/utils";
 interface Props {
   farmId: number;
   fieldCount: number;
+  drawButton?: React.ReactNode;
 }
 
 type Status = "idle" | "uploading" | "success" | "error";
 
-export function FieldBoundaryUpload({ farmId, fieldCount }: Props) {
+export function FieldBoundaryUpload({ farmId, fieldCount, drawButton }: Props) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -65,7 +66,10 @@ export function FieldBoundaryUpload({ farmId, fieldCount }: Props) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base">Field Boundaries</CardTitle>
-        <Badge variant="secondary">{fieldCount} field{fieldCount === 1 ? "" : "s"}</Badge>
+        <div className="flex items-center gap-2">
+          {drawButton}
+          <Badge variant="secondary">{fieldCount} field{fieldCount === 1 ? "" : "s"}</Badge>
+        </div>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">

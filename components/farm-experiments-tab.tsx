@@ -28,13 +28,14 @@ export type ExperimentDroneItem = {
 };
 
 export type ExperimentTreatmentItem = {
-  treatment_id:   number;
-  treatment_name: string | null;
-  is_continuous:  boolean | null;
-  rate:           number | null;
-  rate_unit:      string | null;
-  field_columns:  string[];
-  field_rows:     string[][];
+  treatment_id:             number;
+  treatment_name:           string | null;
+  is_continuous:            boolean | null;
+  has_control_treatment:    boolean;
+  control_treatment_type:   string | null;
+  control_treatment_number: number | null;
+  field_columns:            string[];
+  field_rows:               string[][];
 };
 
 export type ExperimentData = {
@@ -248,14 +249,18 @@ function ExperimentCard({
                     <div key={i} className="py-1 border-b last:border-0">
                       <div className="flex items-center gap-3 text-sm">
                         <span className="flex-1 font-medium">{t.treatment_name ?? `Treatment #${t.treatment_id}`}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {t.is_continuous === false ? "Categorical" : "Continuous"}
-                        </Badge>
-                        {(t.rate != null || t.rate_unit) && (
-                          <span className="text-slate-500 text-xs">
-                            {t.rate != null ? t.rate : ""}
-                            {t.rate_unit ? ` ${t.rate_unit}` : ""}
-                          </span>
+                        {t.has_control_treatment ? (
+                          <Badge variant="outline" className="text-xs">
+                            {t.control_treatment_type === "control"
+                              ? "Control"
+                              : t.control_treatment_number != null
+                                ? `Treatment ${t.control_treatment_number}`
+                                : "Treatment"}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            {t.is_continuous === false ? "Categorical" : "Continuous"}
+                          </Badge>
                         )}
                       </div>
                       {t.field_columns.length > 0 && t.field_rows.length > 0 && (

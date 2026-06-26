@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { auth } from "@/lib/auth"
 import fs from "fs"
 import path from "path"
 
@@ -8,6 +9,9 @@ export const runtime = "nodejs"
 const DATA_DIR = process.env.DATA_DIR ?? "./upload-data"
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth()
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
   const { id } = await params
   const farmId = parseInt(id)
   if (isNaN(farmId)) return NextResponse.json({ error: "Invalid farm id" }, { status: 400 })

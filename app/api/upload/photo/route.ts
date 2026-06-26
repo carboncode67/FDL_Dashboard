@@ -16,6 +16,7 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
+    const depthFile = (formData.get("depthFile") ?? formData.get("depth_map")) as File | null;
     const geoJSON = (formData.get("geoJSON") as string) ?? "{}";
     const ticket_ref = (formData.get("ticket_ref") as string) ?? "";
     const note = (formData.get("note") as string) ?? "";
@@ -24,12 +25,26 @@ export async function POST(request: Request) {
     let geo: { latitude?: number; longitude?: number } = {};
     try { geo = JSON.parse(geoJSON); } catch (_) {}
 
+    // Deduplicate by ticket_ref (prevents duplicate records when Twilio fires a webhook twice)
+    if (auth.kind === "contact" && ticket_ref) {
+      const existing = await prisma.photo.findFirst({ where: { ticket_ref } });
+      if (existing) return NextResponse.json({ ok: true, duplicate: true, id: existing.id });
+    }
+
     let filename = "";
     if (file && file.size > 0) {
       const dir = path.join(DATA_DIR, "photos");
       fs.mkdirSync(dir, { recursive: true });
       filename = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
       fs.writeFileSync(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
+    }
+
+    let depth_filename: string | null = null;
+    if (depthFile && depthFile.size > 0) {
+      const dir = path.join(DATA_DIR, "depth_maps");
+      fs.mkdirSync(dir, { recursive: true });
+      depth_filename = `${Date.now()}_${depthFile.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      fs.writeFileSync(path.join(dir, depth_filename), Buffer.from(await depthFile.arrayBuffer()));
     }
 
     const lat = geo.latitude ?? null;
@@ -44,6 +59,7 @@ export async function POST(request: Request) {
           field_id: fieldId,
           media_type: "photo",
           filename: filename || null,
+          depth_filename,
           latitude: lat,
           longitude: lng,
           content: note || null,
@@ -61,6 +77,7 @@ export async function POST(request: Request) {
           farm_id: farmId,
           field_id: fieldId,
           filename,
+          depth_filename,
           latitude: lat,
           longitude: lng,
           note: note || null,

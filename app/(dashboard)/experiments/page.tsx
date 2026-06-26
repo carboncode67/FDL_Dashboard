@@ -5,9 +5,22 @@ import { ExperimentsClient } from "./experiments-client";
 import { format } from "date-fns";
 
 export default async function ExperimentsPage() {
-  const [session, experiments] = await Promise.all([
-    auth(),
+  const session = await auth();
+  const role = (session?.user?.role ?? "viewer") as Role;
+  const userId = session?.user?.id ?? null;
+
+  const userFilterRecords = userId
+    ? await prisma.userProjectFilter.findMany({
+        where: { user_id: userId },
+        select: { project_id: true },
+      })
+    : [];
+  const filterIds = userFilterRecords.map((f) => f.project_id);
+  const projectWhere = filterIds.length > 0 ? { project_id: { in: filterIds } } : undefined;
+
+  const [experiments, filterProjects] = await Promise.all([
     prisma.farmExperiment.findMany({
+      where: projectWhere,
       include: {
         Farm: {
           select: {
@@ -16,6 +29,8 @@ export default async function ExperimentsPage() {
             Contacts: { select: { name: true, is_lab_member: true }, orderBy: { name: "asc" } },
           },
         },
+        Project: { select: { Project_Name: true } },
+        CreatedBy: { select: { name: true } },
         ExperimentTreatments: {
           include: { Treatment: { select: { id: true, Treatment_Name: true } } },
         },
@@ -25,9 +40,21 @@ export default async function ExperimentsPage() {
       },
       orderBy: { farm_id: "asc" },
     }),
+    filterIds.length > 0
+      ? prisma.project.findMany({
+          where: { id: { in: filterIds } },
+          select: { id: true, Project_Name: true },
+        })
+      : Promise.resolve([]),
   ]);
 
-  const role = (session?.user?.role ?? "viewer") as Role;
+  const activeProjectFilter =
+    filterIds.length > 0
+      ? {
+          count: filterIds.length,
+          names: filterProjects.map((p) => p.Project_Name ?? `Project ${p.id}`),
+        }
+      : null;
 
   const data = experiments.map((e) => {
     const farmer = e.Farm?.Contacts.find((c) => !c.is_lab_member);
@@ -44,8 +71,18 @@ export default async function ExperimentsPage() {
       treatments: e.ExperimentTreatments.map((t) => t.Treatment?.Treatment_Name ?? "").filter(Boolean),
       start_date: e.start_date ? format(new Date(e.start_date), "MMM d, yyyy") : null,
       end_date: e.end_date ? format(new Date(e.end_date), "MMM d, yyyy") : null,
+      project_name: e.Project?.Project_Name ?? null,
+      created_at: e.created_at.toISOString(),
+      updated_at: e.updated_at.toISOString(),
+      created_by_name: e.CreatedBy?.name ?? null,
     };
   });
 
-  return <ExperimentsClient data={data} canCreate={canCreate(role)} />;
+  return (
+    <ExperimentsClient
+      data={data}
+      canCreate={canCreate(role)}
+      activeProjectFilter={activeProjectFilter}
+    />
+  );
 }

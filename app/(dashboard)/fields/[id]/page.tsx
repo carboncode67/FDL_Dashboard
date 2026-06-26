@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
-import { canEdit, canDelete, type Role } from "@/lib/roles";
+import { canEdit, canDelete, canCreate, type Role } from "@/lib/roles";
 import { DeleteFieldButton } from "./delete-button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { RelationPicker } from "@/components/relation-picker";
 import FieldMapWrapper from "@/components/field-map-wrapper";
+import { EditBoundaryButton } from "@/components/edit-boundary-button";
 
 export default async function FieldDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,8 +31,9 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
   const role = (session?.user?.role ?? "viewer") as Role;
   const showEdit = canEdit(role);
   const showDelete = canDelete(role, editMode);
+  const showCreate = canCreate(role);
 
-  const [field, allTests, allCrops, allDrones] = await Promise.all([
+  const [field, allTests, allCrops, allDrones, linkedExperiments] = await Promise.all([
     prisma.field.findUnique({
       where: { id: fieldId },
       include: {
@@ -44,6 +46,17 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
     prisma.test.findMany({ select: { id: true, Test_Name: true } }),
     prisma.crop.findMany({ select: { id: true, Crop_Name: true } }),
     prisma.drone.findMany({ select: { id: true, Name: true } }),
+    prisma.experimentField.findMany({
+      where: { field_id: fieldId },
+      include: {
+        Experiment: {
+          include: {
+            Project: { select: { id: true, Project_Name: true } },
+            Farm: { select: { id: true, Farm_Name: true } },
+          },
+        },
+      },
+    }),
   ]);
 
   if (!field) notFound();
@@ -95,6 +108,7 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overview & Map</TabsTrigger>
+          <TabsTrigger value="experiments">Experiments ({linkedExperiments.length})</TabsTrigger>
           <TabsTrigger value="tests">Tests ({field.FieldTests.length})</TabsTrigger>
           <TabsTrigger value="crops">Crops ({field.FieldCrops.length})</TabsTrigger>
           <TabsTrigger value="drones">Drone Flights ({field.FieldDrones.length})</TabsTrigger>
@@ -113,16 +127,80 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
           </Card>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-6">
-            <h3 className="font-medium text-slate-700 mb-3">Map Visualization</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-medium text-slate-700">Map Visualization</h3>
+              {showCreate && (
+                <EditBoundaryButton fieldId={field.id} initialGeometry={field.geometry} />
+              )}
+            </div>
             {field.geometry ? (
               <FieldMapWrapper
                 fieldName={field.Name ?? `Field #${field.id}`}
                 geometry={field.geometry}
               />
             ) : (
-              <p className="text-sm text-slate-400 italic">No geometry data available for this field.</p>
+              <p className="text-sm text-slate-400 italic">No geometry data available for this field. Use the button above to draw a boundary.</p>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="experiments" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Linked Experiments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {linkedExperiments.length === 0 ? (
+                <p className="text-sm text-slate-500">No experiments linked to this field. Assign this field from an experiment&apos;s settings.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Experiment</TableHead>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Farm</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {linkedExperiments.map((ef) => (
+                      <TableRow key={ef.experiment_id}>
+                        <TableCell className="font-medium">
+                          {ef.Experiment.Farm?.id ? (
+                            <Link
+                              href={`/farms/${ef.Experiment.Farm.id}/experiments/${ef.experiment_id}`}
+                              className="text-blue-600 hover:underline"
+                            >
+                              {ef.Experiment.experiment_name ?? `Experiment #${ef.experiment_id}`}
+                            </Link>
+                          ) : (
+                            ef.Experiment.experiment_name ?? `Experiment #${ef.experiment_id}`
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {ef.Experiment.Project ? (
+                            <Link href={`/projects/${ef.Experiment.Project.id}`} className="text-blue-600 hover:underline">
+                              {ef.Experiment.Project.Project_Name ?? `Project #${ef.Experiment.Project.id}`}
+                            </Link>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {ef.Experiment.Farm ? (
+                            <Link href={`/farms/${ef.Experiment.Farm.id}`} className="text-blue-600 hover:underline">
+                              {ef.Experiment.Farm.Farm_Name ?? `Farm #${ef.Experiment.Farm.id}`}
+                            </Link>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="tests" className="mt-4">

@@ -6,7 +6,7 @@ export default async function EditTestPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const testId = parseInt(id);
   const [test, fieldDefs] = await Promise.all([
-    prisma.test.findUnique({ where: { id: testId } }),
+    prisma.test.findUnique({ where: { id: testId }, include: { TaskTemplates: true } }),
     prisma.testFieldDefinition.findMany({ where: { test_id: testId }, orderBy: { col_index: "asc" } }),
   ]);
   if (!test) notFound();
@@ -19,6 +19,11 @@ export default async function EditTestPage({ params }: { params: Promise<{ id: s
         Cost: test.Cost ? Number(test.Cost) : null,
         Methodology: test.Methodology,
         Data_Processing_Instructions: test.Data_Processing_Instructions,
+        TaskTemplates: test.TaskTemplates.map((t) => ({
+          description:    t.description,
+          classification: t.classification,
+          priority:       t.priority,
+        })),
       }}
       fieldDefs={fieldDefs.map((d) => ({ col_index: d.col_index, field_type: d.field_type as "text" | "number", label: d.label }))}
     />

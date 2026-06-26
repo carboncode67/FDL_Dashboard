@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { buildReportData, generateReportHtml } from "@/lib/report-generator";
 
-/**
- * GET /api/reporting/preview?subscription_id=1
- * GET /api/reporting/preview?contact_ids=1,2,3
- *
- * Returns the full HTML report for the given subscription or contact list.
- * Opens directly in the browser as a standalone page.
- */
 export async function GET(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
+
   const { searchParams } = new URL(req.url);
   const subId       = searchParams.get("subscription_id");
   const contactsRaw = searchParams.get("contact_ids");

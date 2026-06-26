@@ -21,6 +21,7 @@ import Link from "next/link";
 import { RelationPicker } from "@/components/relation-picker";
 import { DocumentUpload } from "@/components/document-upload";
 import { UnlinkExperimentButton } from "./unlink-experiment-button";
+import { AnnotationTab } from "./annotation-tab";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -31,7 +32,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const showEdit = canEdit(role);
   const showDelete = canDelete(role, editMode);
 
-  const [project, allExperiments, allLabMembers] = await Promise.all([
+  const [project, allExperiments, allLabMembers, cvatTasks, photoCount] = await Promise.all([
     prisma.project.findUnique({
       where: { id: projectId },
       include: {
@@ -54,6 +55,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       orderBy: { experiment_name: "asc" },
     }),
     prisma.user.findMany({ select: { id: true, name: true, email: true } }),
+    prisma.cvatTask.findMany({ where: { project_id: projectId }, orderBy: { created_at: "desc" } }),
+    prisma.photo.count({ where: { project_id: projectId, status: { gte: 2 } } }),
   ]);
 
   if (!project) notFound();
@@ -103,6 +106,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <TabsTrigger value="protocols">Treatment Protocols ({project.TreatmentProtocols.length})</TabsTrigger>
           <TabsTrigger value="zones">Experiment Zones ({project.ExperimentZones.length})</TabsTrigger>
           <TabsTrigger value="documents">Documents ({project.Documents.length})</TabsTrigger>
+          <TabsTrigger value="annotations">Annotations ({cvatTasks.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -249,6 +253,23 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             </CardContent>
           </Card>
         </TabsContent>
+        <TabsContent value="annotations" className="mt-4">
+          <AnnotationTab
+            projectId={project.id}
+            projectName={project.Project_Name ?? `Project ${project.id}`}
+            initialTasks={cvatTasks.map((t) => ({
+              id: t.id,
+              name: t.name,
+              status: t.status,
+              image_count: t.image_count,
+              cvat_task_id: t.cvat_task_id,
+              created_at: t.created_at.toISOString(),
+            }))}
+            photoCount={photoCount}
+            canCreate={showEdit}
+          />
+        </TabsContent>
+
         <TabsContent value="documents" className="mt-4 space-y-4">
           <DocumentUpload projectId={project.id} />
           {project.Documents.length > 0 && (

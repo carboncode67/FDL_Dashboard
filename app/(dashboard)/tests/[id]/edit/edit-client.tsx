@@ -15,6 +15,7 @@ interface Props {
     Cost: number | null;
     Methodology: string | null;
     Data_Processing_Instructions: string | null;
+    TaskTemplates?: { description: string; classification: string | null; priority: string }[];
   };
   fieldDefs: Column[];
 }

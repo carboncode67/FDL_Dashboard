@@ -10,6 +10,9 @@ interface Props {
     Farm_Name: string | null;
     farm_summary: string | null;
     is_active: boolean;
+    address?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
   };
 }
 

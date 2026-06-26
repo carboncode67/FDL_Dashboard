@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, X } from "lucide-react";
+import { DateInput } from "@/components/ui/date-input";
 
 type FarmOption      = { id: number; Farm_Name: string | null };
 type TestOption      = { id: number; Test_Name: string | null };
@@ -69,7 +70,7 @@ export default function ExperimentNewClient({ farms, allTests, allDrones, allTre
         resolvedFarmId = String(created.id);
       }
       if (!resolvedFarmId) return;
-      await fetch(`/api/experiments/${resolvedFarmId}`, {
+      const res = await fetch(`/api/experiments/${resolvedFarmId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -109,6 +110,7 @@ export default function ExperimentNewClient({ farms, allTests, allDrones, allTre
           field_ids: [],
         }),
       });
+      if (!res.ok) throw new Error(await res.text());
       router.push("/experiments");
     } finally {
       setSaving(false);
@@ -177,11 +179,11 @@ export default function ExperimentNewClient({ farms, allTests, allDrones, allTre
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Start Date</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <DateInput value={startDate} onChange={setStartDate} />
             </div>
             <div className="space-y-1.5">
               <Label>End Date</Label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <DateInput value={endDate} onChange={setEndDate} />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -252,13 +254,11 @@ export default function ExperimentNewClient({ farms, allTests, allDrones, allTre
                     setTestRows(u);
                   }}
                 />
-                <Input
-                  type="date"
-                  className="w-40"
+                <DateInput
                   value={row.expected_date}
-                  onChange={(e) => {
+                  onChange={(v) => {
                     const u = [...testRows];
-                    u[i] = { ...u[i], expected_date: e.target.value };
+                    u[i] = { ...u[i], expected_date: v };
                     setTestRows(u);
                   }}
                 />
@@ -327,13 +327,11 @@ export default function ExperimentNewClient({ farms, allTests, allDrones, allTre
                     setDroneRows(u);
                   }}
                 />
-                <Input
-                  type="date"
-                  className="w-40"
+                <DateInput
                   value={row.expected_date}
-                  onChange={(e) => {
+                  onChange={(v) => {
                     const u = [...droneRows];
-                    u[i] = { ...u[i], expected_date: e.target.value };
+                    u[i] = { ...u[i], expected_date: v };
                     setDroneRows(u);
                   }}
                 />

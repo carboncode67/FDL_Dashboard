@@ -113,8 +113,9 @@ export async function PUT(req: Request, { params }: Params) {
   }
 
   // Auto-create tasks from templates for newly added tests/drones
-  const newTestIds  = (tests  as { test_id: number }[]).map((t) => t.test_id).filter((id) => !oldTestIds.has(id));
-  const newDroneIds = (drones as { drone_id: number }[]).map((d) => d.drone_id).filter((id) => !oldDroneIds.has(id));
+  type RowWithOverrides = { test_id?: number; drone_id?: number; taskOverrides?: { template_id: number; due_date: string | null; user_ids: string[] }[] };
+  const newTestIds  = (tests  as RowWithOverrides[]).map((t) => t.test_id!).filter((id) => !oldTestIds.has(id));
+  const newDroneIds = (drones as RowWithOverrides[]).map((d) => d.drone_id!).filter((id) => !oldDroneIds.has(id));
 
   if (newTestIds.length > 0 || newDroneIds.length > 0) {
     const [testTemplates, droneTemplates] = await Promise.all([
@@ -122,16 +123,34 @@ export async function PUT(req: Request, { params }: Params) {
       newDroneIds.length > 0 ? prisma.taskTemplate.findMany({ where: { drone_id: { in: newDroneIds } } }) : Promise.resolve([]),
     ]);
     const allTemplates = [...testTemplates, ...droneTemplates];
+
     if (allTemplates.length > 0) {
-      await prisma.task.createMany({
-        data: allTemplates.map((t) => ({
-          experiment_id:  experimentIdInt,
-          description:    t.description,
-          classification: t.classification,
-          priority:       t.priority,
-          status:         "not started",
-        })),
-      });
+      // Build a map of template_id → override data from the request body
+      const overrideMap = new Map<number, { due_date: string | null; user_ids: string[] }>();
+      for (const row of [...(tests as RowWithOverrides[]), ...(drones as RowWithOverrides[])]) {
+        for (const ovr of (row.taskOverrides ?? [])) {
+          overrideMap.set(ovr.template_id, { due_date: ovr.due_date, user_ids: ovr.user_ids ?? [] });
+        }
+      }
+
+      for (const t of allTemplates) {
+        const ovr = overrideMap.get(t.id);
+        const task = await prisma.task.create({
+          data: {
+            experiment_id:  experimentIdInt,
+            description:    t.description,
+            classification: t.classification,
+            priority:       t.priority,
+            status:         "not started",
+            due_date:       ovr?.due_date ? new Date(ovr.due_date) : null,
+          },
+        });
+        if (ovr?.user_ids?.length) {
+          await prisma.taskAssignee.createMany({
+            data: ovr.user_ids.map((uid) => ({ task_id: task.id, user_id: uid })),
+          });
+        }
+      }
     }
   }
 

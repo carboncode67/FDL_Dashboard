@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { buildReportData, generateReportHtml, generateEmailHtml } from "@/lib/report-generator";
 import { Resend } from "resend";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { id } = await params;
   const body = await req.json();
   const sub = await prisma.reportingSubscription.update({
@@ -19,12 +23,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { id } = await params;
   await prisma.reportingSubscription.delete({ where: { id: Number(id) } });
   return NextResponse.json({ ok: true });
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { id } = await params;
   const sub = await prisma.reportingSubscription.findUnique({
     where: { id: Number(id) },
@@ -45,14 +55,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const subject = `Farmers Datalab — Activity Report — ${month} ${now.getFullYear()}`;
   const from    = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
 
-  // Generate chart images via Puppeteer then build email HTML
   let emailHtml: string;
   try {
     const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
     emailHtml = await generateEmailHtml(farmers, 14, baseUrl);
   } catch (e) {
     console.error("[Report] Puppeteer chart capture failed, falling back to no-chart email:", e);
-    // Fallback: send without charts
     emailHtml = generateReportHtml(farmers, 14);
   }
 

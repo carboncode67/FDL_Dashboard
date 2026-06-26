@@ -100,6 +100,16 @@ export async function POST(request: Request) {
     const ptLat = firstPt?.lat ?? null;
     const ptLng = firstPt?.lng ?? null;
 
+    // Deduplicate by ticket_ref. File already written to disk — clean up if duplicate.
+    if (auth.kind === "contact" && ticket_ref) {
+      const existing = await prisma.recording.findFirst({ where: { ticket_ref } });
+      if (existing) {
+        try { fs.unlinkSync(path.join(dir, filename)); } catch (_) {}
+        if (gpsFilename) { try { fs.unlinkSync(path.join(dir, gpsFilename)); } catch (_) {} }
+        return NextResponse.json({ ok: true, duplicate: true, id: existing.id });
+      }
+    }
+
     if (auth.kind === "labMember") {
       const { farmId, fieldId } = await findFieldAndFarmByLocation(ptLat ?? 0, ptLng ?? 0);
       await prisma.labMemberUpload.create({

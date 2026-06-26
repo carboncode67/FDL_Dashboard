@@ -5,7 +5,14 @@ import { DroneForm } from "@/components/forms/drone-form";
 import Link from "next/link";
 
 interface Props {
-  drone: { id: number; Name: string | null; Description: string | null; Cost_Per_Acre: number | null; Mobilization_Cost: number | null };
+  drone: {
+    id: number;
+    Name: string | null;
+    Description: string | null;
+    Cost_Per_Acre: number | null;
+    Mobilization_Cost: number | null;
+    TaskTemplates?: { description: string; classification: string | null; priority: string }[];
+  };
 }
 
 export default function EditDroneClient({ drone }: Props) {

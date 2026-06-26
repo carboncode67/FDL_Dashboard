@@ -17,6 +17,7 @@ import {
   Layers,
   TestTube,
   FlaskConical,
+  ClipboardList,
 } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -35,6 +36,7 @@ async function getDashboardData() {
     upcomingTests,
     projects,
     recentExperiments,
+    upcomingTasks,
   ] = await Promise.all([
     prisma.project.count(),
     prisma.project.groupBy({
@@ -79,6 +81,27 @@ async function getDashboardData() {
         updated_at: true,
         farm_id: true,
         Farm: { select: { Farm_Name: true } },
+      },
+    }),
+    prisma.task.findMany({
+      where: {
+        due_date: { not: null },
+        status: { not: "complete" },
+      },
+      orderBy: { due_date: "asc" },
+      take: 10,
+      include: {
+        Experiment: {
+          select: {
+            id: true,
+            experiment_name: true,
+            farm_id: true,
+            Farm: { select: { Farm_Name: true } },
+          },
+        },
+        Assignees: {
+          include: { User: { select: { id: true, name: true } } },
+        },
       },
     }),
   ]);
@@ -127,11 +150,13 @@ async function getDashboardData() {
     upcomingTestCount,
     upcomingTests,
     recentExperiments,
+    upcomingTasks,
   };
 }
 
 export default async function DashboardPage() {
   const data = await getDashboardData();
+  const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
   const statusColors: Record<string, string> = {
     Active: "default",
@@ -346,6 +371,83 @@ export default async function DashboardPage() {
                     </TableCell>
                   </TableRow>
                 ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Upcoming Tasks Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ClipboardList className="h-4 w-4 text-slate-500" />
+            Upcoming Tasks
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {data.upcomingTasks.length === 0 ? (
+            <p className="text-sm text-slate-500 py-4 text-center">No upcoming tasks</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Task</TableHead>
+                  <TableHead>Classification</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Experiment / Farm</TableHead>
+                  <TableHead>Assigned To</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.upcomingTasks.map((task) => {
+                  const isUrgent = task.due_date != null && new Date(task.due_date) <= sevenDaysFromNow;
+                  const priorityVariant: Record<string, "destructive" | "default" | "secondary"> = {
+                    high: "destructive",
+                    medium: "default",
+                    low: "secondary",
+                  };
+                  const assigneeNames = task.Assignees.map((a) => a.User.name ?? a.User.id).join(", ");
+                  return (
+                    <TableRow key={task.id}>
+                      <TableCell className={isUrgent ? "text-amber-600 font-medium" : "text-slate-500"}>
+                        {task.due_date ? format(new Date(task.due_date), "MMM d, yyyy") : "—"}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        <Link href={`/tasks/${task.id}`} className="hover:underline text-blue-600">
+                          {task.description}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        {task.classification ? (
+                          <Badge variant="secondary" className="text-xs capitalize">
+                            {task.classification}
+                          </Badge>
+                        ) : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={priorityVariant[task.priority] ?? "secondary"} className="text-xs capitalize">
+                          {task.priority}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {task.Experiment ? (
+                          <Link
+                            href={`/farms/${task.Experiment.farm_id}/experiments/${task.Experiment.id}`}
+                            className="hover:underline text-blue-600 text-sm"
+                          >
+                            {task.Experiment.experiment_name ?? `Experiment #${task.Experiment.id}`}
+                            {task.Experiment.Farm?.Farm_Name ? ` · ${task.Experiment.Farm.Farm_Name}` : ""}
+                          </Link>
+                        ) : "—"}
+                      </TableCell>
+                      <TableCell className="text-slate-500 text-sm">
+                        {assigneeNames || "Unassigned"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

@@ -6,28 +6,51 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, X, ChevronDown, ChevronRight } from "lucide-react";
 import FieldSelectorMapWrapper from "@/components/field-selector-map-wrapper";
 import { FieldBoundaryUpload } from "@/components/field-boundary-upload";
+import { DroneFlightRecordForm, type DroneFlightRecordData } from "@/components/forms/drone-flight-record-form";
+import { DateInput } from "@/components/ui/date-input";
 
-type FieldDef = { id: number; col_index: number; field_type: string; label: string };
-type TestOption      = { id: number; Test_Name: string | null };
-type DroneOption     = { id: number; Name: string | null };
+type FieldDef      = { id: number; col_index: number; field_type: string; label: string };
+type TestTemplate  = { id: number; description: string; classification: string | null; priority: string };
+type TaskOverride  = { template_id: number; description: string; classification: string | null; due_date: string; user_ids: string[] };
+type UserOption    = { id: string; name: string | null; email: string };
+type TestOption    = { id: number; Test_Name: string | null; TaskTemplates: TestTemplate[] };
+type DroneOption   = { id: number; Name: string | null; TaskTemplates: TestTemplate[] };
 type TreatmentOption = {
   id:               number;
   Treatment_Name:   string | null;
   allow_extra_rows: boolean;
   TreatmentFieldDefinitions: FieldDef[];
 };
-type FarmField       = { id: number; Name: string | null; geometry: string | null };
-type ProjectOption   = { id: number; Project_Name: string | null };
+type FarmField     = { id: number; Name: string | null; geometry: string | null };
+type ProjectOption = { id: number; Project_Name: string | null };
 
 const ASSIGNMENT_STATUSES = ["Planned", "Collected", "Completed", "Cancelled"] as const;
 
-type TestRow      = { test_id: number; n_samples: string; expected_date: string; status: string };
-type DroneRow     = { drone_id: number; n_flights: string; expected_date: string; status: string };
-type TreatmentRow = { treatment_id: number; is_continuous: boolean; rate: string; rate_unit: string };
+type TestRow      = { test_id: number; n_samples: string; expected_date: string; status: string; taskOverrides: TaskOverride[] };
+type DroneRow     = { id?: number; drone_id: number; n_flights: string; expected_date: string; status: string; taskOverrides: TaskOverride[] };
+type TreatmentRow = { treatment_id: number; is_continuous: boolean; has_control_treatment: boolean; control_treatment_type: "control" | "treatment" | ""; control_treatment_number: string };
 type TreatmentValueRow = { treatment_id: number; field_def_id: number; row_index: number; value: string };
+
+type FlightRecordData = {
+  id: number;
+  experiment_drone_flight_id: number;
+  flight_date: string | null;
+  pilot: string | null;
+  flight_status: string | null;
+  total_acres: number | null;
+  total_images: number | null;
+  needs_3d: boolean;
+  needs_ortho: boolean;
+  processed: boolean;
+  data_storage_path: string | null;
+  tile_coverage_pct: number | null;
+  tile_size_m: number | null;
+  notes: string | null;
+};
 
 interface Props {
   farmId:       number;
@@ -44,8 +67,9 @@ interface Props {
     criteria:        string | null;
     lab_description: string | null;
     tests:      { test_id: number; n_samples: number | null; expected_date: string | null; status: string | null }[];
-    drones:     { drone_id: number; n_flights: number | null; expected_date: string | null; status: string | null }[];
-    treatments: { treatment_id: number; is_continuous: boolean; rate: number | null; rate_unit: string | null }[];
+    drones:     { id: number; drone_id: number; n_flights: number | null; expected_date: string | null; status: string | null }[];
+    droneFlightRecordsMap: Record<number, FlightRecordData[]>;
+    treatments: { treatment_id: number; is_continuous: boolean; has_control_treatment: boolean; control_treatment_type: string | null; control_treatment_number: number | null }[];
     field_ids:  number[];
     treatmentValues: TreatmentValueRow[];
   } | null;
@@ -55,16 +79,31 @@ interface Props {
   allProjects:   ProjectOption[];
   farmFields:    FarmField[];
   farmUploadPins: { id: number; lat: number; lng: number; type: "photo" | "note" | "lab" }[];
+  allUsers:      UserOption[];
 }
 
 const TEXTAREA = "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 const SELECT   = "h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm";
 
+function buildTaskOverrides(templates: TestTemplate[]): TaskOverride[] {
+  return templates.map((t) => ({
+    template_id:    t.id,
+    description:    t.description,
+    classification: t.classification,
+    due_date:       "",
+    user_ids:       [],
+  }));
+}
+
 export default function ExperimentFormClient({
-  farmId, farmName, experimentId, experiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmUploadPins,
+  farmId, farmName, experimentId, experiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmUploadPins, allUsers,
 }: Props) {
   const router   = useRouter();
   const [saving, setSaving] = useState(false);
+  const [flightFormAssignmentId, setFlightFormAssignmentId] = useState<number | null>(null);
+  const [editingFlightRecord, setEditingFlightRecord]       = useState<FlightRecordData | null>(null);
+  const [expandedDrones, setExpandedDrones]                 = useState<Set<number>>(new Set());
+  const droneFlightRecordsMap = experiment?.droneFlightRecordsMap ?? {};
 
   const [expName,      setExpName]      = useState(experiment?.experiment_name ?? "");
   const [startDate,    setStartDate]    = useState(experiment?.start_date ?? "");
@@ -83,6 +122,7 @@ export default function ExperimentFormClient({
           n_samples:     t.n_samples?.toString() ?? "",
           expected_date: t.expected_date ?? "",
           status:        t.status ?? "",
+          taskOverrides: [],
         }))
       : []
   );
@@ -90,10 +130,12 @@ export default function ExperimentFormClient({
   const [droneRows, setDroneRows] = useState<DroneRow[]>(
     experiment?.drones.length
       ? experiment.drones.map((d) => ({
+          id:            d.id,
           drone_id:      d.drone_id,
           n_flights:     d.n_flights?.toString() ?? "",
           expected_date: d.expected_date ?? "",
           status:        d.status ?? "",
+          taskOverrides: [],
         }))
       : []
   );
@@ -101,10 +143,11 @@ export default function ExperimentFormClient({
   const [treatmentRows, setTreatmentRows] = useState<TreatmentRow[]>(
     experiment?.treatments.length
       ? experiment.treatments.map((t) => ({
-          treatment_id:  t.treatment_id,
-          is_continuous: t.is_continuous,
-          rate:          t.rate?.toString() ?? "",
-          rate_unit:     t.rate_unit ?? "",
+          treatment_id:            t.treatment_id,
+          is_continuous:           t.is_continuous,
+          has_control_treatment:   t.has_control_treatment,
+          control_treatment_type:  (t.control_treatment_type as "control" | "treatment" | "") || "",
+          control_treatment_number: t.control_treatment_number?.toString() ?? "",
         }))
       : []
   );
@@ -188,7 +231,7 @@ export default function ExperimentFormClient({
       : `/api/experiments/${farmId}`;
     const method = experimentId ? "PUT" : "POST";
     try {
-      await fetch(url, {
+      const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -208,6 +251,9 @@ export default function ExperimentFormClient({
               n_samples:     r.n_samples ? parseInt(r.n_samples) : null,
               expected_date: r.expected_date || null,
               status:        r.status || null,
+              taskOverrides: r.taskOverrides.length > 0
+                ? r.taskOverrides.map((o) => ({ template_id: o.template_id, due_date: o.due_date || null, user_ids: o.user_ids }))
+                : undefined,
             })),
           drones: droneRows
             .filter((r) => r.drone_id)
@@ -216,14 +262,20 @@ export default function ExperimentFormClient({
               n_flights:     r.n_flights ? parseInt(r.n_flights) : null,
               expected_date: r.expected_date || null,
               status:        r.status || null,
+              taskOverrides: r.taskOverrides.length > 0
+                ? r.taskOverrides.map((o) => ({ template_id: o.template_id, due_date: o.due_date || null, user_ids: o.user_ids }))
+                : undefined,
             })),
           treatments: treatmentRows
             .filter((r) => r.treatment_id)
             .map((r) => ({
-              treatment_id:  r.treatment_id,
-              is_continuous: r.is_continuous,
-              rate:          r.rate ? parseFloat(r.rate) : null,
-              rate_unit:     r.rate_unit || null,
+              treatment_id:             r.treatment_id,
+              is_continuous:            r.is_continuous,
+              has_control_treatment:    r.has_control_treatment,
+              control_treatment_type:   r.has_control_treatment ? (r.control_treatment_type || null) : null,
+              control_treatment_number: r.has_control_treatment && r.control_treatment_type === "treatment"
+                ? (r.control_treatment_number ? parseInt(r.control_treatment_number) : null)
+                : null,
             })),
           treatmentValues: treatmentValues.filter((v) =>
             treatmentRows.some((r) => r.treatment_id === v.treatment_id)
@@ -231,6 +283,7 @@ export default function ExperimentFormClient({
           field_ids: Array.from(selectedFieldIds),
         }),
       });
+      if (!res.ok) throw new Error(await res.text());
       router.push(`/farms/${farmId}/experiments`);
     } finally {
       setSaving(false);
@@ -268,11 +321,11 @@ export default function ExperimentFormClient({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Start Date</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <DateInput value={startDate} onChange={setStartDate} />
             </div>
             <div className="space-y-1.5">
               <Label>End Date</Label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <DateInput value={endDate} onChange={setEndDate} />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -319,58 +372,123 @@ export default function ExperimentFormClient({
           <div className="space-y-2">
             <Label>Tests</Label>
             {testRows.map((row, i) => (
-              <div key={i} className="flex gap-2 items-center flex-wrap">
-                <select
-                  className={`flex-1 min-w-32 ${SELECT}`}
-                  value={row.test_id}
-                  onChange={(e) => {
-                    const updated = [...testRows];
-                    updated[i] = { ...updated[i], test_id: parseInt(e.target.value) };
-                    setTestRows(updated);
-                  }}
-                >
-                  {allTests.map((t) => (
-                    <option key={t.id} value={t.id}>{t.Test_Name ?? `Test #${t.id}`}</option>
-                  ))}
-                </select>
-                <Input
-                  type="number"
-                  placeholder="# samples"
-                  className="w-28"
-                  value={row.n_samples}
-                  onChange={(e) => {
-                    const updated = [...testRows];
-                    updated[i] = { ...updated[i], n_samples: e.target.value };
-                    setTestRows(updated);
-                  }}
-                />
-                <Input
-                  type="date"
-                  className="w-40"
-                  value={row.expected_date}
-                  onChange={(e) => {
-                    const updated = [...testRows];
-                    updated[i] = { ...updated[i], expected_date: e.target.value };
-                    setTestRows(updated);
-                  }}
-                />
-                <select
-                  className={`w-36 ${SELECT}`}
-                  value={row.status}
-                  onChange={(e) => {
-                    const updated = [...testRows];
-                    updated[i] = { ...updated[i], status: e.target.value };
-                    setTestRows(updated);
-                  }}
-                >
-                  <option value="">— Status —</option>
-                  {ASSIGNMENT_STATUSES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                <Button type="button" variant="ghost" size="icon" onClick={() => setTestRows(testRows.filter((_, idx) => idx !== i))}>
-                  <X className="h-4 w-4" />
-                </Button>
+              <div key={i} className={row.taskOverrides.length > 0 ? "border rounded-md p-2 space-y-2 bg-slate-50/50" : ""}>
+                <div className="flex gap-2 items-center flex-wrap">
+                  <select
+                    className={`flex-1 min-w-32 ${SELECT}`}
+                    value={row.test_id}
+                    onChange={(e) => {
+                      const newTestId = parseInt(e.target.value);
+                      const tpl = allTests.find((t) => t.id === newTestId);
+                      const updated = [...testRows];
+                      updated[i] = {
+                        ...updated[i],
+                        test_id:       newTestId,
+                        taskOverrides: tpl ? buildTaskOverrides(tpl.TaskTemplates) : [],
+                      };
+                      setTestRows(updated);
+                    }}
+                  >
+                    {allTests.map((t) => (
+                      <option key={t.id} value={t.id}>{t.Test_Name ?? `Test #${t.id}`}</option>
+                    ))}
+                  </select>
+                  <Input
+                    type="number"
+                    placeholder="# samples"
+                    className="w-28"
+                    value={row.n_samples}
+                    onChange={(e) => {
+                      const updated = [...testRows];
+                      updated[i] = { ...updated[i], n_samples: e.target.value };
+                      setTestRows(updated);
+                    }}
+                  />
+                  <DateInput
+                    value={row.expected_date}
+                    onChange={(v) => {
+                      const updated = [...testRows];
+                      updated[i] = { ...updated[i], expected_date: v };
+                      setTestRows(updated);
+                    }}
+                  />
+                  <select
+                    className={`w-36 ${SELECT}`}
+                    value={row.status}
+                    onChange={(e) => {
+                      const updated = [...testRows];
+                      updated[i] = { ...updated[i], status: e.target.value };
+                      setTestRows(updated);
+                    }}
+                  >
+                    <option value="">— Status —</option>
+                    {ASSIGNMENT_STATUSES.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => setTestRows(testRows.filter((_, idx) => idx !== i))}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* Task template overrides for this test */}
+                {row.taskOverrides.length > 0 && (
+                  <div className="rounded-md border border-blue-100 bg-blue-50/40 p-3 space-y-3">
+                    <p className="text-xs font-semibold text-slate-600">Task Templates — set due dates &amp; assignees</p>
+                    {row.taskOverrides.map((ovr, oi) => (
+                      <div key={oi} className="space-y-2 pb-2 border-b border-blue-100 last:border-0 last:pb-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-slate-800">{ovr.description}</span>
+                          {ovr.classification && (
+                            <Badge variant="outline" className="text-xs">{ovr.classification}</Badge>
+                          )}
+                        </div>
+                        <div className="flex gap-4 flex-wrap items-start">
+                          <div className="space-y-1">
+                            <p className="text-xs text-slate-500">Due Date</p>
+                            <DateInput
+                              value={ovr.due_date}
+                              onChange={(v) => {
+                                const updated = [...testRows];
+                                const overrides = [...updated[i].taskOverrides];
+                                overrides[oi] = { ...overrides[oi], due_date: v };
+                                updated[i] = { ...updated[i], taskOverrides: overrides };
+                                setTestRows(updated);
+                              }}
+                            />
+                          </div>
+                          {allUsers.length > 0 && (
+                            <div className="space-y-1">
+                              <p className="text-xs text-slate-500">Assignees</p>
+                              <div className="space-y-1 max-h-28 overflow-y-auto">
+                                {allUsers.map((u) => (
+                                  <label key={u.id} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      className="h-3.5 w-3.5 rounded border-input"
+                                      checked={ovr.user_ids.includes(u.id)}
+                                      onChange={(e) => {
+                                        const updated = [...testRows];
+                                        const overrides = [...updated[i].taskOverrides];
+                                        const newUserIds = e.target.checked
+                                          ? [...overrides[oi].user_ids, u.id]
+                                          : overrides[oi].user_ids.filter((uid) => uid !== u.id);
+                                        overrides[oi] = { ...overrides[oi], user_ids: newUserIds };
+                                        updated[i] = { ...updated[i], taskOverrides: overrides };
+                                        setTestRows(updated);
+                                      }}
+                                    />
+                                    {u.name ?? u.email}
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
             {allTests.length > 0 && (
@@ -378,7 +496,16 @@ export default function ExperimentFormClient({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setTestRows([...testRows, { test_id: allTests[0].id, n_samples: "", expected_date: "", status: "" }])}
+                onClick={() => {
+                  const first = allTests[0];
+                  setTestRows([...testRows, {
+                    test_id:       first.id,
+                    n_samples:     "",
+                    expected_date: "",
+                    status:        "",
+                    taskOverrides: buildTaskOverrides(first.TaskTemplates),
+                  }]);
+                }}
               >
                 <Plus className="h-3.5 w-3.5 mr-1" /> Add Test
               </Button>
@@ -388,72 +515,226 @@ export default function ExperimentFormClient({
           {/* Drone Flights */}
           <div className="space-y-2">
             <Label>Drone Flights</Label>
-            {droneRows.map((row, i) => (
-              <div key={i} className="flex gap-2 items-center flex-wrap">
-                <select
-                  className={`flex-1 min-w-32 ${SELECT}`}
-                  value={row.drone_id}
-                  onChange={(e) => {
-                    const updated = [...droneRows];
-                    updated[i] = { ...updated[i], drone_id: parseInt(e.target.value) };
-                    setDroneRows(updated);
-                  }}
-                >
-                  {allDrones.map((d) => (
-                    <option key={d.id} value={d.id}>{d.Name ?? `Drone #${d.id}`}</option>
-                  ))}
-                </select>
-                <Input
-                  type="number"
-                  placeholder="# flights"
-                  className="w-28"
-                  value={row.n_flights}
-                  onChange={(e) => {
-                    const updated = [...droneRows];
-                    updated[i] = { ...updated[i], n_flights: e.target.value };
-                    setDroneRows(updated);
-                  }}
-                />
-                <Input
-                  type="date"
-                  className="w-40"
-                  value={row.expected_date}
-                  onChange={(e) => {
-                    const updated = [...droneRows];
-                    updated[i] = { ...updated[i], expected_date: e.target.value };
-                    setDroneRows(updated);
-                  }}
-                />
-                <select
-                  className={`w-36 ${SELECT}`}
-                  value={row.status}
-                  onChange={(e) => {
-                    const updated = [...droneRows];
-                    updated[i] = { ...updated[i], status: e.target.value };
-                    setDroneRows(updated);
-                  }}
-                >
-                  <option value="">— Status —</option>
-                  {ASSIGNMENT_STATUSES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                <Button type="button" variant="ghost" size="icon" onClick={() => setDroneRows(droneRows.filter((_, idx) => idx !== i))}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+            {droneRows.map((row, i) => {
+              const assignmentId  = row.id;
+              const flightRecords = assignmentId != null ? (droneFlightRecordsMap[assignmentId] ?? []) : [];
+              const isExpanded    = assignmentId != null && expandedDrones.has(assignmentId);
+
+              return (
+                <div key={i} className="border rounded-md p-2 space-y-2 bg-slate-50/50">
+                  <div className="flex gap-2 items-center flex-wrap">
+                    <select
+                      className={`flex-1 min-w-32 ${SELECT}`}
+                      value={row.drone_id}
+                      onChange={(e) => {
+                        const newDroneId = parseInt(e.target.value);
+                        const drn = allDrones.find((d) => d.id === newDroneId);
+                        const updated = [...droneRows];
+                        updated[i] = {
+                          ...updated[i],
+                          drone_id:      newDroneId,
+                          taskOverrides: drn ? buildTaskOverrides(drn.TaskTemplates) : [],
+                        };
+                        setDroneRows(updated);
+                      }}
+                    >
+                      {allDrones.map((d) => (
+                        <option key={d.id} value={d.id}>{d.Name ?? `Drone #${d.id}`}</option>
+                      ))}
+                    </select>
+                    <Input
+                      type="number"
+                      placeholder="# flights"
+                      className="w-28"
+                      value={row.n_flights}
+                      onChange={(e) => {
+                        const updated = [...droneRows];
+                        updated[i] = { ...updated[i], n_flights: e.target.value };
+                        setDroneRows(updated);
+                      }}
+                    />
+                    <DateInput
+                      value={row.expected_date}
+                      onChange={(v) => {
+                        const updated = [...droneRows];
+                        updated[i] = { ...updated[i], expected_date: v };
+                        setDroneRows(updated);
+                      }}
+                    />
+                    <select
+                      className={`w-36 ${SELECT}`}
+                      value={row.status}
+                      onChange={(e) => {
+                        const updated = [...droneRows];
+                        updated[i] = { ...updated[i], status: e.target.value };
+                        setDroneRows(updated);
+                      }}
+                    >
+                      <option value="">— Status —</option>
+                      {ASSIGNMENT_STATUSES.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => setDroneRows(droneRows.filter((_, idx) => idx !== i))}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Task template overrides for this drone */}
+                  {row.taskOverrides.length > 0 && (
+                    <div className="rounded-md border border-blue-100 bg-blue-50/40 p-3 space-y-3">
+                      <p className="text-xs font-semibold text-slate-600">Task Templates — set due dates &amp; assignees</p>
+                      {row.taskOverrides.map((ovr, oi) => (
+                        <div key={oi} className="space-y-2 pb-2 border-b border-blue-100 last:border-0 last:pb-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-slate-800">{ovr.description}</span>
+                            {ovr.classification && (
+                              <Badge variant="outline" className="text-xs">{ovr.classification}</Badge>
+                            )}
+                          </div>
+                          <div className="flex gap-4 flex-wrap items-start">
+                            <div className="space-y-1">
+                              <p className="text-xs text-slate-500">Due Date</p>
+                              <DateInput
+                                value={ovr.due_date}
+                                onChange={(v) => {
+                                  const updated = [...droneRows];
+                                  const overrides = [...updated[i].taskOverrides];
+                                  overrides[oi] = { ...overrides[oi], due_date: v };
+                                  updated[i] = { ...updated[i], taskOverrides: overrides };
+                                  setDroneRows(updated);
+                                }}
+                              />
+                            </div>
+                            {allUsers.length > 0 && (
+                              <div className="space-y-1">
+                                <p className="text-xs text-slate-500">Assignees</p>
+                                <div className="space-y-1 max-h-28 overflow-y-auto">
+                                  {allUsers.map((u) => (
+                                    <label key={u.id} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        className="h-3.5 w-3.5 rounded border-input"
+                                        checked={ovr.user_ids.includes(u.id)}
+                                        onChange={(e) => {
+                                          const updated = [...droneRows];
+                                          const overrides = [...updated[i].taskOverrides];
+                                          const newUserIds = e.target.checked
+                                            ? [...overrides[oi].user_ids, u.id]
+                                            : overrides[oi].user_ids.filter((uid) => uid !== u.id);
+                                          overrides[oi] = { ...overrides[oi], user_ids: newUserIds };
+                                          updated[i] = { ...updated[i], taskOverrides: overrides };
+                                          setDroneRows(updated);
+                                        }}
+                                      />
+                                      {u.name ?? u.email}
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Individual flight records — only for saved assignments */}
+                  {assignmentId != null && (
+                    <div className="pl-1">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+                        onClick={() =>
+                          setExpandedDrones((prev) => {
+                            const next = new Set(prev);
+                            next.has(assignmentId) ? next.delete(assignmentId) : next.add(assignmentId);
+                            return next;
+                          })
+                        }
+                      >
+                        {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                        Flight Records ({flightRecords.length})
+                      </button>
+
+                      {isExpanded && (
+                        <div className="mt-2 space-y-1">
+                          {flightRecords.length === 0 && (
+                            <p className="text-xs text-slate-400 italic pl-1">No individual flight records yet.</p>
+                          )}
+                          {flightRecords.map((fr) => (
+                            <button
+                              key={fr.id}
+                              type="button"
+                              className="w-full flex items-center gap-3 text-xs text-left border rounded p-1.5 bg-white hover:bg-slate-50"
+                              onClick={() => {
+                                setEditingFlightRecord(fr);
+                                setFlightFormAssignmentId(assignmentId);
+                              }}
+                            >
+                              <span className="text-slate-500 w-24 shrink-0">
+                                {fr.flight_date ? new Date(fr.flight_date + "T00:00:00").toLocaleDateString() : "No date"}
+                              </span>
+                              {fr.flight_status && (
+                                <Badge variant="outline" className="text-xs shrink-0">{fr.flight_status}</Badge>
+                              )}
+                              {fr.total_acres != null && (
+                                <span className="text-slate-500">{fr.total_acres} ac</span>
+                              )}
+                              {fr.needs_3d    && <Badge variant="outline" className="text-xs">3D</Badge>}
+                              {fr.needs_ortho && <Badge variant="outline" className="text-xs">Ortho</Badge>}
+                              {fr.processed   && <Badge variant="outline" className="text-xs bg-green-50 text-green-700">Done</Badge>}
+                            </button>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mt-1 text-xs h-7"
+                            onClick={() => {
+                              setEditingFlightRecord(null);
+                              setFlightFormAssignmentId(assignmentId);
+                            }}
+                          >
+                            <Plus className="h-3 w-3 mr-1" /> Add Flight Record
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {allDrones.length > 0 && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setDroneRows([...droneRows, { drone_id: allDrones[0].id, n_flights: "", expected_date: "", status: "" }])}
+                onClick={() => {
+                  const first = allDrones[0];
+                  setDroneRows([...droneRows, {
+                    drone_id:      first.id,
+                    n_flights:     "",
+                    expected_date: "",
+                    status:        "",
+                    taskOverrides: buildTaskOverrides(first.TaskTemplates),
+                  }]);
+                }}
               >
-                <Plus className="h-3.5 w-3.5 mr-1" /> Add Flight
+                <Plus className="h-3.5 w-3.5 mr-1" /> Add Drone Assignment
               </Button>
             )}
           </div>
+
+          {/* Flight record create/edit form */}
+          {flightFormAssignmentId != null && (
+            <DroneFlightRecordForm
+              open
+              onClose={() => { setFlightFormAssignmentId(null); setEditingFlightRecord(null); router.refresh(); }}
+              experimentDroneFlightId={flightFormAssignmentId}
+              record={editingFlightRecord as DroneFlightRecordData | null}
+            />
+          )}
 
           {/* Farm Level Treatments */}
           <div className="space-y-2">
@@ -499,28 +780,6 @@ export default function ExperimentFormClient({
                       <option value="continuous">Continuous</option>
                       <option value="categorical">Categorical</option>
                     </select>
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="Rate"
-                      className="w-24"
-                      value={row.rate}
-                      onChange={(e) => {
-                        const updated = [...treatmentRows];
-                        updated[i] = { ...updated[i], rate: e.target.value };
-                        setTreatmentRows(updated);
-                      }}
-                    />
-                    <Input
-                      placeholder="Unit"
-                      className="w-24"
-                      value={row.rate_unit}
-                      onChange={(e) => {
-                        const updated = [...treatmentRows];
-                        updated[i] = { ...updated[i], rate_unit: e.target.value };
-                        setTreatmentRows(updated);
-                      }}
-                    />
                     <Button
                       type="button"
                       variant="ghost"
@@ -533,6 +792,53 @@ export default function ExperimentFormClient({
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
+
+                  {/* Control/Treatment levels */}
+                  <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={row.has_control_treatment}
+                      onChange={(e) => {
+                        const updated = [...treatmentRows];
+                        updated[i] = { ...updated[i], has_control_treatment: e.target.checked, control_treatment_type: "", control_treatment_number: "" };
+                        setTreatmentRows(updated);
+                      }}
+                      className="h-4 w-4 rounded border-input"
+                    />
+                    <span>Has Control/Treatment Levels</span>
+                  </label>
+                  {row.has_control_treatment && (
+                    <div className="flex gap-2 items-center pl-6 flex-wrap">
+                      <select
+                        className={`w-36 ${SELECT}`}
+                        value={row.control_treatment_type}
+                        onChange={(e) => {
+                          const updated = [...treatmentRows];
+                          updated[i] = { ...updated[i], control_treatment_type: e.target.value as "control" | "treatment" | "", control_treatment_number: "" };
+                          setTreatmentRows(updated);
+                        }}
+                      >
+                        <option value="">— Type —</option>
+                        <option value="control">Control</option>
+                        <option value="treatment">Treatment</option>
+                      </select>
+                      {row.control_treatment_type === "treatment" && (
+                        <Input
+                          type="number"
+                          min="1"
+                          step="1"
+                          placeholder="Number (e.g. 1)"
+                          className="w-36"
+                          value={row.control_treatment_number}
+                          onChange={(e) => {
+                            const updated = [...treatmentRows];
+                            updated[i] = { ...updated[i], control_treatment_number: e.target.value };
+                            setTreatmentRows(updated);
+                          }}
+                        />
+                      )}
+                    </div>
+                  )}
 
                   {/* Template value rows */}
                   {fieldDefs.length > 0 && (
@@ -596,7 +902,7 @@ export default function ExperimentFormClient({
                   const first = allTreatments[0];
                   setTreatmentRows([
                     ...treatmentRows,
-                    { treatment_id: first.id, is_continuous: true, rate: "", rate_unit: "" },
+                    { treatment_id: first.id, is_continuous: true, has_control_treatment: false, control_treatment_type: "", control_treatment_number: "" },
                   ]);
                   seedInitialValueRow(first.id, first.TreatmentFieldDefinitions);
                 }}

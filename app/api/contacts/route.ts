@@ -4,7 +4,19 @@ import { auth } from "@/lib/auth";
 import { canCreate } from "@/lib/roles";
 import crypto from "crypto";
 
-export async function GET() {
+function isServiceToken(req: Request): boolean {
+  const svc = process.env.FDL_SERVICE_TOKEN;
+  if (!svc) return false;
+  const header = req.headers.get("authorization") ?? "";
+  return header === `Bearer ${svc}`;
+}
+
+export async function GET(req: Request) {
+  if (!isServiceToken(req)) {
+    const session = await auth();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const contacts = await prisma.contact.findMany({
     include: { Farm: { select: { id: true, Farm_Name: true } } },
     orderBy: { name: "asc" },

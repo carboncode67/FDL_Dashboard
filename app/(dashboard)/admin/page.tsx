@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
+import { canDelete } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import type { Role } from "@/lib/roles";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EditModeToggle } from "./edit-mode-toggle";
 import { UserRolesTable } from "./user-roles-table";
@@ -12,7 +14,7 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const [users, editMode] = await Promise.all([
+  const [users, editMode, projects, allFilters] = await Promise.all([
     prisma.user.findMany({
       select: {
         id: true,
@@ -26,11 +28,27 @@ export default async function AdminPage() {
       orderBy: { createdAt: "asc" },
     }),
     getEditMode(),
+    prisma.project.findMany({
+      select: { id: true, Project_Name: true },
+      orderBy: { Project_Name: "asc" },
+    }),
+    prisma.userProjectFilter.findMany({ select: { user_id: true, project_id: true } }),
   ]);
+
+  const role = (session.user.role ?? "admin") as Role;
+  const showDelete = canDelete(role, editMode);
+
+  const filtersByUser = allFilters.reduce<Record<string, number[]>>((acc, f) => {
+    (acc[f.user_id] ??= []).push(f.project_id);
+    return acc;
+  }, {});
+
+  const projectList = projects.map((p) => ({ id: p.id, name: p.Project_Name ?? `Project ${p.id}` }));
 
   const usersWithToken = users.map((u) => ({
     ...u,
     has_token: !!u.bearer_token,
+    project_filter_ids: filtersByUser[u.id] ?? [],
   }));
 
   return (
@@ -68,6 +86,8 @@ export default async function AdminPage() {
             <UserRolesTable
               users={usersWithToken}
               currentUserId={session.user.id}
+              canDelete={showDelete}
+              projects={projectList}
             />
           )}
         </CardContent>

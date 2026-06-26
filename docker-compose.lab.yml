@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:18
+    restart: always
+    env_file: .env.lab
+    ports:
+      - "127.0.0.1:5433:5432"   # localhost-only management port (5432 taken by native postgres)
+    volumes:
+      - db-data:/var/lib/postgresql   # postgres:18 needs the parent dir; creates 18/data/ inside
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nocodb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: ghcr.io/carboncode67/fdl-server:latest
+    user: "1000:1000"
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - /mnt/tank/backups/fdl_dashboard:/app/upload-data
+    env_file: .env.lab
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/auth/session"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  db-data:

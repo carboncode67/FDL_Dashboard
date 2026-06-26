@@ -22,10 +22,23 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  ProjectLabMembers ProjectLabMember[]
-  LabMemberUploads  LabMemberUpload[]
+  ProjectLabMembers  ProjectLabMember[]
+  LabMemberUploads   LabMemberUpload[]
+  TaskAssignees      TaskAssignee[]
+  ProjectFilters     UserProjectFilter[]
+  CreatedExperiments FarmExperiment[]    @relation("ExperimentCreatedBy")
 
   @@map("users")
+  @@schema("public")
+}
+
+model UserProjectFilter {
+  user_id    String
+  project_id Int
+  User       User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, project_id])
+  @@map("User_Project_Filters")
   @@schema("public")
 }
 
@@ -61,6 +74,7 @@ model Project {
   Documents              Document[]
   LabMemberUploads       LabMemberUpload[]
   ReportingSubscriptions ReportingSubscription[]
+  CvatTasks              CvatTask[]
 
   @@map("Projects")
   @@schema("pgntarg2udzj1f3")
@@ -77,6 +91,9 @@ model Farm {
   updated_at    DateTime? @updatedAt
 
   farm_summary    String?
+  address         String?
+  latitude        Float?
+  longitude       Float?
 
   Fields           Field[]
   ExperimentZones  ExperimentZone[]
@@ -218,6 +235,7 @@ model Test {
   FieldTests           FieldTest[]
   ExperimentTests      ExperimentTest[]
   TestFieldDefinitions TestFieldDefinition[]
+  TaskTemplates        TaskTemplate[]
 
   @@map("Tests")
   @@schema("pgntarg2udzj1f3")
@@ -235,6 +253,7 @@ model Drone {
 
   FieldDrones            FieldDrone[]
   ExperimentDroneFlights ExperimentDroneFlight[]
+  TaskTemplates          TaskTemplate[]
 
   @@map("Drones")
   @@schema("pgntarg2udzj1f3")
@@ -351,6 +370,7 @@ model Photo {
   description String?
   stage          String?   @db.VarChar(50)
   merge_group_id String?   @db.VarChar(36)
+  depth_filename String?
   received_at    DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
@@ -459,6 +479,7 @@ model LabMemberUpload {
   description    String?
   stage          String?   @db.VarChar(50)
   merge_group_id String?   @db.VarChar(36)
+  depth_filename String?
   received_at    DateTime  @default(now())
 
   User    User?    @relation(fields: [lab_member_id], references: [id])
@@ -483,13 +504,16 @@ model FarmExperiment {
   lab_description  String?
   created_at       DateTime  @default(now())
   updated_at       DateTime  @updatedAt
+  created_by_id    String?
 
   Farm                   Farm?                   @relation(fields: [farm_id], references: [id])
   Project                Project?                @relation(fields: [project_id], references: [id])
+  CreatedBy              User?                   @relation("ExperimentCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
   ExperimentTests        ExperimentTest[]
   ExperimentDroneFlights ExperimentDroneFlight[]
   ExperimentTreatments   ExperimentTreatment[]
   ExperimentFields       ExperimentField[]
+  Tasks                  Task[]
 
   @@map("Farm_Experiments")
   @@schema("pgntarg2udzj1f3")
@@ -518,19 +542,23 @@ model ExperimentDroneFlight {
   expected_date DateTime? @db.Date
   status        String?
 
-  Experiment FarmExperiment @relation(fields: [experiment_id], references: [id], onDelete: Cascade)
-  Drone      Drone          @relation(fields: [drone_id], references: [id], onDelete: Cascade)
+  Experiment         FarmExperiment      @relation(fields: [experiment_id], references: [id], onDelete: Cascade)
+  Drone              Drone               @relation(fields: [drone_id], references: [id], onDelete: Cascade)
+  DroneFlightRecords DroneFlightRecord[]
 
   @@map("Experiment_Drone_Flights")
   @@schema("pgntarg2udzj1f3")
 }
 
 model ExperimentTreatment {
-  experiment_id Int
-  treatment_id  Int
-  is_continuous Boolean? @default(true)
-  rate          Decimal? @db.Decimal(10, 4)
-  rate_unit     String?
+  experiment_id            Int
+  treatment_id             Int
+  is_continuous            Boolean? @default(true)
+  rate                     Decimal? @db.Decimal(10, 4)
+  rate_unit                String?
+  has_control_treatment    Boolean  @default(false)
+  control_treatment_type   String?
+  control_treatment_number Int?
 
   Experiment FarmExperiment @relation(fields: [experiment_id], references: [id], onDelete: Cascade)
   Treatment  Treatment      @relation(fields: [treatment_id], references: [id], onDelete: Cascade)
@@ -682,5 +710,146 @@ model ReportingSubscription {
   Project      Project?  @relation(fields: [project_id], references: [id])
 
   @@map("Reporting_Subscriptions")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model DroneFlightRecord {
+  id                         Int       @id @default(autoincrement())
+  experiment_drone_flight_id Int
+  flight_date                DateTime? @db.Date
+  pilot                      String?
+  flight_status              String?   @default("Scheduled")
+  total_acres                Decimal?  @db.Decimal(10, 2)
+  total_images               Int?
+  needs_3d                   Boolean   @default(false)
+  needs_ortho                Boolean   @default(false)
+  processed                  Boolean   @default(false)
+  data_storage_path          String?
+  tile_coverage_pct          Decimal?  @db.Decimal(5, 2)
+  tile_size_m                Decimal?  @db.Decimal(8, 2)
+  notes                      String?
+  created_at                 DateTime  @default(now())
+  updated_at                 DateTime  @updatedAt
+
+  ExperimentDroneFlight ExperimentDroneFlight @relation(fields: [experiment_drone_flight_id], references: [id], onDelete: Cascade)
+  Polygons              DroneFlightPolygon[]
+
+  @@map("Drone_Flight_Records")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model DroneFlightPolygon {
+  id               Int      @id @default(autoincrement())
+  flight_record_id Int
+  label            String?
+  polygon_type     String?
+  geometry         String?
+  confidence       Decimal? @db.Decimal(5, 4)
+  source           String?
+  created_at       DateTime @default(now())
+
+  FlightRecord DroneFlightRecord @relation(fields: [flight_record_id], references: [id], onDelete: Cascade)
+
+  @@map("Drone_Flight_Polygons")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model CvatTask {
+  id              Int      @id @default(autoincrement())
+  project_id      Int?
+  fdl_task_id     Int?
+  cvat_task_id    Int?
+  cvat_project_id Int?
+  name            String
+  label_set       Json     @default("[]")
+  status          String   @default("pending")
+  image_count     Int      @default(0)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  Project     Project?     @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  FdlTask     Task?        @relation(fields: [fdl_task_id], references: [id], onDelete: SetNull)
+  Annotations Annotation[]
+
+  @@map("Cvat_Tasks")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Annotation {
+  id           Int      @id @default(autoincrement())
+  upload_id    Int
+  upload_table String
+  filename     String?
+  cvat_task_id Int?
+  shapes       Json     @default("[]")
+  label_set    String[]
+  annotated_by String?
+  source       String   @default("cvat")
+  created_at   DateTime @default(now())
+
+  CvatTask CvatTask? @relation(fields: [cvat_task_id], references: [id], onDelete: SetNull)
+
+  @@map("Annotations")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Task {
+  id             Int       @id @default(autoincrement())
+  experiment_id  Int?
+  description    String
+  classification String?
+  status         String    @default("not started")
+  priority       String    @default("medium")
+  due_date       DateTime? @db.Date
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  Experiment  FarmExperiment? @relation(fields: [experiment_id], references: [id], onDelete: SetNull)
+  Assignees   TaskAssignee[]
+  UploadLinks TaskUploadLink[]
+  CvatTasks   CvatTask[]
+
+  @@map("Tasks")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model TaskAssignee {
+  task_id Int
+  user_id String
+
+  Task Task @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  User User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([task_id, user_id])
+  @@map("Task_Assignees")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model TaskUploadLink {
+  task_id      Int
+  upload_id    Int
+  upload_table String
+
+  Task Task @relation(fields: [task_id], references: [id], onDelete: Cascade)
+
+  @@id([task_id, upload_id, upload_table])
+  @@map("Task_Upload_Links")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model TaskTemplate {
+  id             Int      @id @default(autoincrement())
+  description    String
+  classification String?
+  priority       String   @default("medium")
+  test_id        Int?
+  drone_id       Int?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  Test  Test?  @relation(fields: [test_id],  references: [id], onDelete: Cascade)
+  Drone Drone? @relation(fields: [drone_id], references: [id], onDelete: Cascade)
+
+  @@map("Task_Templates")
   @@schema("pgntarg2udzj1f3")
 }

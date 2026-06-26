@@ -6,10 +6,10 @@ export default async function NewExperimentPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const farmId = parseInt(id);
 
-  const [farm, allTests, allDrones, allTreatments, allProjects, farmFields, farmPhotos, farmNotes, farmLabUps] = await Promise.all([
+  const [farm, allTests, allDrones, allTreatments, allProjects, farmFields, farmPhotos, farmNotes, farmLabUps, allUsers] = await Promise.all([
     prisma.farm.findUnique({ where: { id: farmId }, select: { id: true, Farm_Name: true } }),
-    prisma.test.findMany({ select: { id: true, Test_Name: true }, orderBy: { Test_Name: "asc" } }),
-    prisma.drone.findMany({ select: { id: true, Name: true }, orderBy: { Name: "asc" } }),
+    prisma.test.findMany({ select: { id: true, Test_Name: true, TaskTemplates: { select: { id: true, description: true, classification: true, priority: true } } }, orderBy: { Test_Name: "asc" } }),
+    prisma.drone.findMany({ select: { id: true, Name: true, TaskTemplates: { select: { id: true, description: true, classification: true, priority: true } } }, orderBy: { Name: "asc" } }),
     prisma.treatment.findMany({
       select: {
         id:               true,
@@ -37,6 +37,7 @@ export default async function NewExperimentPage({ params }: { params: Promise<{ 
       where: { farm_id: farmId, latitude: { not: null }, longitude: { not: null } },
       select: { id: true, latitude: true, longitude: true },
     }),
+    prisma.user.findMany({ select: { id: true, name: true, email: true }, orderBy: { name: "asc" } }),
   ]);
 
   if (!farm) notFound();
@@ -59,6 +60,7 @@ export default async function NewExperimentPage({ params }: { params: Promise<{ 
       allProjects={allProjects}
       farmFields={farmFields}
       farmUploadPins={farmUploadPins}
+      allUsers={allUsers}
     />
   );
 }
