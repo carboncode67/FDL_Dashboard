@@ -2,25 +2,28 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { canDelete, type Role } from "@/lib/roles";
+import { getUserFilters } from "@/lib/get-user-filters";
 import { DataSortingClient, UploadItem } from "./data-sorting-client";
 
 export default async function DataSortingPage() {
   const session = await auth();
   const userId = session?.user?.id ?? null;
 
-  // Fetch user's project filter before the main query so we can apply it
-  const userFilterRecords = userId
-    ? await prisma.userProjectFilter.findMany({
-        where: { user_id: userId },
-        select: { project_id: true },
-      })
-    : [];
-  const filterIds = userFilterRecords.map((f) => f.project_id);
-  const projectWhere = filterIds.length > 0 ? { project_id: { in: filterIds } } : undefined;
+  const [{ projectIds, farmIds, showUnassigned }, editMode] = await Promise.all([
+    getUserFilters(userId),
+    getEditMode(),
+  ]);
 
-  const [photos, notes, recordings, locations, labUploads, projects, farms, editMode, annotationCounts] = await Promise.all([
+  const projectWhere = projectIds.length > 0 ? { project_id: { in: projectIds } } : {};
+  const farmWhere =
+    farmIds.length > 0
+      ? { OR: [{ farm_id: { in: farmIds } }, ...(showUnassigned ? [{ farm_id: null as null }] : [])] }
+      : {};
+  const baseWhere = { ...projectWhere, ...farmWhere };
+
+  const [photos, notes, recordings, locations, labUploads, projects, farms, annotationCounts] = await Promise.all([
     prisma.photo.findMany({
-      where: projectWhere,
+      where: baseWhere,
       include: {
         Contact: { select: { name: true } },
         Farm:    { select: { Farm_Name: true } },
@@ -29,7 +32,7 @@ export default async function DataSortingPage() {
       orderBy: { received_at: "desc" },
     }),
     prisma.note.findMany({
-      where: projectWhere,
+      where: baseWhere,
       include: {
         Contact: { select: { name: true } },
         Farm:    { select: { Farm_Name: true } },
@@ -38,7 +41,7 @@ export default async function DataSortingPage() {
       orderBy: { received_at: "desc" },
     }),
     prisma.recording.findMany({
-      where: projectWhere,
+      where: baseWhere,
       include: {
         Contact: { select: { name: true } },
         Farm:    { select: { Farm_Name: true } },
@@ -47,7 +50,7 @@ export default async function DataSortingPage() {
       orderBy: { received_at: "desc" },
     }),
     prisma.location.findMany({
-      where: projectWhere,
+      where: baseWhere,
       include: {
         Contact: { select: { name: true } },
         Farm:    { select: { Farm_Name: true } },
@@ -56,7 +59,7 @@ export default async function DataSortingPage() {
       orderBy: { received_at: "desc" },
     }),
     prisma.labMemberUpload.findMany({
-      where: projectWhere,
+      where: baseWhere,
       include: {
         User: { select: { name: true } },
         Farm:      { select: { Farm_Name: true } },
@@ -72,21 +75,16 @@ export default async function DataSortingPage() {
       select: { id: true, Farm_Name: true },
       orderBy: { Farm_Name: "asc" },
     }),
-    getEditMode(),
     prisma.annotation.groupBy({ by: ["upload_id", "upload_table"], _count: { id: true } }),
   ]);
 
   const role = (session?.user?.role ?? "viewer") as Role;
 
-  // Build active filter info for the banner
-  const activeProjectFilter = filterIds.length > 0
-    ? {
-        count: filterIds.length,
-        names: projects
-          .filter((p) => filterIds.includes(p.id))
-          .map((p) => p.Project_Name ?? `Project ${p.id}`),
-      }
-    : undefined;
+  const activeFilter =
+    projectIds.length > 0 || farmIds.length > 0
+      ? { projectCount: projectIds.length, farmCount: farmIds.length }
+      : null;
+
   const showDelete = canDelete(role, editMode);
 
   const annCountMap = new Map(
@@ -230,7 +228,7 @@ export default async function DataSortingPage() {
       projects={projectList}
       farms={farmList}
       canDelete={showDelete}
-      activeProjectFilter={activeProjectFilter}
+      activeFilter={activeFilter}
     />
   );
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit, canDelete, type Role } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
+import { vikunjaConfigured, updateVikunjaTask, deleteVikunjaTask } from "@/lib/vikunja";
 
 async function getTask(id: number) {
   return prisma.task.findUnique({
@@ -13,6 +14,11 @@ async function getTask(id: number) {
       UploadLinks: true,
     },
   });
+}
+
+async function getTaskVikunjaId(id: number): Promise<number | null> {
+  const t = await prisma.task.findUnique({ where: { id }, select: { vikunja_task_id: true } });
+  return t?.vikunja_task_id ?? null;
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -40,8 +46,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     due_date?: string | null;
   };
 
+  const numId = parseInt(id);
+  const vikunjaId = vikunjaConfigured() ? await getTaskVikunjaId(numId) : null;
+
   const task = await prisma.task.update({
-    where: { id: parseInt(id) },
+    where: { id: numId },
     data: {
       ...(body.description    !== undefined ? { description: body.description }           : {}),
       ...(body.classification !== undefined ? { classification: body.classification }     : {}),
@@ -58,6 +67,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     },
   });
 
+  if (vikunjaId) {
+    try {
+      await updateVikunjaTask(vikunjaId, {
+        description: task.description,
+        classification: task.classification,
+        status: task.status,
+        priority: task.priority,
+        due_date: task.due_date,
+      });
+    } catch (err) {
+      console.warn("Vikunja push failed (task update):", err);
+    }
+  }
+
   return NextResponse.json(task);
 }
 
@@ -68,6 +91,19 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!canDelete(session.user.role as Role, editMode)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  await prisma.task.delete({ where: { id: parseInt(id) } });
+  const numId = parseInt(id);
+
+  if (vikunjaConfigured()) {
+    const vikunjaId = await getTaskVikunjaId(numId);
+    if (vikunjaId) {
+      try {
+        await deleteVikunjaTask(vikunjaId);
+      } catch (err) {
+        console.warn("Vikunja push failed (task delete):", err);
+      }
+    }
+  }
+
+  await prisma.task.delete({ where: { id: numId } });
   return new NextResponse(null, { status: 204 });
 }

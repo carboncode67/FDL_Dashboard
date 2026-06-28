@@ -3,77 +3,89 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-const FIELD = "h-8 rounded-lg border border-input bg-transparent px-2 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50";
-
 interface DateInputProps {
   value: string;        // YYYY-MM-DD or ""
   onChange: (v: string) => void;
   className?: string;
 }
 
+function toDisplay(iso: string): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${m}/${d}/${y}`;
+}
+
+function toIso(display: string): string {
+  const parts = display.split("/");
+  if (parts.length !== 3) return "";
+  const [m, d, y] = parts;
+  if (y.length !== 4) return "";
+  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
+function isValidDate(display: string): boolean {
+  const parts = display.split("/");
+  if (parts.length !== 3) return false;
+  const [m, d, y] = parts.map(Number);
+  if (!m || !d || !y || y < 1900 || y > 2200) return false;
+  const date = new Date(y, m - 1, d);
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+}
+
 export function DateInput({ value, onChange, className }: DateInputProps) {
-  const parts = value ? value.split("-") : [];
+  const [text, setText] = useState(toDisplay(value));
+  const [error, setError] = useState(false);
 
-  const [year,  setYear]  = useState(parts[0] ?? "");
-  const [month, setMonth] = useState(parts[1] ? String(parseInt(parts[1])) : "");
-  const [day,   setDay]   = useState(parts[2] ? String(parseInt(parts[2])) : "");
+  function handleChange(raw: string) {
+    // Strip non-digit non-slash, then auto-insert slashes
+    const digits = raw.replace(/\D/g, "");
+    let formatted = digits;
+    if (digits.length > 2) formatted = digits.slice(0, 2) + "/" + digits.slice(2);
+    if (digits.length > 4) formatted = digits.slice(0, 2) + "/" + digits.slice(2, 4) + "/" + digits.slice(4, 8);
 
-  function emit(ny: string, nm: string, nd: string) {
-    const yi = parseInt(ny);
-    const mi = parseInt(nm);
-    const di = parseInt(nd);
-    if (ny.length === 4 && yi >= 1900 && yi <= 2200 && mi >= 1 && mi <= 12 && di >= 1 && di <= 31) {
-      onChange(`${ny}-${String(mi).padStart(2, "0")}-${String(di).padStart(2, "0")}`);
-    } else if (!ny && !nm && !nd) {
+    // If user manually typed slashes, respect them
+    const hasSlashes = raw.includes("/");
+    const display = hasSlashes ? raw.replace(/[^\d/]/g, "").slice(0, 10) : formatted;
+
+    setText(display);
+    setError(false);
+
+    const iso = toIso(display);
+    if (iso && isValidDate(display)) {
+      onChange(iso);
+    } else if (!display) {
       onChange("");
     }
   }
 
+  function handleBlur() {
+    if (!text) {
+      setError(false);
+      return;
+    }
+    if (!isValidDate(text)) {
+      setError(true);
+    } else {
+      setError(false);
+    }
+  }
+
   return (
-    <div className={cn("flex items-center gap-1", className)}>
+    <div className={cn("space-y-1", className)}>
       <input
         type="text"
         inputMode="numeric"
-        placeholder="YYYY"
-        maxLength={4}
-        className={cn(FIELD, "w-16 text-center")}
-        value={year}
-        onChange={(e) => {
-          const v = e.target.value.replace(/\D/g, "").slice(0, 4);
-          setYear(v);
-          emit(v, month, day);
-        }}
+        placeholder="MM/DD/YYYY"
+        maxLength={10}
+        value={text}
+        onChange={(e) => handleChange(e.target.value)}
+        onBlur={handleBlur}
+        className={cn(
+          "h-8 w-full rounded-lg border bg-transparent px-3 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+          error ? "border-red-500" : "border-input"
+        )}
       />
-      <span className="text-muted-foreground text-xs select-none">-</span>
-      <select
-        className={cn(FIELD, "w-[72px] cursor-pointer")}
-        value={month}
-        onChange={(e) => {
-          setMonth(e.target.value);
-          emit(year, e.target.value, day);
-        }}
-      >
-        <option value="">MM</option>
-        {MONTHS.map((name, i) => (
-          <option key={i + 1} value={String(i + 1)}>{name}</option>
-        ))}
-      </select>
-      <span className="text-muted-foreground text-xs select-none">-</span>
-      <input
-        type="number"
-        placeholder="DD"
-        min={1}
-        max={31}
-        className={cn(FIELD, "w-14 text-center")}
-        value={day}
-        onChange={(e) => {
-          const v = e.target.value.slice(0, 2);
-          setDay(v);
-          emit(year, month, v);
-        }}
-      />
+      {error && <p className="text-xs text-red-500">Enter a valid date (MM/DD/YYYY)</p>}
     </div>
   );
 }

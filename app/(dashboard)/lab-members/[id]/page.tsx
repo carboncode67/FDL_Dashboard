@@ -125,9 +125,9 @@ export default async function LabMemberDetailPage({ params }: { params: Promise<
             {member.bearer_token ? (
               <>
                 <p className="text-sm text-slate-500 mb-3">
-                  Scan this QR code with the FarmerDataLogger app to connect this member.
+                  Scan this QR code with the FarmerDataLogger app to connect {member.name}.
                 </p>
-                <LabMemberQrDisplay key={member.bearer_token ?? 'none'} userId={member.id} />
+                <LabMemberQrDisplay key={member.bearer_token ?? 'none'} userId={member.id} name={member.name ?? undefined} />
                 <div className="mt-3">
                   <GrantAccessButton userId={member.id} />
                   <p className="text-xs text-slate-400 mt-1">Regenerates and invalidates the old code.</p>

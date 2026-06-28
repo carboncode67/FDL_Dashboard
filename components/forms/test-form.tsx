@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { DuplicateWarningDialog, checkDuplicates, type DuplicateMatch } from "@/components/duplicate-warning-dialog";
 
 const CLASSIFICATIONS = [
   "image annotation", "ocr", "transcription", "categorization",
@@ -42,6 +43,8 @@ export function TestForm({ onSuccess, testId, initialData }: TestFormProps) {
     }))
   );
   const [saving, setSaving] = useState(false);
+  const [dupCandidates, setDupCandidates] = useState<DuplicateMatch[]>([]);
+  const confirmedRef = useRef(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [library, setLibrary] = useState<LibraryTemplate[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(false);
@@ -89,8 +92,7 @@ export function TestForm({ onSuccess, testId, initialData }: TestFormProps) {
     setSelected(new Set());
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function doSave() {
     setSaving(true);
     try {
       await fetch(testId ? `/api/tests/${testId}` : "/api/tests", {
@@ -113,10 +115,27 @@ export function TestForm({ onSuccess, testId, initialData }: TestFormProps) {
     } finally { setSaving(false); }
   }
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!testId && !confirmedRef.current) {
+      const dupes = await checkDuplicates("tests", name);
+      if (dupes.length > 0) { setDupCandidates(dupes); return; }
+    }
+    await doSave();
+  }
+
   const textareaClass = "w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring resize-y min-h-[100px]";
   const selectClass = "h-8 rounded-md border border-input bg-white px-2 text-sm w-full";
 
   return (
+    <>
+    <DuplicateWarningDialog
+      open={dupCandidates.length > 0}
+      entityLabel="Test"
+      duplicates={dupCandidates}
+      onConfirm={() => { confirmedRef.current = true; setDupCandidates([]); doSave(); }}
+      onCancel={() => setDupCandidates([])}
+    />
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5"><Label>Test Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
       <div className="space-y-1.5"><Label>Description</Label><Input value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
@@ -244,5 +263,6 @@ export function TestForm({ onSuccess, testId, initialData }: TestFormProps) {
 
       <Button type="submit" disabled={saving} className="w-full">{saving ? "Saving..." : testId ? "Update" : "Create"}</Button>
     </form>
+    </>
   );
 }

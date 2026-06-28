@@ -16,7 +16,7 @@ interface ContactRow {
   created_at: string;
 }
 
-export function ContactsClient({ data, canCreate }: { data: ContactRow[]; canCreate?: boolean }) {
+export function ContactsClient({ data, canCreate, activeFilter }: { data: ContactRow[]; canCreate?: boolean; activeFilter?: { projectCount: number; farmCount: number } | null }) {
   const router = useRouter();
 
   const columns = [
@@ -62,14 +62,21 @@ export function ContactsClient({ data, canCreate }: { data: ContactRow[]; canCre
   ];
 
   return (
-    <DataTable
-      title="Contacts"
-      data={data as unknown as Record<string, unknown>[]}
-      columns={columns}
-      searchKeys={["name", "phone", "email", "farm_name"]}
-      onAdd={canCreate ? () => router.push("/contacts/new") : undefined}
-      addLabel="New Contact"
-      onRowClick={(row) => router.push(`/contacts/${(row as unknown as ContactRow).id}`)}
-    />
+    <div className="space-y-4">
+      {activeFilter && activeFilter.farmCount > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          Filtered to <strong>{activeFilter.farmCount} farm{activeFilter.farmCount !== 1 ? "s" : ""}</strong>. Change in <strong>Dashboard Filters</strong> (header menu).
+        </div>
+      )}
+      <DataTable
+        title="Contacts"
+        data={data as unknown as Record<string, unknown>[]}
+        columns={columns}
+        searchKeys={["name", "phone", "email", "farm_name"]}
+        onAdd={canCreate ? () => router.push("/contacts/new") : undefined}
+        addLabel="New Contact"
+        onRowClick={(row) => router.push(`/contacts/${(row as unknown as ContactRow).id}`)}
+      />
+    </div>
   );
 }

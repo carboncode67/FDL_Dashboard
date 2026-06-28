@@ -84,6 +84,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
         assignees: task.Assignees.map((a) => ({ id: a.User.id, name: a.User.name, email: a.User.email })),
         upload_count: task.UploadLinks.length,
         created_at: task.created_at.toISOString(),
+        vikunja_task_id: task.vikunja_task_id ?? null,
       }}
       experiments={experiments.map((e) => ({
         id: e.id,

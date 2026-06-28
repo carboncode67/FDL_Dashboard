@@ -23,7 +23,7 @@ function formatDate(iso: string | null): string {
   });
 }
 
-export function FarmsClient({ data, canCreate }: { data: FarmRow[]; canCreate?: boolean }) {
+export function FarmsClient({ data, canCreate, activeFilter }: { data: FarmRow[]; canCreate?: boolean; activeFilter?: { projectCount: number; farmCount: number } | null }) {
   const router = useRouter();
 
   const columns = [
@@ -81,14 +81,21 @@ export function FarmsClient({ data, canCreate }: { data: FarmRow[]; canCreate?: 
   ];
 
   return (
-    <DataTable
-      title="Farms"
-      data={data as unknown as Record<string, unknown>[]}
-      columns={columns}
-      searchKeys={["Farm_Name", "Farmer_Name"]}
-      onAdd={canCreate ? () => router.push("/farms/new") : undefined}
-      addLabel="New Farm"
-      onRowClick={(row) => router.push(`/farms/${(row as unknown as FarmRow).id}`)}
-    />
+    <div className="space-y-4">
+      {activeFilter && activeFilter.farmCount > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          Filtered to <strong>{activeFilter.farmCount} farm{activeFilter.farmCount !== 1 ? "s" : ""}</strong>. Change in <strong>Dashboard Filters</strong> (header menu).
+        </div>
+      )}
+      <DataTable
+        title="Farms"
+        data={data as unknown as Record<string, unknown>[]}
+        columns={columns}
+        searchKeys={["Farm_Name", "Farmer_Name"]}
+        onAdd={canCreate ? () => router.push("/farms/new") : undefined}
+        addLabel="New Farm"
+        onRowClick={(row) => router.push(`/farms/${(row as unknown as FarmRow).id}`)}
+      />
+    </div>
   );
 }

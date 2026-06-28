@@ -26,6 +26,8 @@ model User {
   LabMemberUploads   LabMemberUpload[]
   TaskAssignees      TaskAssignee[]
   ProjectFilters     UserProjectFilter[]
+  FarmFilters        UserFarmFilter[]
+  FilterSettings     UserFilterSettings?
   CreatedExperiments FarmExperiment[]    @relation("ExperimentCreatedBy")
 
   @@map("users")
@@ -39,6 +41,25 @@ model UserProjectFilter {
 
   @@id([user_id, project_id])
   @@map("User_Project_Filters")
+  @@schema("public")
+}
+
+model UserFarmFilter {
+  user_id String
+  farm_id Int
+  User    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, farm_id])
+  @@map("User_Farm_Filters")
+  @@schema("public")
+}
+
+model UserFilterSettings {
+  user_id         String  @id
+  show_unassigned Boolean @default(true)
+  User            User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("User_Filter_Settings")
   @@schema("public")
 }
 
@@ -506,6 +527,8 @@ model FarmExperiment {
   updated_at       DateTime  @updatedAt
   created_by_id    String?
 
+  vikunja_project_id     Int?
+
   Farm                   Farm?                   @relation(fields: [farm_id], references: [id])
   Project                Project?                @relation(fields: [project_id], references: [id])
   CreatedBy              User?                   @relation("ExperimentCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
@@ -794,15 +817,16 @@ model Annotation {
 }
 
 model Task {
-  id             Int       @id @default(autoincrement())
-  experiment_id  Int?
-  description    String
-  classification String?
-  status         String    @default("not started")
-  priority       String    @default("medium")
-  due_date       DateTime? @db.Date
-  created_at     DateTime  @default(now())
-  updated_at     DateTime  @updatedAt
+  id               Int       @id @default(autoincrement())
+  experiment_id    Int?
+  description      String
+  classification   String?
+  status           String    @default("not started")
+  priority         String    @default("medium")
+  due_date         DateTime? @db.Date
+  vikunja_task_id  Int?
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
 
   Experiment  FarmExperiment? @relation(fields: [experiment_id], references: [id], onDelete: SetNull)
   Assignees   TaskAssignee[]

@@ -224,6 +224,16 @@ export function TaskDetailClient({
             <Badge variant={PRIORITY_VARIANT[task.priority] ?? "outline"}>{task.priority}</Badge>
             <Badge variant={STATUS_VARIANT[task.status] ?? "outline"}>{task.status}</Badge>
             {task.classification && <Badge variant="outline">{task.classification}</Badge>}
+            {task.vikunja_task_id && process.env.NEXT_PUBLIC_VIKUNJA_URL && (
+              <a
+                href={`${process.env.NEXT_PUBLIC_VIKUNJA_URL}/tasks/${task.vikunja_task_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+              >
+                Vikunja ↗
+              </a>
+            )}
           </div>
         </div>
         <div className="flex gap-2 shrink-0">

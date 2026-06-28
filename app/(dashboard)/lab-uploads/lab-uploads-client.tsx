@@ -73,7 +73,7 @@ function StatusSelect({ id, current }: { id: number; current: number }) {
   );
 }
 
-export function LabUploadsClient({ data }: { data: UploadRow[] }) {
+export function LabUploadsClient({ data, activeFilter }: { data: UploadRow[]; activeFilter?: { projectCount: number; farmCount: number } | null }) {
   const columns = [
     {
       key: "member_name",
@@ -128,11 +128,26 @@ export function LabUploadsClient({ data }: { data: UploadRow[] }) {
   ];
 
   return (
-    <DataTable
-      title="Lab Uploads"
-      data={data as unknown as Record<string, unknown>[]}
-      columns={columns}
-      searchKeys={["member_name", "farm_name", "media_type"]}
-    />
+    <div className="space-y-4">
+      {activeFilter && (activeFilter.projectCount > 0 || activeFilter.farmCount > 0) && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          Filtered to{" "}
+          {activeFilter.projectCount > 0 && (
+            <strong>{activeFilter.projectCount} project{activeFilter.projectCount !== 1 ? "s" : ""}</strong>
+          )}
+          {activeFilter.projectCount > 0 && activeFilter.farmCount > 0 && ", "}
+          {activeFilter.farmCount > 0 && (
+            <strong>{activeFilter.farmCount} farm{activeFilter.farmCount !== 1 ? "s" : ""}</strong>
+          )}
+          . Change in <strong>Dashboard Filters</strong> (header menu).
+        </div>
+      )}
+      <DataTable
+        title="Lab Uploads"
+        data={data as unknown as Record<string, unknown>[]}
+        columns={columns}
+        searchKeys={["member_name", "farm_name", "media_type"]}
+      />
+    </div>
   );
 }

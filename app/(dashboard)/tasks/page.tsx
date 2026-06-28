@@ -2,14 +2,34 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { canCreate, canDelete, type Role } from "@/lib/roles";
+import { getUserFilters } from "@/lib/get-user-filters";
 import { TasksClient } from "./tasks-client";
 
 export default async function TasksPage() {
   const [session, editMode] = await Promise.all([auth(), getEditMode()]);
   const role = (session?.user?.role ?? "viewer") as Role;
+  const userId = session?.user?.id ?? null;
+
+  const { projectIds, farmIds } = await getUserFilters(userId);
+
+  const taskWhere =
+    projectIds.length > 0 || farmIds.length > 0
+      ? {
+          Experiment: {
+            ...(projectIds.length > 0 ? { project_id: { in: projectIds } } : {}),
+            ...(farmIds.length > 0 ? { farm_id: { in: farmIds } } : {}),
+          },
+        }
+      : {};
+
+  const activeFilter =
+    projectIds.length > 0 || farmIds.length > 0
+      ? { projectCount: projectIds.length, farmCount: farmIds.length }
+      : null;
 
   const [tasks, experiments, users] = await Promise.all([
     prisma.task.findMany({
+      where: taskWhere,
       include: {
         Experiment: { select: { id: true, experiment_name: true, Farm: { select: { Farm_Name: true } } } },
         Assignees:  { include: { User: { select: { id: true, name: true, email: true } } } },
@@ -47,6 +67,7 @@ export default async function TasksPage() {
       users={users.map((u) => ({ id: u.id, name: u.name ?? u.email }))}
       canCreate={canCreate(role)}
       canDelete={canDelete(role, editMode)}
+      activeFilter={activeFilter}
     />
   );
 }

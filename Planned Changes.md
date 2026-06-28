@@ -169,19 +169,24 @@
 - [ ] 64. **Update Uploaded Data Farm link each time new fields are added** Currently, if a new field boundary is added, previously uploaded data that was not previously linked to a farm remains unlinked. The db should re-compare unlinked data when new fields are added and update their farm link if one can be made
 - [ ]  65. **Add project/year select in client so that users can choose project and year for data sync and ignore unwanted files.** This functionality would be added to the Setup client and the user selects which Project(s) and which year(s) they want data for.
 - [x] 66. **Add task template options when assigning tests**** The user should see pregenerated templates that are assigned to a test when they connect a test to an experiment. They should see the options to set due date and assign lab members. Currently, Adding a test does allow the user to enter a date for collection, but task templates assigned to the test should also pop up and allow for task date setting and lab member assignment.
-- [ ] 67. **Add filter by project options to user profile so they only see data assigned to specific projects in the UI** This would be an option in the user page
+- [x] 67. **Filter whole dashboard by project and farms** This would allow users to only see data/items related to specific projects farms. In lab member page, create a "See Only Selected" toggle, when its on, a list of checkboxes appears next to projects, the User checks off the projects they want to see. Underneath the project check boxes are a list of farms in that project (linked by experiment) where the user can choose which farms to see. Under that is a toggle to select if they want to see unassigned data, which would determine if data not assigned to a farm is visable.
 - [ ] 68. Sort experiments by Project, Date created, Date modified, or Created by Lab member. 
 - [ ] 69. **Create windows version of client** 
 - [ ] **Create CVAT Project when photo files are linked to image annotation task** When an image annotation task is created
 - [ ] 70 **Integrate CVAT** For image annotation tasks, cvat should be accessible (maybe only locally) and linked in the dashboard. 
 - [x] 71 **Add upcoming Tasks to Dashboard** Show upcoming tasks in dashboard by order of due date starting with tasks due soonest.
 - [ ] 72. **Add mobile friendly UI to dashboard**
-- [ ] 73. **Add Basic Duplicate detection and warnings** If two entries are made to any table that have identical or near identical (Fuzzy matching score >.9), or have fields that overlap, a warning should be displayed listing the name of the similar entry that allows the user to cancel the entry before comitting. 
-- [ ] 74. 
+- [ ] 73. **Add Basic Duplicate detection and warnings** If two entries are made to any table that have identical or near identical (Fuzzy matching score >.9), or have fields that overlap, a warning should be displayed listing the name of the similar entry that allows the user to cancel the entry before committing to adding it. This should also append a "Possible Duplicate" flag to data uploads if they are identical. 
+- [ ] 74. **Link data uploads to experiment.** When data upload is linked to a farm, in the Edit window in the data sorting page, there should be a drop down to link the data to a specifci 
+- [x] 75. **Add farmer/lab member name to the QR Code box** This will make it easier to share qr code screenshots with new farmers/lab members and keep track of who's qr code is who. instead of "Scan this QR code with the farmerdatalogger app to connect this member" use "Scan this QR code with the farmerdatalogger app to connect <farmer/lab member name>" 
+- [x] 76. **Fix start date/end date in add experiment page** Current implementation is very clunky, easier to just use typed mm/dd/yyyy format with formatting error catching.
+- [x] 77. **Add "Create Task" button directly to experiment page** User should be able to create a new empty task or add a task template
+- [ ] 78. **Integrate tasks with Vikunja api for bi directional task tracking** Instead of trying to create fully featured task manager in FDL Dashboard, I would like to use the Vikunja api (Vikunja is hosted on the lab server as well. )
+- [ ] 79. **Create a "Messaging" page where 
 
 
 
-
+qagziq-dofhir-seRje6
 ### Usage Steps (Thinking out loud)
 1. Adding a farm and their experiment
 	1. Farmer contact info (simple form)

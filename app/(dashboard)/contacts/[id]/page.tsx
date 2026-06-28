@@ -120,9 +120,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               <CardHeader><CardTitle className="text-base">Mobile App QR Code</CardTitle></CardHeader>
               <CardContent>
                 <p className="text-sm text-slate-500 mb-3">
-                  Scan this QR code with the FarmerDataLogger app to connect this contact.
+                  Scan this QR code with the FarmerDataLogger app to connect {contact.name}.
                 </p>
-                <QrDisplay contactId={contact.id} />
+                <QrDisplay contactId={contact.id} name={contact.name} />
               </CardContent>
             </Card>
           </div>

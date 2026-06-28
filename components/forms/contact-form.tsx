@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { DuplicateWarningDialog, checkDuplicates, type DuplicateMatch } from "@/components/duplicate-warning-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -41,9 +42,10 @@ export function ContactForm({ onSuccess, contactId, farms = [], hideFarmSelector
     initialData?.farms_id ? String(initialData.farms_id) : ""
   );
   const [saving, setSaving] = useState(false);
+  const [dupCandidates, setDupCandidates] = useState<DuplicateMatch[]>([]);
+  const confirmedRef = useRef(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function doSave() {
     setSaving(true);
     try {
       await fetch(contactId ? `/api/contacts/${contactId}` : "/api/contacts", {
@@ -63,7 +65,27 @@ export function ContactForm({ onSuccess, contactId, farms = [], hideFarmSelector
     }
   }
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!contactId && !confirmedRef.current) {
+      const dupes = await checkDuplicates("contacts", name);
+      if (dupes.length > 0) {
+        setDupCandidates(dupes);
+        return;
+      }
+    }
+    await doSave();
+  }
+
   return (
+    <>
+    <DuplicateWarningDialog
+      open={dupCandidates.length > 0}
+      entityLabel="Contact"
+      duplicates={dupCandidates}
+      onConfirm={() => { confirmedRef.current = true; setDupCandidates([]); doSave(); }}
+      onCancel={() => setDupCandidates([])}
+    />
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5">
         <Label>Name</Label>
@@ -114,5 +136,6 @@ export function ContactForm({ onSuccess, contactId, farms = [], hideFarmSelector
         {saving ? "Saving..." : contactId ? "Update" : "Create"}
       </Button>
     </form>
+    </>
   );
 }

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
+import { DuplicateWarningDialog, checkDuplicates, type DuplicateMatch } from "@/components/duplicate-warning-dialog";
 
 type FieldDef = { label: string; field_type: "text" | "number" };
 
@@ -35,6 +36,8 @@ export function TreatmentForm({ onSuccess, initialData, treatmentId }: Treatment
     })) ?? []
   );
   const [saving, setSaving] = useState(false);
+  const [dupCandidates, setDupCandidates] = useState<DuplicateMatch[]>([]);
+  const confirmedRef = useRef(false);
 
   function addField() {
     setFieldDefs((prev) => [...prev, { label: "", field_type: "text" }]);
@@ -48,8 +51,7 @@ export function TreatmentForm({ onSuccess, initialData, treatmentId }: Treatment
     setFieldDefs((prev) => prev.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function doSave() {
     setSaving(true);
     try {
       await fetch(treatmentId ? `/api/treatments/${treatmentId}` : "/api/treatments", {
@@ -69,7 +71,24 @@ export function TreatmentForm({ onSuccess, initialData, treatmentId }: Treatment
     }
   }
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!treatmentId && !confirmedRef.current) {
+      const dupes = await checkDuplicates("treatments", name);
+      if (dupes.length > 0) { setDupCandidates(dupes); return; }
+    }
+    await doSave();
+  }
+
   return (
+    <>
+    <DuplicateWarningDialog
+      open={dupCandidates.length > 0}
+      entityLabel="Treatment Type"
+      duplicates={dupCandidates}
+      onConfirm={() => { confirmedRef.current = true; setDupCandidates([]); doSave(); }}
+      onCancel={() => setDupCandidates([])}
+    />
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-1.5">
         <Label>Treatment Name</Label>
@@ -146,5 +165,6 @@ export function TreatmentForm({ onSuccess, initialData, treatmentId }: Treatment
         {saving ? "Saving…" : treatmentId ? "Update" : "Create"}
       </Button>
     </form>
+    </>
   );
 }

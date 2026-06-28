@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { KeyRound, LogOut, FolderKanban } from "lucide-react";
+import { KeyRound, LogOut, SlidersHorizontal } from "lucide-react";
 import { ChangePasswordForm } from "@/components/forms/change-password-form";
 import type { Role } from "@/lib/roles";
 
@@ -37,6 +37,12 @@ interface ProjectOption {
   name: string;
 }
 
+interface FarmOption {
+  id: number;
+  name: string;
+  project_ids: number[];
+}
+
 const roleLabels: Record<Role, string> = {
   admin: "Admin",
   member: "Member",
@@ -47,11 +53,14 @@ export function Header({ title, editMode, role }: HeaderProps) {
   const { data: session } = useSession();
   const router = useRouter();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [projectFilterOpen, setProjectFilterOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
-  const [filterSelection, setFilterSelection] = useState<number[]>([]);
-  const [savingFilters, setSavingFilters] = useState(false);
-  const [loadingFilters, setLoadingFilters] = useState(false);
+  const [farmOptions, setFarmOptions] = useState<FarmOption[]>([]);
+  const [projectSelection, setProjectSelection] = useState<number[]>([]);
+  const [farmSelection, setFarmSelection] = useState<number[]>([]);
+  const [showUnassigned, setShowUnassigned] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const name = session?.user?.name || session?.user?.email || "User";
   const initials = name
@@ -61,48 +70,60 @@ export function Header({ title, editMode, role }: HeaderProps) {
     .toUpperCase()
     .slice(0, 2);
 
-  async function openProjectFilters() {
-    setProjectFilterOpen(true);
-    setLoadingFilters(true);
+  async function openFilters() {
+    setFilterOpen(true);
+    setLoading(true);
     try {
-      const [projRes, filterRes] = await Promise.all([
-        fetch("/api/projects"),
-        fetch("/api/profile/project-filters"),
-      ]);
-      const projData = await projRes.json();
-      const filterData = await filterRes.json();
-      setProjects(
-        (projData as Array<{ id: number; Project_Name: string | null }>).map((p) => ({
-          id: p.id,
-          name: p.Project_Name ?? `Project ${p.id}`,
-        }))
-      );
-      setFilterSelection(filterData.project_ids ?? []);
+      const res = await fetch("/api/profile/project-filters");
+      const data = await res.json();
+      setProjects(data.projects ?? []);
+      setFarmOptions(data.farm_options ?? []);
+      setProjectSelection(data.project_ids ?? []);
+      setFarmSelection(data.farm_ids ?? []);
+      setShowUnassigned(data.show_unassigned ?? true);
     } finally {
-      setLoadingFilters(false);
+      setLoading(false);
     }
   }
 
   function toggleProject(pid: number) {
-    setFilterSelection((prev) =>
+    setProjectSelection((prev) =>
       prev.includes(pid) ? prev.filter((id) => id !== pid) : [...prev, pid]
     );
   }
 
+  function toggleFarm(fid: number) {
+    setFarmSelection((prev) =>
+      prev.includes(fid) ? prev.filter((id) => id !== fid) : [...prev, fid]
+    );
+  }
+
   async function saveFilters() {
-    setSavingFilters(true);
+    setSaving(true);
     try {
       await fetch("/api/profile/project-filters", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project_ids: filterSelection }),
+        body: JSON.stringify({
+          project_ids: projectSelection,
+          farm_ids: farmSelection,
+          show_unassigned: showUnassigned,
+        }),
       });
-      setProjectFilterOpen(false);
+      setFilterOpen(false);
       router.refresh();
     } finally {
-      setSavingFilters(false);
+      setSaving(false);
     }
   }
+
+  // Farms shown cascade from selected projects; if no projects selected, show all farms
+  const visibleFarms =
+    projectSelection.length > 0
+      ? farmOptions.filter((f) => f.project_ids.some((pid) => projectSelection.includes(pid)))
+      : farmOptions;
+
+  const isFiltered = projectSelection.length > 0 || farmSelection.length > 0;
 
   return (
     <header className="h-14 border-b border-slate-200 bg-white flex items-center justify-between px-6 shrink-0">
@@ -143,12 +164,9 @@ export function Header({ title, editMode, role }: HeaderProps) {
               <KeyRound className="mr-2 h-4 w-4" />
               Change Password
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={openProjectFilters}
-              className="cursor-pointer"
-            >
-              <FolderKanban className="mr-2 h-4 w-4" />
-              Project Filters
+            <DropdownMenuItem onClick={openFilters} className="cursor-pointer">
+              <SlidersHorizontal className="mr-2 h-4 w-4" />
+              Dashboard Filters
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
@@ -176,47 +194,101 @@ export function Header({ title, editMode, role }: HeaderProps) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={projectFilterOpen} onOpenChange={setProjectFilterOpen}>
-        <DialogContent>
+      <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Project Filters</DialogTitle>
+            <DialogTitle>Dashboard Filters</DialogTitle>
             <DialogDescription>
-              Select which projects you want to see data for in Data Sorting and Experiments. Leave
-              all unchecked to see data from every project.
+              Filter what you see across the dashboard. Leave all unchecked to see everything.
             </DialogDescription>
           </DialogHeader>
-          {loadingFilters ? (
+
+          {loading ? (
             <p className="text-sm text-slate-500 py-4 text-center">Loading…</p>
           ) : (
-            <div className="max-h-72 overflow-y-auto space-y-2 py-1">
-              {projects.length === 0 ? (
-                <p className="text-sm text-slate-500">No projects found.</p>
-              ) : (
-                projects.map((p) => (
-                  <label key={p.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                    <input
-                      type="checkbox"
-                      checked={filterSelection.includes(p.id)}
-                      onChange={() => toggleProject(p.id)}
-                      className="h-4 w-4 rounded border-slate-300 accent-emerald-600"
-                    />
-                    {p.name}
-                  </label>
-                ))
-              )}
+            <div className="space-y-4 py-1">
+              {/* Projects */}
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Projects</p>
+                <div className="max-h-44 overflow-y-auto space-y-2">
+                  {projects.length === 0 ? (
+                    <p className="text-sm text-slate-400">No projects found.</p>
+                  ) : (
+                    projects.map((p) => (
+                      <label key={p.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={projectSelection.includes(p.id)}
+                          onChange={() => toggleProject(p.id)}
+                          className="h-4 w-4 rounded border-slate-300 accent-emerald-600"
+                        />
+                        {p.name}
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Farms — cascade from selected projects */}
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                  Farms
+                  {projectSelection.length > 0 && (
+                    <span className="ml-1 font-normal normal-case">(in selected projects)</span>
+                  )}
+                </p>
+                <div className="max-h-44 overflow-y-auto space-y-2">
+                  {visibleFarms.length === 0 ? (
+                    <p className="text-sm text-slate-400">No farms found.</p>
+                  ) : (
+                    visibleFarms.map((f) => (
+                      <label key={f.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={farmSelection.includes(f.id)}
+                          onChange={() => toggleFarm(f.id)}
+                          className="h-4 w-4 rounded border-slate-300 accent-emerald-600"
+                        />
+                        {f.name}
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Show unassigned toggle */}
+              <div className="border-t border-slate-100 pt-3">
+                <label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input
+                    type="checkbox"
+                    checked={showUnassigned}
+                    onChange={(e) => setShowUnassigned(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 accent-emerald-600"
+                  />
+                  Show unassigned data
+                  <span className="text-xs text-slate-400">(uploads not yet matched to a farm)</span>
+                </label>
+              </div>
             </div>
           )}
+
           <p className="text-xs text-slate-400">
-            {filterSelection.length === 0
-              ? "No filter — you see all projects."
-              : `${filterSelection.length} project${filterSelection.length !== 1 ? "s" : ""} selected.`}
+            {!isFiltered
+              ? "No filter active — you see all data."
+              : [
+                  projectSelection.length > 0 && `${projectSelection.length} project${projectSelection.length !== 1 ? "s" : ""}`,
+                  farmSelection.length > 0 && `${farmSelection.length} farm${farmSelection.length !== 1 ? "s" : ""}`,
+                ]
+                  .filter(Boolean)
+                  .join(", ") + " selected."}
           </p>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setProjectFilterOpen(false)} disabled={savingFilters}>
+            <Button variant="outline" onClick={() => setFilterOpen(false)} disabled={saving}>
               Cancel
             </Button>
-            <Button onClick={saveFilters} disabled={savingFilters || loadingFilters}>
-              {savingFilters ? "Saving…" : "Save"}
+            <Button onClick={saveFilters} disabled={saving || loading}>
+              {saving ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

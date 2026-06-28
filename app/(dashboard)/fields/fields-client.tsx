@@ -8,7 +8,7 @@ import { Pencil } from "lucide-react";
 
 interface FieldRow { id: number; Name: string | null; Farm_Name: string | null; boundary_source: string | null; hasGeometry: boolean }
 
-export function FieldsClient({ data, canCreate }: { data: FieldRow[]; canCreate?: boolean }) {
+export function FieldsClient({ data, canCreate, activeFilter }: { data: FieldRow[]; canCreate?: boolean; activeFilter?: { projectCount: number; farmCount: number } | null }) {
   const router = useRouter();
 
   const columns = [
@@ -40,14 +40,21 @@ export function FieldsClient({ data, canCreate }: { data: FieldRow[]; canCreate?
   ];
 
   return (
-    <DataTable
-      title="Fields"
-      data={data as unknown as Record<string, unknown>[]}
-      columns={columns}
-      searchKeys={["Name", "Farm_Name"]}
-      onAdd={canCreate ? () => router.push("/fields/new") : undefined}
-      addLabel="New Field"
-      onRowClick={(row) => router.push(`/fields/${(row as unknown as FieldRow).id}`)}
-    />
+    <div className="space-y-4">
+      {activeFilter && activeFilter.farmCount > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          Filtered to <strong>{activeFilter.farmCount} farm{activeFilter.farmCount !== 1 ? "s" : ""}</strong>. Change in <strong>Dashboard Filters</strong> (header menu).
+        </div>
+      )}
+      <DataTable
+        title="Fields"
+        data={data as unknown as Record<string, unknown>[]}
+        columns={columns}
+        searchKeys={["Name", "Farm_Name"]}
+        onAdd={canCreate ? () => router.push("/fields/new") : undefined}
+        addLabel="New Field"
+        onRowClick={(row) => router.push(`/fields/${(row as unknown as FieldRow).id}`)}
+      />
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
+import { getUserFilters } from "@/lib/get-user-filters";
 import { ExperimentsClient } from "./experiments-client";
 import { format } from "date-fns";
 
@@ -9,51 +10,38 @@ export default async function ExperimentsPage() {
   const role = (session?.user?.role ?? "viewer") as Role;
   const userId = session?.user?.id ?? null;
 
-  const userFilterRecords = userId
-    ? await prisma.userProjectFilter.findMany({
-        where: { user_id: userId },
-        select: { project_id: true },
-      })
-    : [];
-  const filterIds = userFilterRecords.map((f) => f.project_id);
-  const projectWhere = filterIds.length > 0 ? { project_id: { in: filterIds } } : undefined;
+  const { projectIds, farmIds } = await getUserFilters(userId);
 
-  const [experiments, filterProjects] = await Promise.all([
-    prisma.farmExperiment.findMany({
-      where: projectWhere,
-      include: {
-        Farm: {
-          select: {
-            id: true,
-            Farm_Name: true,
-            Contacts: { select: { name: true, is_lab_member: true }, orderBy: { name: "asc" } },
-          },
-        },
-        Project: { select: { Project_Name: true } },
-        CreatedBy: { select: { name: true } },
-        ExperimentTreatments: {
-          include: { Treatment: { select: { id: true, Treatment_Name: true } } },
-        },
-        ExperimentFields: {
-          include: { Field: { select: { id: true, Name: true, geometry: true } } },
+  const experimentWhere = {
+    ...(projectIds.length > 0 ? { project_id: { in: projectIds } } : {}),
+    ...(farmIds.length > 0 ? { farm_id: { in: farmIds } } : {}),
+  };
+
+  const experiments = await prisma.farmExperiment.findMany({
+    where: experimentWhere,
+    include: {
+      Farm: {
+        select: {
+          id: true,
+          Farm_Name: true,
+          Contacts: { select: { name: true, is_lab_member: true }, orderBy: { name: "asc" } },
         },
       },
-      orderBy: { farm_id: "asc" },
-    }),
-    filterIds.length > 0
-      ? prisma.project.findMany({
-          where: { id: { in: filterIds } },
-          select: { id: true, Project_Name: true },
-        })
-      : Promise.resolve([]),
-  ]);
+      Project: { select: { Project_Name: true } },
+      CreatedBy: { select: { name: true } },
+      ExperimentTreatments: {
+        include: { Treatment: { select: { id: true, Treatment_Name: true } } },
+      },
+      ExperimentFields: {
+        include: { Field: { select: { id: true, Name: true, geometry: true } } },
+      },
+    },
+    orderBy: { farm_id: "asc" },
+  });
 
-  const activeProjectFilter =
-    filterIds.length > 0
-      ? {
-          count: filterIds.length,
-          names: filterProjects.map((p) => p.Project_Name ?? `Project ${p.id}`),
-        }
+  const activeFilter =
+    projectIds.length > 0 || farmIds.length > 0
+      ? { projectCount: projectIds.length, farmCount: farmIds.length }
       : null;
 
   const data = experiments.map((e) => {
@@ -82,7 +70,7 @@ export default async function ExperimentsPage() {
     <ExperimentsClient
       data={data}
       canCreate={canCreate(role)}
-      activeProjectFilter={activeProjectFilter}
+      activeFilter={activeFilter}
     />
   );
 }

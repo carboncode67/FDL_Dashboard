@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DuplicateWarningDialog, checkDuplicates, type DuplicateMatch } from "@/components/duplicate-warning-dialog";
 
 interface ProjectFormProps {
   onSuccess?: () => void;
@@ -25,9 +26,10 @@ export function ProjectForm({ onSuccess, initialData, projectId }: ProjectFormPr
   const [budget, setBudget] = useState(initialData?.Total_Budget?.toString() ?? "");
   const [sponsors, setSponsors] = useState(initialData?.Project_Sponsors ?? "");
   const [saving, setSaving] = useState(false);
+  const [dupCandidates, setDupCandidates] = useState<DuplicateMatch[]>([]);
+  const confirmedRef = useRef(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function doSave() {
     setSaving(true);
     try {
       const url = projectId ? `/api/projects/${projectId}` : "/api/projects";
@@ -49,7 +51,27 @@ export function ProjectForm({ onSuccess, initialData, projectId }: ProjectFormPr
     }
   }
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!projectId && !confirmedRef.current) {
+      const dupes = await checkDuplicates("projects", name);
+      if (dupes.length > 0) {
+        setDupCandidates(dupes);
+        return;
+      }
+    }
+    await doSave();
+  }
+
   return (
+    <>
+    <DuplicateWarningDialog
+      open={dupCandidates.length > 0}
+      entityLabel="Project"
+      duplicates={dupCandidates}
+      onConfirm={() => { confirmedRef.current = true; setDupCandidates([]); doSave(); }}
+      onCancel={() => setDupCandidates([])}
+    />
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5">
         <Label>Project Name</Label>
@@ -85,5 +107,6 @@ export function ProjectForm({ onSuccess, initialData, projectId }: ProjectFormPr
         {saving ? "Saving..." : projectId ? "Update" : "Create"}
       </Button>
     </form>
+    </>
   );
 }

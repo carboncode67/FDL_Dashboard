@@ -93,13 +93,13 @@ export function DataSortingClient({
   items: initialItems,
   farms,
   canDelete,
-  activeProjectFilter,
+  activeFilter,
 }: {
   items: UploadItem[];
   projects: ProjectOption[];
   farms: FarmOption[];
   canDelete: boolean;
-  activeProjectFilter?: { count: number; names: string[] };
+  activeFilter?: { projectCount: number; farmCount: number } | null;
 }) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
@@ -299,16 +299,19 @@ export function DataSortingClient({
     <div className="space-y-4">
       <h2 className="text-2xl font-bold text-slate-900">Data Sorting</h2>
 
-      {activeProjectFilter && activeProjectFilter.count > 0 && (
+      {activeFilter && (activeFilter.projectCount > 0 || activeFilter.farmCount > 0) && (
         <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
           <FolderKanban className="h-4 w-4 shrink-0" />
           <span>
             Filtered to{" "}
-            <strong>{activeProjectFilter.count} project{activeProjectFilter.count !== 1 ? "s" : ""}</strong>
-            {activeProjectFilter.names.length > 0 && (
-              <>: {activeProjectFilter.names.join(", ")}</>
+            {activeFilter.projectCount > 0 && (
+              <strong>{activeFilter.projectCount} project{activeFilter.projectCount !== 1 ? "s" : ""}</strong>
             )}
-            . Change in <strong>Project Filters</strong> (header menu).
+            {activeFilter.projectCount > 0 && activeFilter.farmCount > 0 && ", "}
+            {activeFilter.farmCount > 0 && (
+              <strong>{activeFilter.farmCount} farm{activeFilter.farmCount !== 1 ? "s" : ""}</strong>
+            )}
+            . Change in <strong>Dashboard Filters</strong> (header menu).
           </span>
         </div>
       )}

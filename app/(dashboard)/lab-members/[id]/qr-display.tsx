@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-export function LabMemberQrDisplay({ userId }: { userId: string }) {
+export function LabMemberQrDisplay({ userId, name }: { userId: string; name?: string }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
 
@@ -17,10 +17,13 @@ export function LabMemberQrDisplay({ userId }: { userId: string }) {
   if (!dataUrl) return <div className="h-32 w-32 bg-slate-100 animate-pulse rounded" />;
 
   return (
-    <img
-      src={dataUrl}
-      alt="Mobile app QR code"
-      className="h-40 w-40 rounded border"
-    />
+    <div className="flex flex-col items-start gap-1.5">
+      <img
+        src={dataUrl}
+        alt="Mobile app QR code"
+        className="h-40 w-40 rounded border"
+      />
+      {name && <p className="text-sm font-medium text-slate-700">{name}</p>}
+    </div>
   );
 }

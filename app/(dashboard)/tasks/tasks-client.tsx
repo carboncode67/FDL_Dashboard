@@ -40,19 +40,21 @@ export interface TaskRow {
   assignees: { id: string; name: string | null; email: string }[];
   upload_count: number;
   created_at: string;
+  vikunja_task_id?: number | null;
 }
 
 interface ExperimentOption { id: number; name: string; }
 interface UserOption { id: string; name: string; }
 
 export function TasksClient({
-  initialTasks, experiments, users, canCreate, canDelete,
+  initialTasks, experiments, users, canCreate, canDelete, activeFilter,
 }: {
   initialTasks: TaskRow[];
   experiments: ExperimentOption[];
   users: UserOption[];
   canCreate: boolean;
   canDelete: boolean;
+  activeFilter?: { projectCount: number; farmCount: number } | null;
 }) {
   const router = useRouter();
   const [tasks, setTasks]             = useState(initialTasks);
@@ -148,6 +150,20 @@ export function TasksClient({
           </Button>
         )}
       </div>
+
+      {activeFilter && (activeFilter.projectCount > 0 || activeFilter.farmCount > 0) && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          Filtered to{" "}
+          {activeFilter.projectCount > 0 && (
+            <strong>{activeFilter.projectCount} project{activeFilter.projectCount !== 1 ? "s" : ""}</strong>
+          )}
+          {activeFilter.projectCount > 0 && activeFilter.farmCount > 0 && ", "}
+          {activeFilter.farmCount > 0 && (
+            <strong>{activeFilter.farmCount} farm{activeFilter.farmCount !== 1 ? "s" : ""}</strong>
+          )}
+          . Change in <strong>Dashboard Filters</strong> (header menu).
+        </div>
+      )}
 
       {showForm && (
         <Card>

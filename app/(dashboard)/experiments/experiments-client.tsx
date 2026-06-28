@@ -25,11 +25,11 @@ interface ExperimentRow {
 export function ExperimentsClient({
   data,
   canCreate,
-  activeProjectFilter,
+  activeFilter,
 }: {
   data: ExperimentRow[];
   canCreate?: boolean;
-  activeProjectFilter?: { count: number; names: string[] } | null;
+  activeFilter?: { projectCount: number; farmCount: number } | null;
 }) {
   const router = useRouter();
 
@@ -81,16 +81,17 @@ export function ExperimentsClient({
 
   return (
     <div className="space-y-4">
-      {activeProjectFilter && activeProjectFilter.count > 0 && (
+      {activeFilter && (activeFilter.projectCount > 0 || activeFilter.farmCount > 0) && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
           Filtered to{" "}
-          <strong>
-            {activeProjectFilter.count} project{activeProjectFilter.count !== 1 ? "s" : ""}
-          </strong>
-          {activeProjectFilter.names.length > 0 && (
-            <>: {activeProjectFilter.names.join(", ")}</>
+          {activeFilter.projectCount > 0 && (
+            <strong>{activeFilter.projectCount} project{activeFilter.projectCount !== 1 ? "s" : ""}</strong>
           )}
-          . Change in <strong>Project Filters</strong> (header menu).
+          {activeFilter.projectCount > 0 && activeFilter.farmCount > 0 && ", "}
+          {activeFilter.farmCount > 0 && (
+            <strong>{activeFilter.farmCount} farm{activeFilter.farmCount !== 1 ? "s" : ""}</strong>
+          )}
+          . Change in <strong>Dashboard Filters</strong> (header menu).
         </div>
       )}
       <DataTable

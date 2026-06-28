@@ -11,7 +11,7 @@ export default async function EditExperimentPage({
   const farmId = parseInt(id);
   const expId  = parseInt(experimentId);
 
-  const [farm, farmExperiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmPhotos, farmNotes, farmLabUps, existingValues, allUsers] = await Promise.all([
+  const [farm, farmExperiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmPhotos, farmNotes, farmLabUps, existingValues, allUsers, experimentTasks, taskTemplates] = await Promise.all([
     prisma.farm.findUnique({ where: { id: farmId }, select: { id: true, Farm_Name: true } }),
     prisma.farmExperiment.findUnique({
       where: { id: expId },
@@ -56,6 +56,16 @@ export default async function EditExperimentPage({
       orderBy: [{ treatment_id: "asc" }, { field_def_id: "asc" }, { row_index: "asc" }],
     }),
     prisma.user.findMany({ select: { id: true, name: true, email: true }, orderBy: { name: "asc" } }),
+    prisma.task.findMany({
+      where: { experiment_id: expId },
+      include: { Assignees: { include: { User: { select: { id: true, name: true, email: true } } } } },
+      orderBy: { created_at: "desc" },
+    }),
+    prisma.taskTemplate.findMany({
+      where: { test_id: null, drone_id: null },
+      select: { id: true, description: true, classification: true, priority: true },
+      orderBy: { description: "asc" },
+    }),
   ]);
 
   if (!farm || !farmExperiment) notFound();
@@ -137,6 +147,17 @@ export default async function EditExperimentPage({
       farmFields={farmFields}
       farmUploadPins={farmUploadPins}
       allUsers={allUsers}
+      initialTasks={experimentTasks.map((t) => ({
+        id:             t.id,
+        description:    t.description,
+        classification: t.classification,
+        status:         t.status,
+        priority:       t.priority,
+        due_date:       t.due_date?.toISOString().slice(0, 10) ?? null,
+        assignees:      t.Assignees.map((a) => ({ id: a.User.id, name: a.User.name, email: a.User.email })),
+        created_at:     t.created_at.toISOString(),
+      }))}
+      taskTemplates={taskTemplates}
     />
   );
 }

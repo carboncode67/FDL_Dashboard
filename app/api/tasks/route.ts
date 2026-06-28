@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
+import { vikunjaConfigured, getOrCreateVikunjaProject, createVikunjaTask } from "@/lib/vikunja";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -68,6 +69,29 @@ export async function POST(req: Request) {
       _count:    { select: { UploadLinks: true } },
     },
   });
+
+  if (vikunjaConfigured() && task.experiment_id) {
+    try {
+      const experiment = await prisma.farmExperiment.findUnique({
+        where: { id: task.experiment_id },
+        select: { id: true, experiment_name: true, vikunja_project_id: true },
+      });
+      if (experiment) {
+        const projectId = await getOrCreateVikunjaProject(experiment);
+        const vikunjaTaskId = await createVikunjaTask(projectId, {
+          description: task.description,
+          classification: task.classification,
+          status: task.status,
+          priority: task.priority,
+          due_date: task.due_date,
+        });
+        await prisma.task.update({ where: { id: task.id }, data: { vikunja_task_id: vikunjaTaskId } });
+        (task as typeof task & { vikunja_task_id?: number }).vikunja_task_id = vikunjaTaskId;
+      }
+    } catch (err) {
+      console.warn("Vikunja push failed (task create):", err);
+    }
+  }
 
   return NextResponse.json(task, { status: 201 });
 }
