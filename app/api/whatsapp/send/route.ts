@@ -7,7 +7,7 @@ import { auth } from "@/lib/auth";
  * Forwards a send-message request to OFEDashBot, which holds the Twilio
  * credentials. The dashboard never calls Twilio directly.
  *
- * Body: { phone: string, message: string }
+ * Body: { phone: string, message: string, channel?: "whatsapp" | "sms" }
  */
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { phone, message } = await req.json();
+  const { phone, message, channel } = await req.json();
   if (!phone || !message) {
     return NextResponse.json({ error: "phone and message are required" }, { status: 400 });
   }
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     const res = await fetch(`${botUrl}/send-message`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, message }),
+      body: JSON.stringify({ phone, message, channel: channel ?? "whatsapp" }),
     });
     if (!res.ok) {
       const text = await res.text();

@@ -359,9 +359,14 @@ model Contact {
   token         String    @default("")
   farms_id      Int?
   is_lab_member Boolean   @default(false)
+  assigned_experiment_id Int?
+  experiment_nickname    String?
+  channel                String?   // "whatsapp" | "sms" | null — farmer's preferred messaging channel
+  onboarded_at  DateTime?
   created_at    DateTime  @default(now())
 
-  Farm       Farm?       @relation(fields: [farms_id], references: [id])
+  Farm               Farm?           @relation(fields: [farms_id], references: [id])
+  AssignedExperiment FarmExperiment? @relation(fields: [assigned_experiment_id], references: [id], onDelete: SetNull)
   Photos     Photo[]
   Recordings Recording[]
   Notes      Note[]
@@ -537,6 +542,7 @@ model FarmExperiment {
   ExperimentTreatments   ExperimentTreatment[]
   ExperimentFields       ExperimentField[]
   Tasks                  Task[]
+  AssignedContacts       Contact[]
 
   @@map("Farm_Experiments")
   @@schema("pgntarg2udzj1f3")
@@ -795,6 +801,16 @@ model CvatTask {
   Annotations Annotation[]
 
   @@map("Cvat_Tasks")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model MessageTemplate {
+  id         Int      @id @default(autoincrement())
+  name       String
+  content    String
+  created_at DateTime @default(now())
+
+  @@map("MessageTemplates")
   @@schema("pgntarg2udzj1f3")
 }
 

@@ -28,6 +28,8 @@ export async function GET(
       token: true,
       farms_id: true,
       is_lab_member: true,
+      experiment_nickname: true,
+      AssignedExperiment: { select: { experiment_name: true } },
     },
   });
 
@@ -47,5 +49,6 @@ export async function GET(
     token: match.token,
     farms_id: match.farms_id,
     is_lab_member: match.is_lab_member,
+    experiment_name: match.experiment_nickname || match.AssignedExperiment?.experiment_name || "",
   });
 }
