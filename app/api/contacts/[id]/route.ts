@@ -30,7 +30,37 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       whatsapp: body.whatsapp ?? false,
       is_lab_member: body.is_lab_member ?? false,
       farms_id: body.farms_id ? Number(body.farms_id) : null,
+      assigned_experiment_id: body.assigned_experiment_id ? Number(body.assigned_experiment_id) : null,
+      experiment_nickname: body.experiment_nickname ?? null,
+      channel: body.channel ?? null,
     },
+  });
+  return NextResponse.json(contact);
+}
+
+// Partial update, used for quick inline edits (like the channel dropdown)
+// that shouldn't risk overwriting the rest of the contact's fields.
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const { id } = await params;
+  const body = await req.json();
+  const data: Record<string, unknown> = {};
+  if ("channel" in body) data.channel = body.channel ?? null;
+  if ("whatsapp" in body) data.whatsapp = body.whatsapp;
+  if ("assigned_experiment_id" in body) {
+    data.assigned_experiment_id = body.assigned_experiment_id ? Number(body.assigned_experiment_id) : null;
+  }
+  if ("experiment_nickname" in body) data.experiment_nickname = body.experiment_nickname ?? null;
+  if ("onboarded_at" in body) data.onboarded_at = body.onboarded_at ? new Date(body.onboarded_at) : null;
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "No valid fields" }, { status: 400 });
+  }
+  const contact = await prisma.contact.update({
+    where: { id: parseInt(id) },
+    data,
   });
   return NextResponse.json(contact);
 }

@@ -32,7 +32,7 @@ const dataNav = [
   { href: "/contacts", label: "Farmers", icon: BookUser },
   { href: "/lab-members", label: "Lab Members", icon: Users },
   { href: "/data-sorting", label: "Data Sorting", icon: SlidersHorizontal },
-  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
+  { href: "/whatsapp", label: "Messaging", icon: MessageCircle },
   { href: "/activity-report", label: "Activity Report", icon: BarChart2 },
 ];
 

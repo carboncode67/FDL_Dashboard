@@ -18,10 +18,17 @@ export async function GET(req: Request) {
   }
 
   const contacts = await prisma.contact.findMany({
-    include: { Farm: { select: { id: true, Farm_Name: true } } },
+    include: {
+      Farm: { select: { id: true, Farm_Name: true } },
+      AssignedExperiment: { select: { experiment_name: true } },
+    },
     orderBy: { name: "asc" },
   });
-  return NextResponse.json(contacts);
+  const withExperimentName = contacts.map((c) => ({
+    ...c,
+    experiment_name: c.experiment_nickname || c.AssignedExperiment?.experiment_name || "",
+  }));
+  return NextResponse.json(withExperimentName);
 }
 
 export async function POST(req: Request) {

@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
+import { getOnboardingMessage } from "@/lib/onboarding-message";
 import { canDelete } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@/lib/roles";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EditModeToggle } from "./edit-mode-toggle";
+import { OnboardingMessageEditor } from "./onboarding-message-editor";
 import { UserRolesTable } from "./user-roles-table";
 
 export default async function AdminPage() {
@@ -14,7 +16,7 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const [users, editMode, projects, allFilters] = await Promise.all([
+  const [users, editMode, onboardingMessage, projects, allFilters] = await Promise.all([
     prisma.user.findMany({
       select: {
         id: true,
@@ -28,6 +30,7 @@ export default async function AdminPage() {
       orderBy: { createdAt: "asc" },
     }),
     getEditMode(),
+    getOnboardingMessage(),
     prisma.project.findMany({
       select: { id: true, Project_Name: true },
       orderBy: { Project_Name: "asc" },
@@ -67,6 +70,19 @@ export default async function AdminPage() {
         </CardHeader>
         <CardContent>
           <EditModeToggle initialEditMode={editMode} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Onboarding Message</CardTitle>
+          <CardDescription>
+            The first message sent to a farmer over WhatsApp or SMS. Keep this consistent with
+            current IRB protocol language. Admins only.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <OnboardingMessageEditor initialMessage={onboardingMessage} />
         </CardContent>
       </Card>
 

@@ -1,16 +1,25 @@
 import { prisma } from "@/lib/prisma";
+import { getOnboardingMessage } from "@/lib/onboarding-message";
 import { WhatsAppClient } from "./whatsapp-client";
 
 export default async function WhatsAppPage() {
-  // Fetch all WhatsApp contacts with their farm and last submission date
+  // Fetch all messaging contacts: anyone marked for WhatsApp, or anyone with
+  // a channel explicitly set (covers SMS-only contacts ported from the old
+  // whatsapp-integration branch's channel model).
   const contacts = await prisma.contact.findMany({
-    where: { whatsapp: true },
+    where: {
+      OR: [
+        { whatsapp: true },
+        { channel: { not: null } },
+      ],
+    },
     include: {
       Farm: { select: { id: true, Farm_Name: true } },
       Notes: { orderBy: { received_at: "desc" }, take: 1 },
       Photos: { orderBy: { received_at: "desc" }, take: 1 },
       Recordings: { orderBy: { received_at: "desc" }, take: 1 },
       Locations: { orderBy: { received_at: "desc" }, take: 1 },
+      AssignedExperiment: { select: { id: true, experiment_name: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -41,8 +50,15 @@ export default async function WhatsAppPage() {
       last_submission: lastSubmission?.toISOString() ?? null,
       days_since: daysSince,
       token: c.token,
+      assigned_experiment_id: c.assigned_experiment_id ?? null,
+      experiment_nickname: c.experiment_nickname ?? "",
+      experiment_name: c.AssignedExperiment?.experiment_name ?? null,
+      channel: c.channel ?? null,
+      onboarded: c.onboarded_at !== null,
     };
   });
 
-  return <WhatsAppClient data={data} />;
+  const onboardingMessage = await getOnboardingMessage();
+
+  return <WhatsAppClient data={data} onboardingMessage={onboardingMessage} />;
 }
