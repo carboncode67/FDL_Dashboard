@@ -70,9 +70,8 @@ Added new model `MessageTemplate` (`id`, `name`, `content`, `created_at`).
 
 ## Known gaps / follow-ups
 
-- No numbered SQL migration file was written for any of the above; `prisma db push` was used directly against the local dev database. A real migration should be written before deploying to production.
+- Schema changes were applied via `prisma db push`; the numbered migration is `migrations/031_experiment_assignment_and_messaging.sql` — run it against both DB instances before deploying.
 - The page is still served at `/whatsapp` despite being relabeled "Messaging" in the nav and UI text.
-- Twilio's WhatsApp and SMS webhook URLs were temporarily pointed at an ngrok tunnel for local testing during this session:
-  - WhatsApp production URL: `https://bot.farmersdatalab.org/webhook/1`
-  - SMS production URL: `https://bot.farmersdatalab.org/webhook/sms`
-  Both must be reverted in the Twilio console before relying on the production bot again.
+- Twilio webhook URLs (set in the Twilio console):
+  - WhatsApp: `https://bot.farmersdatalab.org/webhook/1`
+  - SMS/MMS: `https://bot.farmersdatalab.org/webhook/sms`
