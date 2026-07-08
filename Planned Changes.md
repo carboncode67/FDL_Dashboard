@@ -182,9 +182,15 @@
 - [x] 76. **Fix start date/end date in add experiment page** Current implementation is very clunky, easier to just use typed mm/dd/yyyy format with formatting error catching.
 - [x] 77. **Add "Create Task" button directly to experiment page** User should be able to create a new empty task or add a task template
 - [ ] 78. **Integrate tasks with Vikunja api for bi directional task tracking** Instead of trying to create fully featured task manager in FDL Dashboard, I would like to use the Vikunja api (Vikunja is hosted on the lab server as well. )
-- [ ] 79. **Create a "Messaging" page where 
+- [ ] 79. **Add Self to Task Assignee List** Currently I am not listed as a possible assignee for tasks. 
+- [ ] 80. **Add "Delete Experiment" option** This would be available to all Members and Admin users when Edit Mode is on.
+- [ ] 81. **Add delete verification when deleting farms, experiments and projects** Add a "Are you sure you want to delete this?" message every time a member clicks the delete button for farms, experiments and projects. 
 
 
+
+
+F@rmersDataLab26
+10.48.92.16
 
 qagziq-dofhir-seRje6
 ### Usage Steps (Thinking out loud)

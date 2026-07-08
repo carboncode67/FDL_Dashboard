@@ -9,6 +9,7 @@ interface Props {
     id: number;
     Farm_Name: string | null;
     farm_summary: string | null;
+    interview_transcript: string | null;
     is_active: boolean;
     address?: string | null;
     latitude?: number | null;

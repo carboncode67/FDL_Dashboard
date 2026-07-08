@@ -11,6 +11,7 @@ interface FarmFormProps {
   initialData?: {
     Farm_Name?: string | null;
     farm_summary?: string | null;
+    interview_transcript?: string | null;
     is_active?: boolean;
     address?: string | null;
     latitude?: number | null;
@@ -24,6 +25,7 @@ type GeoStatus = "idle" | "geocoding" | "ok" | "notfound";
 export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
   const [farmName, setFarmName] = useState(initialData?.Farm_Name ?? "");
   const [summary, setSummary] = useState(initialData?.farm_summary ?? "");
+  const [transcript, setTranscript] = useState(initialData?.interview_transcript ?? "");
   const [isActive, setIsActive] = useState(initialData?.is_active ?? true);
   const [address, setAddress] = useState(initialData?.address ?? "");
   const [latitude, setLatitude] = useState<number | null>(initialData?.latitude ?? null);
@@ -67,6 +69,7 @@ export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
         body: JSON.stringify({
           Farm_Name: farmName,
           farm_summary: summary || null,
+          interview_transcript: transcript || null,
           is_active: isActive,
           address: address || null,
           latitude,
@@ -125,6 +128,16 @@ export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
           onChange={(e) => setSummary(e.target.value)}
           rows={8}
           placeholder="Paste or type markdown content here…"
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Interview Transcript</Label>
+        <textarea
+          value={transcript}
+          onChange={(e) => setTranscript(e.target.value)}
+          rows={10}
+          placeholder="Paste full interview transcript here…"
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
       </div>

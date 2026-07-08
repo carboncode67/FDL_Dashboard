@@ -111,10 +111,11 @@ model Farm {
   created_at    DateTime? @default(now())
   updated_at    DateTime? @updatedAt
 
-  farm_summary    String?
-  address         String?
-  latitude        Float?
-  longitude       Float?
+  farm_summary         String?
+  interview_transcript String?
+  address              String?
+  latitude             Float?
+  longitude            Float?
 
   Fields           Field[]
   ExperimentZones  ExperimentZone[]

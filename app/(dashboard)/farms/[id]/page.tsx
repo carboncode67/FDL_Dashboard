@@ -316,6 +316,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="contacts">Contacts ({farm.Contacts.length})</TabsTrigger>
           <TabsTrigger value="summary">Farmer Summary</TabsTrigger>
+          <TabsTrigger value="transcript">Interview Transcript</TabsTrigger>
           <TabsTrigger value="experiments">Experiments</TabsTrigger>
           <TabsTrigger value="documents">Documents ({farm.Documents.length})</TabsTrigger>
           <TabsTrigger value="uploads">Data Uploads ({totalUploads})</TabsTrigger>
@@ -549,6 +550,26 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
                   No farmer summary uploaded yet. Push markdown content to{" "}
                   <code className="text-xs bg-slate-100 px-1 rounded">POST /api/farms/{farm.id}/summary</code>{" "}
                   with a Bearer token.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Interview Transcript ── */}
+        <TabsContent value="transcript" className="mt-4">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Interview Transcript</CardTitle></CardHeader>
+            <CardContent>
+              {farm.interview_transcript ? (
+                <pre className="whitespace-pre-wrap text-sm text-slate-700 font-mono leading-relaxed max-h-[600px] overflow-y-auto">
+                  {farm.interview_transcript}
+                </pre>
+              ) : (
+                <p className="text-sm text-slate-500 italic">
+                  No interview transcript yet. Push text content to{" "}
+                  <code className="text-xs bg-slate-100 px-1 rounded">POST /api/farms/{farm.id}/transcript</code>{" "}
+                  with a Bearer token, or paste it in via Edit.
                 </p>
               )}
             </CardContent>

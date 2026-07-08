@@ -16,7 +16,10 @@ export default auth((req) => {
                       nextUrl.pathname.startsWith("/api/data")     ||
                       nextUrl.pathname.startsWith("/api/contacts") ||
                       nextUrl.pathname.startsWith("/api/whatsapp") ||
-                      (nextUrl.pathname.startsWith("/api/farms/") && nextUrl.pathname.endsWith("/summary"));
+                      (nextUrl.pathname.startsWith("/api/farms/") && (
+                        nextUrl.pathname.endsWith("/summary") ||
+                        nextUrl.pathname.endsWith("/transcript")
+                      ));
 
   if (isApiAuth || isMobileApi) return NextResponse.next();
   if (isAuthPage) {

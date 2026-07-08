@@ -12,6 +12,7 @@ export default async function EditFarmPage({ params }: { params: Promise<{ id: s
         id: farm.id,
         Farm_Name: farm.Farm_Name,
         farm_summary: farm.farm_summary,
+        interview_transcript: farm.interview_transcript,
         is_active: farm.is_active,
         address: farm.address,
         latitude: farm.latitude,

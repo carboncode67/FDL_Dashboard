@@ -4,6 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +90,7 @@ interface Props {
   farmFields:    FarmField[];
   farmUploadPins: { id: number; lat: number; lng: number; type: "photo" | "note" | "lab" }[];
   allUsers:      UserOption[];
+  canDelete?:    boolean;
   initialTasks?:  ExperimentTaskRow[];
   taskTemplates?: { id: number; description: string; classification: string | null; priority: string }[];
 }
@@ -100,10 +110,12 @@ function buildTaskOverrides(templates: TestTemplate[]): TaskOverride[] {
 
 export default function ExperimentFormClient({
   farmId, farmName, experimentId, experiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmUploadPins, allUsers,
-  initialTasks, taskTemplates,
+  canDelete, initialTasks, taskTemplates,
 }: Props) {
   const router   = useRouter();
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [flightFormAssignmentId, setFlightFormAssignmentId] = useState<number | null>(null);
   const [editingFlightRecord, setEditingFlightRecord]       = useState<FlightRecordData | null>(null);
   const [expandedDrones, setExpandedDrones]                 = useState<Set<number>>(new Set());
@@ -292,6 +304,12 @@ export default function ExperimentFormClient({
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    await fetch(`/api/experiments/${farmId}/${experimentId}`, { method: "DELETE" });
+    router.push(`/farms/${farmId}/experiments`);
   }
 
   return (
@@ -964,13 +982,38 @@ export default function ExperimentFormClient({
           </div>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
           <Button type="submit" disabled={saving}>
             {saving ? "Saving..." : "Save"}
           </Button>
           <Button type="button" variant="outline" onClick={() => router.push(`/farms/${farmId}/experiments`)}>
             Cancel
           </Button>
+          {canDelete && experimentId && (
+            <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+              <DialogTrigger render={<Button type="button" variant="destructive" className="ml-auto" />}>
+                Delete Experiment
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Delete experiment?</DialogTitle>
+                  <DialogDescription>
+                    This will permanently delete{" "}
+                    <strong>{experiment?.experiment_name ?? `Experiment #${experimentId}`}</strong>{" "}
+                    and all its associated data. This cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+                    Cancel
+                  </Button>
+                  <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                    {deleting ? "Deleting…" : "Delete"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </form>
 

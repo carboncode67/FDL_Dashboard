@@ -84,6 +84,7 @@ export async function POST(req: Request) {
           status: task.status,
           priority: task.priority,
           due_date: task.due_date,
+          assignee_emails: task.Assignees.map((a) => a.User.email),
         });
         await prisma.task.update({ where: { id: task.id }, data: { vikunja_task_id: vikunjaTaskId } });
         (task as typeof task & { vikunja_task_id?: number }).vikunja_task_id = vikunjaTaskId;

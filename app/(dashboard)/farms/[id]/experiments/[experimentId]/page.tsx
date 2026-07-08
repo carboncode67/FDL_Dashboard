@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { getEditMode } from "@/lib/edit-mode";
+import { canDelete as checkCanDelete, type Role } from "@/lib/roles";
 import ExperimentFormClient from "../experiment-form-client";
 
 export default async function EditExperimentPage({
@@ -11,7 +14,9 @@ export default async function EditExperimentPage({
   const farmId = parseInt(id);
   const expId  = parseInt(experimentId);
 
-  const [farm, farmExperiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmPhotos, farmNotes, farmLabUps, existingValues, allUsers, experimentTasks, taskTemplates] = await Promise.all([
+  const [session, editMode, farm, farmExperiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmPhotos, farmNotes, farmLabUps, existingValues, allUsers, experimentTasks, taskTemplates] = await Promise.all([
+    auth(),
+    getEditMode(),
     prisma.farm.findUnique({ where: { id: farmId }, select: { id: true, Farm_Name: true } }),
     prisma.farmExperiment.findUnique({
       where: { id: expId },
@@ -69,6 +74,8 @@ export default async function EditExperimentPage({
   ]);
 
   if (!farm || !farmExperiment) notFound();
+
+  const userCanDelete = checkCanDelete(session?.user?.role as Role, editMode);
 
   const farmUploadPins = [
     ...farmPhotos.map((p) => ({ id: p.id, lat: p.latitude!, lng: p.longitude!, type: "photo" as const })),
@@ -147,6 +154,7 @@ export default async function EditExperimentPage({
       farmFields={farmFields}
       farmUploadPins={farmUploadPins}
       allUsers={allUsers}
+      canDelete={userCanDelete}
       initialTasks={experimentTasks.map((t) => ({
         id:             t.id,
         description:    t.description,

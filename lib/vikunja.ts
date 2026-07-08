@@ -11,6 +11,37 @@ export interface FdlTaskInput {
   status: string;
   priority: string;
   due_date?: Date | null;
+  assignee_emails?: string[];
+}
+
+// Module-level cache: email → Vikunja user id (null = no matching account)
+const vikunjaUserCache = new Map<string, number | null>();
+
+export async function resolveVikunjaUserId(email: string): Promise<number | null> {
+  if (vikunjaUserCache.has(email)) return vikunjaUserCache.get(email)!;
+  try {
+    const results = await vikunjaFetch(`/users?s=${encodeURIComponent(email)}`);
+    const match = Array.isArray(results)
+      ? results.find((u: { email: string }) => u.email === email)
+      : null;
+    const id = (match?.id as number) ?? null;
+    vikunjaUserCache.set(email, id);
+    return id;
+  } catch {
+    vikunjaUserCache.set(email, null);
+    return null;
+  }
+}
+
+export async function addVikunjaAssignee(vikunjaTaskId: number, vikunjaUserId: number): Promise<void> {
+  await vikunjaFetch(`/tasks/${vikunjaTaskId}/assignees`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: vikunjaUserId }),
+  });
+}
+
+export async function removeVikunjaAssignee(vikunjaTaskId: number, vikunjaUserId: number): Promise<void> {
+  await vikunjaFetch(`/tasks/${vikunjaTaskId}/assignees/${vikunjaUserId}`, { method: "DELETE" });
 }
 
 // FDL priority string → Vikunja priority int (0=unset, 1=low, 2=medium, 3=high)
@@ -98,7 +129,18 @@ export async function createVikunjaTask(projectId: number, task: FdlTaskInput): 
     method: "PUT",
     body: JSON.stringify(buildVikunjaPayload(task)),
   });
-  return result.id as number;
+  const vikunjaTaskId = result.id as number;
+
+  if (task.assignee_emails?.length) {
+    await Promise.allSettled(
+      task.assignee_emails.map(async (email) => {
+        const uid = await resolveVikunjaUserId(email);
+        if (uid) await addVikunjaAssignee(vikunjaTaskId, uid);
+      })
+    );
+  }
+
+  return vikunjaTaskId;
 }
 
 export async function updateVikunjaTask(vikunjaTaskId: number, task: FdlTaskInput): Promise<void> {
