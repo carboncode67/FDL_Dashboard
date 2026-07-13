@@ -329,7 +329,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             <Card>
               <CardHeader><CardTitle className="text-base">Farm Details</CardTitle></CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div><span className="text-slate-500">Farm Name</span><p className="font-medium mt-0.5">{farm.Farm_Name ?? "—"}</p></div>
                   <div><span className="text-slate-500">Farmer Name</span><p className="font-medium mt-0.5">{primaryContact?.name ?? "—"}</p></div>
                   <div><span className="text-slate-500">Phone</span><p className="font-medium mt-0.5">{primaryContact?.phone ?? "—"}</p></div>

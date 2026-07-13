@@ -31,13 +31,13 @@ export function SlideOverForm({
 }: SlideOverFormProps) {
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="w-[480px] sm:w-[480px] overflow-y-auto">
+      <SheetContent className="data-[side=right]:w-full data-[side=right]:sm:w-[480px] data-[side=right]:sm:max-w-[480px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
           {description && <SheetDescription>{description}</SheetDescription>}
         </SheetHeader>
         <div className="py-6">{children}</div>
-        <SheetFooter>
+        <SheetFooter className="sticky bottom-0 bg-popover border-t">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>

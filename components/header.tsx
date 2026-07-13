@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { KeyRound, LogOut, SlidersHorizontal } from "lucide-react";
 import { ChangePasswordForm } from "@/components/forms/change-password-form";
+import { MobileNav } from "@/components/mobile-nav";
 import type { Role } from "@/lib/roles";
 
 interface HeaderProps {
@@ -126,8 +127,9 @@ export function Header({ title, editMode, role }: HeaderProps) {
   const isFiltered = projectSelection.length > 0 || farmSelection.length > 0;
 
   return (
-    <header className="h-14 border-b border-slate-200 bg-white flex items-center justify-between px-6 shrink-0">
+    <header className="h-14 border-b border-slate-200 bg-white flex items-center justify-between px-4 sm:px-6 shrink-0">
       <div className="flex items-center gap-3">
+        {role && <MobileNav role={role} />}
         <h1 className="text-lg font-semibold text-slate-900">{title}</h1>
         {editMode && (
           <span className="rounded px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 border border-red-200">

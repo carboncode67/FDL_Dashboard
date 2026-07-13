@@ -69,8 +69,8 @@ function SubscriptionForm({
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-slate-600 mb-1">Project</label>
           <select
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -95,7 +95,7 @@ function SubscriptionForm({
             </p>
           )}
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-slate-600 mb-1">Recipients (separate multiple with ;)</label>
           <input
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"

@@ -56,9 +56,11 @@ const referenceNav = [
 
 interface SidebarProps {
   role: Role;
+  className?: string;
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ role }: SidebarProps) {
+export function Sidebar({ role, className, onNavigate }: SidebarProps) {
   const pathname = usePathname();
 
   const sections = [
@@ -68,7 +70,12 @@ export function Sidebar({ role }: SidebarProps) {
   ];
 
   return (
-    <aside className="w-60 min-h-screen bg-slate-900 text-slate-100 flex flex-col shrink-0">
+    <aside
+      className={cn(
+        "w-60 min-h-screen bg-slate-900 text-slate-100 flex flex-col shrink-0",
+        className
+      )}
+    >
       <div className="px-4 py-5 border-b border-slate-700">
         <div className="flex items-center gap-2">
           <ChevronRight className="h-5 w-5 text-emerald-400" />
@@ -87,6 +94,7 @@ export function Sidebar({ role }: SidebarProps) {
                 <li key={href}>
                   <Link
                     href={href}
+                    onClick={onNavigate}
                     className={cn(
                       "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
                       pathname === href
@@ -112,6 +120,7 @@ export function Sidebar({ role }: SidebarProps) {
               <li>
                 <Link
                   href="/admin"
+                  onClick={onNavigate}
                   className={cn(
                     "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
                     pathname === "/admin"

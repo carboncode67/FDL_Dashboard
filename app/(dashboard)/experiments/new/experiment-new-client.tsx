@@ -176,7 +176,7 @@ export default function ExperimentNewClient({ farms, allTests, allDrones, allTre
             <Label>Experiment Name <span className="text-red-500">*</span></Label>
             <Input value={expName} onChange={(e) => setExpName(e.target.value)} required />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Start Date</Label>
               <DateInput value={startDate} onChange={setStartDate} />

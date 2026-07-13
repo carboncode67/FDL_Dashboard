@@ -285,15 +285,15 @@ export function TaskDetailClient({
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left — Task details */}
-        <div className="col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-4">
           <Card>
             <CardHeader><CardTitle className="text-base">Details</CardTitle></CardHeader>
             <CardContent>
               {editing ? (
-                <form onSubmit={handleSave} className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2 space-y-1">
+                <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2 space-y-1">
                     <label className="text-sm font-medium text-slate-700">Description</label>
                     <textarea className="w-full rounded-md border border-input bg-white px-3 py-2 text-sm min-h-[80px] resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                       value={desc} onChange={(e) => setDesc(e.target.value)} required />
@@ -332,15 +332,15 @@ export function TaskDetailClient({
                     <label className="text-sm font-medium text-slate-700">Due date</label>
                     <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="h-8" />
                   </div>
-                  {saveError && <p className="col-span-2 text-sm text-red-600">{saveError}</p>}
-                  <div className="col-span-2 flex gap-2">
+                  {saveError && <p className="sm:col-span-2 text-sm text-red-600">{saveError}</p>}
+                  <div className="sm:col-span-2 flex gap-2">
                     <Button type="submit" size="sm" disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
                     <Button type="button" size="sm" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
                   </div>
                 </form>
               ) : (
-                <dl className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="col-span-2">
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <div className="sm:col-span-2">
                     <dt className="text-slate-500">Description</dt>
                     <dd className="font-medium mt-0.5 whitespace-pre-wrap">{task.description}</dd>
                   </div>

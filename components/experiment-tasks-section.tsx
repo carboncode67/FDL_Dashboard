@@ -166,8 +166,8 @@ export function ExperimentTasksSection({
       {showForm && (
         <Card>
           <CardContent className="pt-4">
-            <form onSubmit={handleCreate} className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 space-y-1">
+            <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2 space-y-1">
                 <label className="text-sm font-medium text-slate-700">Description</label>
                 <textarea
                   className="w-full rounded-md border border-input bg-white px-3 py-2 text-sm min-h-[72px] resize-none focus:outline-none focus:ring-2 focus:ring-ring"
@@ -201,7 +201,7 @@ export function ExperimentTasksSection({
                 <label className="text-sm font-medium text-slate-700">Due date</label>
                 <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="h-8" />
               </div>
-              <div className="col-span-2 space-y-1">
+              <div className="sm:col-span-2 space-y-1">
                 <label className="text-sm font-medium text-slate-700">Assign to</label>
                 <div className="flex flex-wrap gap-2">
                   {users.map((u) => (
@@ -217,8 +217,8 @@ export function ExperimentTasksSection({
                   ))}
                 </div>
               </div>
-              {formError && <p className="col-span-2 text-sm text-red-600">{formError}</p>}
-              <div className="col-span-2 flex gap-2">
+              {formError && <p className="sm:col-span-2 text-sm text-red-600">{formError}</p>}
+              <div className="sm:col-span-2 flex gap-2">
                 <Button type="submit" size="sm" disabled={submitting}>
                   {submitting ? "Creating…" : "Create Task"}
                 </Button>

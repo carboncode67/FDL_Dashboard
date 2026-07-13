@@ -20,10 +20,10 @@ export default async function DashboardLayout({
   return (
     <AuthSessionProvider>
       <div className="flex min-h-screen bg-slate-50">
-        <Sidebar role={role} />
+        <Sidebar role={role} className="hidden lg:flex" />
         <div className="flex flex-col flex-1 min-w-0">
           <Header title="FDL Dashboard" editMode={editMode} role={role} />
-          <main className="flex-1 overflow-y-auto p-6">{children}</main>
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
         </div>
       </div>
     </AuthSessionProvider>

@@ -118,7 +118,7 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
           <Card>
             <CardHeader><CardTitle className="text-base">Field Details</CardTitle></CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div><span className="text-slate-500">Field Name</span><p className="font-medium mt-0.5">{field.Name ?? "—"}</p></div>
                 <div><span className="text-slate-500">Boundary Source</span><p className="font-medium mt-0.5">{field.boundary_source ?? "—"}</p></div>
                 <div><span className="text-slate-500">Geometry</span><p className="font-medium mt-0.5"><Badge variant={field.geometry ? "default" : "outline"}>{field.geometry ? "Present" : "Not set"}</Badge></p></div>

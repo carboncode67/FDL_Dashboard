@@ -118,7 +118,7 @@ function ExperimentCard({
           {!hasData ? (
             <p className="text-sm text-slate-500 italic">No experiment info yet.</p>
           ) : (
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               {farmName && (
                 <div>
                   <span className="text-slate-500">Farm</span>

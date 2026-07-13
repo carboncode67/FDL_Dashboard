@@ -113,7 +113,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <Card>
             <CardHeader><CardTitle className="text-base">Project Details</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div><span className="text-slate-500">Name</span><p className="font-medium mt-0.5">{project.Project_Name ?? "—"}</p></div>
                 <div><span className="text-slate-500">Status</span><p className="font-medium mt-0.5">{project.Status ?? "—"}</p></div>
                 <div><span className="text-slate-500">Year Started</span><p className="font-medium mt-0.5">{project.Year_Started ?? "—"}</p></div>
