@@ -55,7 +55,7 @@ export interface NormalizedUpload {
 }
 
 export interface QueryOptions {
-  project_id?: number;
+  project_ids?: number[];
   farm_id?: number;
   status?: number[];
   types?: UploadTable[];
@@ -90,8 +90,10 @@ function resolveProject(
 export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpload[]> {
   const typesToInclude = opts.types ?? ([...UPLOAD_TABLES] as UploadTable[]);
 
+  // project_ids is applied as a post-filter on the resolved project (see below)
+  // rather than in the DB where — a DB-level project_id filter would miss
+  // uploads whose project comes from the farm→project fallback.
   const baseWhere = {
-    ...(opts.project_id != null && { project_id: opts.project_id }),
     ...(opts.farm_id != null && { farm_id: opts.farm_id }),
     ...(opts.status?.length && { status: { in: opts.status } }),
   };
@@ -271,8 +273,12 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
     });
   }
 
-  results.sort((a, b) => b.received_at.getTime() - a.received_at.getTime());
-  return results;
+  const filtered = opts.project_ids?.length
+    ? results.filter((r) => r.project_id != null && opts.project_ids!.includes(r.project_id))
+    : results;
+
+  filtered.sort((a, b) => b.received_at.getTime() - a.received_at.getTime());
+  return filtered;
 }
 
 export function parseQueryParams(url: URL): QueryOptions & { limit: number; offset: number } {
@@ -281,8 +287,12 @@ export function parseQueryParams(url: URL): QueryOptions & { limit: number; offs
   const rawStatus = url.searchParams.get("status");
   const rawType = url.searchParams.get("type");
 
+  const projectIds = rawProject
+    ? rawProject.split(",").map(Number).filter(Number.isFinite)
+    : [];
+
   return {
-    project_id: rawProject !== null ? Number(rawProject) : undefined,
+    project_ids: projectIds.length ? projectIds : undefined,
     farm_id: rawFarm !== null ? Number(rawFarm) : undefined,
     status: rawStatus
       ? rawStatus.split(",").map(Number).filter((n) => [1, 2, 3, 4].includes(n))

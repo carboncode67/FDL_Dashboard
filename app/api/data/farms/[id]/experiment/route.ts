@@ -3,7 +3,23 @@ import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
 
 const INCLUDE = {
-  ExperimentTests: { include: { Test: { select: { id: true, Test_Name: true } } } },
+  ExperimentTests: {
+    include: {
+      Test: {
+        select: {
+          id: true,
+          Test_Name: true,
+          TestFieldDefinitions: {
+            orderBy: { col_index: "asc" as const },
+            select: { col_index: true, field_type: true, label: true },
+          },
+          Documents: {
+            select: { id: true, filename: true, original_name: true, file_type: true, file_size: true },
+          },
+        },
+      },
+    },
+  },
   ExperimentDroneFlights: { include: { Drone: { select: { id: true, Name: true } } } },
   ExperimentTreatments: { include: { Treatment: { select: { id: true, Treatment_Name: true } } } },
 };

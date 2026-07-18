@@ -258,6 +258,7 @@ model Test {
   ExperimentTests      ExperimentTest[]
   TestFieldDefinitions TestFieldDefinition[]
   TaskTemplates        TaskTemplate[]
+  Documents            Document[]
 
   @@map("Tests")
   @@schema("pgntarg2udzj1f3")
@@ -559,8 +560,27 @@ model ExperimentTest {
 
   Experiment FarmExperiment @relation(fields: [experiment_id], references: [id], onDelete: Cascade)
   Test       Test           @relation(fields: [test_id], references: [id], onDelete: Cascade)
+  DataRows   TestDataRow[]
 
   @@map("Experiment_Tests")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Ingested test data rows (Planned Changes #84). `data` is JSONB keyed by
+// Test_Field_Definitions.col_index as a string — schema edits delete+recreate
+// field definitions, so rows must not FK to them.
+model TestDataRow {
+  id                 Int       @id @default(autoincrement())
+  experiment_test_id Int
+  row_index          Int
+  data               Json
+  source_file        String?
+  ingested_at        DateTime? @default(now()) @db.Timestamptz(6)
+
+  ExperimentTest ExperimentTest @relation(fields: [experiment_test_id], references: [id], onDelete: Cascade)
+
+  @@unique([experiment_test_id, row_index])
+  @@map("Test_Data_Rows")
   @@schema("pgntarg2udzj1f3")
 }
 
@@ -686,6 +706,7 @@ model Document {
   contact_id    Int?
   farm_id       Int?
   project_id    Int?
+  test_id       Int?
   filename      String
   original_name String?                           // dashboard uploads
   file_type     String?   @db.VarChar(20)         // dashboard uploads
@@ -701,6 +722,7 @@ model Document {
   Contact Contact? @relation(fields: [contact_id], references: [id])
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
   Project Project? @relation(fields: [project_id], references: [id])
+  Test    Test?    @relation(fields: [test_id], references: [id], onDelete: Cascade)
 
   @@map("Documents")
   @@schema("pgntarg2udzj1f3")

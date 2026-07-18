@@ -8,13 +8,14 @@ import { cn } from "@/lib/utils";
 interface Props {
   farmId?: number;
   projectId?: number;
+  testId?: number;
 }
 
 type Status = "idle" | "uploading" | "success" | "error";
 
 const ALLOWED_EXTENSIONS = [".pdf", ".csv", ".docx", ".doc", ".xlsx", ".txt"];
 
-export function DocumentUpload({ farmId, projectId }: Props) {
+export function DocumentUpload({ farmId, projectId, testId }: Props) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -42,7 +43,9 @@ export function DocumentUpload({ farmId, projectId }: Props) {
 
     const url = farmId
       ? `/api/farms/${farmId}/documents`
-      : `/api/projects/${projectId}/documents`;
+      : testId
+        ? `/api/tests/${testId}/documents`
+        : `/api/projects/${projectId}/documents`;
 
     try {
       const res = await fetch(url, { method: "POST", body: fd });

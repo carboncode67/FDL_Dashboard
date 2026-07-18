@@ -100,6 +100,7 @@ export default async function EditExperimentPage({
         criteria:        farmExperiment.criteria,
         lab_description: farmExperiment.lab_description,
         tests: farmExperiment.ExperimentTests.map((t) => ({
+          id:            t.id,
           test_id:       t.test_id,
           n_samples:     t.n_samples,
           expected_date: t.expected_date?.toISOString().slice(0, 10) ?? null,

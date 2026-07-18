@@ -50,17 +50,68 @@ export async function PUT(req: Request, { params }: Params) {
   const existing = await prisma.farmExperiment.findUnique({
     where: { id: experimentIdInt },
     select: {
-      ExperimentTests:        { select: { test_id: true } },
-      ExperimentDroneFlights: { select: { drone_id: true } },
+      ExperimentTests:        { select: { id: true, test_id: true } },
+      ExperimentDroneFlights: { select: { id: true, drone_id: true } },
     },
   });
   const oldTestIds  = new Set((existing?.ExperimentTests  ?? []).map((r) => r.test_id));
   const oldDroneIds = new Set((existing?.ExperimentDroneFlights ?? []).map((r) => r.drone_id));
 
+  // Experiment_Tests and Experiment_Drone_Flights have cascading children
+  // (Test_Data_Rows, Drone_Flight_Records), so they must be updated in place —
+  // delete+recreate would wipe those children on every save.
+  type TestInput  = { test_id: number; n_samples?: number | null; expected_date?: string | null; status?: string | null };
+  type DroneInput = { drone_id: number; n_flights?: number | null; expected_date?: string | null; status?: string | null };
+
+  const testPool = new Map<number, number[]>();
+  for (const r of existing?.ExperimentTests ?? []) {
+    testPool.set(r.test_id, [...(testPool.get(r.test_id) ?? []), r.id]);
+  }
+  const dronePool = new Map<number, number[]>();
+  for (const r of existing?.ExperimentDroneFlights ?? []) {
+    dronePool.set(r.drone_id, [...(dronePool.get(r.drone_id) ?? []), r.id]);
+  }
+
+  const keepTestIds: number[] = [];
+  const testOps = (tests as TestInput[]).map((t) => {
+    const data = {
+      n_samples:     t.n_samples ?? null,
+      expected_date: t.expected_date ? new Date(t.expected_date) : null,
+      status:        t.status ?? null,
+    };
+    const reuseId = testPool.get(t.test_id)?.shift();
+    if (reuseId !== undefined) {
+      keepTestIds.push(reuseId);
+      return prisma.experimentTest.update({ where: { id: reuseId }, data });
+    }
+    return prisma.experimentTest.create({
+      data: { experiment_id: experimentIdInt, test_id: t.test_id, ...data },
+    });
+  });
+
+  const keepDroneIds: number[] = [];
+  const droneOps = (drones as DroneInput[]).map((d) => {
+    const data = {
+      n_flights:     d.n_flights ?? null,
+      expected_date: d.expected_date ? new Date(d.expected_date) : null,
+      status:        d.status ?? null,
+    };
+    const reuseId = dronePool.get(d.drone_id)?.shift();
+    if (reuseId !== undefined) {
+      keepDroneIds.push(reuseId);
+      return prisma.experimentDroneFlight.update({ where: { id: reuseId }, data });
+    }
+    return prisma.experimentDroneFlight.create({
+      data: { experiment_id: experimentIdInt, drone_id: d.drone_id, ...data },
+    });
+  });
+
   await prisma.$transaction([
     prisma.experimentTreatmentValue.deleteMany({ where: { experiment_id: experimentIdInt } }),
-    prisma.experimentTest.deleteMany({ where: { experiment_id: experimentIdInt } }),
-    prisma.experimentDroneFlight.deleteMany({ where: { experiment_id: experimentIdInt } }),
+    prisma.experimentTest.deleteMany({ where: { experiment_id: experimentIdInt, id: { notIn: keepTestIds } } }),
+    prisma.experimentDroneFlight.deleteMany({ where: { experiment_id: experimentIdInt, id: { notIn: keepDroneIds } } }),
+    ...testOps,
+    ...droneOps,
     prisma.experimentTreatment.deleteMany({ where: { experiment_id: experimentIdInt } }),
     prisma.experimentField.deleteMany({ where: { experiment_id: experimentIdInt } }),
   ]);
@@ -77,22 +128,6 @@ export async function PUT(req: Request, { params }: Params) {
       measurements: measurements || null,
       criteria: criteria || null,
       lab_description: lab_description || null,
-      ExperimentTests: {
-        create: tests.map((t: { test_id: number; n_samples?: number | null; expected_date?: string | null; status?: string | null }) => ({
-          test_id:       t.test_id,
-          n_samples:     t.n_samples ?? null,
-          expected_date: t.expected_date ? new Date(t.expected_date) : null,
-          status:        t.status ?? null,
-        })),
-      },
-      ExperimentDroneFlights: {
-        create: drones.map((d: { drone_id: number; n_flights?: number | null; expected_date?: string | null; status?: string | null }) => ({
-          drone_id:      d.drone_id,
-          n_flights:     d.n_flights ?? null,
-          expected_date: d.expected_date ? new Date(d.expected_date) : null,
-          status:        d.status ?? null,
-        })),
-      },
       ExperimentTreatments: { create: treatmentCreateData },
       ExperimentFields:     { create: fieldCreateData },
     },

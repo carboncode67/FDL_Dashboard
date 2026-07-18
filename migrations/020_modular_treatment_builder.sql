@@ -2,9 +2,27 @@
 -- Removes the test_template_id linkage from Treatments and introduces
 -- Treatment_Field_Definitions owned directly by each treatment type.
 
--- Clean up 019 artifacts if they were ever applied
-DROP TABLE IF EXISTS "pgntarg2udzj1f3"."Experiment_Treatment_Values";
-DROP TABLE IF EXISTS "pgntarg2udzj1f3"."Test_Field_Definitions";
+-- Clean up 019 artifacts if they were ever applied.
+-- NOTE: Test_Field_Definitions is intentionally NOT dropped — the test Data
+-- Template builder (tests/[id]/edit) now uses it, and re-running the full
+-- migration set must not wipe it. Only drop Experiment_Treatment_Values when
+-- it still carries the old 019 FK to Test_Field_Definitions.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.constraint_column_usage
+    WHERE constraint_schema = 'pgntarg2udzj1f3'
+      AND table_name = 'Test_Field_Definitions'
+      AND constraint_name IN (
+        SELECT constraint_name FROM information_schema.table_constraints
+        WHERE table_schema = 'pgntarg2udzj1f3'
+          AND table_name = 'Experiment_Treatment_Values'
+          AND constraint_type = 'FOREIGN KEY'
+      )
+  ) THEN
+    DROP TABLE "pgntarg2udzj1f3"."Experiment_Treatment_Values";
+  END IF;
+END $$;
 
 ALTER TABLE "pgntarg2udzj1f3"."Treatments"
   DROP COLUMN IF EXISTS test_template_id;

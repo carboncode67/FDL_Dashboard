@@ -40,7 +40,7 @@ type ProjectOption = { id: number; Project_Name: string | null };
 
 const ASSIGNMENT_STATUSES = ["Planned", "Collected", "Completed", "Cancelled"] as const;
 
-type TestRow      = { test_id: number; n_samples: string; expected_date: string; status: string; taskOverrides: TaskOverride[] };
+type TestRow      = { id: number | null; test_id: number; n_samples: string; expected_date: string; status: string; taskOverrides: TaskOverride[] };
 type DroneRow     = { id?: number; drone_id: number; n_flights: string; expected_date: string; status: string; taskOverrides: TaskOverride[] };
 type TreatmentRow = { treatment_id: number; is_continuous: boolean; has_control_treatment: boolean; control_treatment_type: "control" | "treatment" | ""; control_treatment_number: string };
 type TreatmentValueRow = { treatment_id: number; field_def_id: number; row_index: number; value: string };
@@ -76,7 +76,7 @@ interface Props {
     measurements:    string | null;
     criteria:        string | null;
     lab_description: string | null;
-    tests:      { test_id: number; n_samples: number | null; expected_date: string | null; status: string | null }[];
+    tests:      { id?: number | null; test_id: number; n_samples: number | null; expected_date: string | null; status: string | null }[];
     drones:     { id: number; drone_id: number; n_flights: number | null; expected_date: string | null; status: string | null }[];
     droneFlightRecordsMap: Record<number, FlightRecordData[]>;
     treatments: { treatment_id: number; is_continuous: boolean; has_control_treatment: boolean; control_treatment_type: string | null; control_treatment_number: number | null }[];
@@ -134,6 +134,7 @@ export default function ExperimentFormClient({
   const [testRows, setTestRows] = useState<TestRow[]>(
     experiment?.tests.length
       ? experiment.tests.map((t) => ({
+          id:            t.id ?? null,
           test_id:       t.test_id,
           n_samples:     t.n_samples?.toString() ?? "",
           expected_date: t.expected_date ?? "",
@@ -448,6 +449,14 @@ export default function ExperimentFormClient({
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
+                  {row.id !== null && (
+                    <Link
+                      href={`/experiment-tests/${row.id}/data`}
+                      className="text-xs text-blue-600 hover:underline shrink-0"
+                    >
+                      View Data
+                    </Link>
+                  )}
                   <Button type="button" variant="ghost" size="icon" onClick={() => setTestRows(testRows.filter((_, idx) => idx !== i))}>
                     <X className="h-4 w-4" />
                   </Button>
@@ -521,6 +530,7 @@ export default function ExperimentFormClient({
                 onClick={() => {
                   const first = allTests[0];
                   setTestRows([...testRows, {
+                    id:            null,
                     test_id:       first.id,
                     n_samples:     "",
                     expected_date: "",
