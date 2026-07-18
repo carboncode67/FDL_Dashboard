@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { KeyRound, LogOut, SlidersHorizontal } from "lucide-react";
 import { ChangePasswordForm } from "@/components/forms/change-password-form";
+import { GlobalSearch } from "@/components/global-search";
 import { MobileNav } from "@/components/mobile-nav";
 import type { Role } from "@/lib/roles";
 
@@ -137,6 +138,8 @@ export function Header({ title, editMode, role }: HeaderProps) {
           </span>
         )}
       </div>
+      <div className="flex items-center gap-3">
+      <GlobalSearch />
       <DropdownMenu>
         <DropdownMenuTrigger className="flex items-center gap-2 outline-none">
           <span className="text-sm text-slate-600 hidden sm:block">{name}</span>
@@ -183,6 +186,7 @@ export function Header({ title, editMode, role }: HeaderProps) {
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+      </div>
 
       <Dialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen}>
         <DialogContent>
