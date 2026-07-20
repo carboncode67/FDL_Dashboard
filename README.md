@@ -195,13 +195,15 @@ PostgreSQL at `10.0.1.10:5432`, database `nocodb`, user `nocodb`.
 # Build and push to local registry
 docker buildx build --platform linux/amd64 -t 10.0.1.3:30095/fdl-server:latest --push .
 
-# Run with docker-compose
+# docker-compose.yml is gitignored (it ends up holding a real DB password).
+# First time only: cp sample_compose.yaml docker-compose.yml
 docker-compose up -d
 ```
 
-The `docker-compose.yml` expects the following environment variables to be set (via `.env` or shell):
+`docker-compose.yml` (copied from `sample_compose.yaml`) expects the following environment variables to be set (via `.env` or shell):
 
 ```
+POSTGRES_PASSWORD
 DATABASE_URL
 NEXTAUTH_SECRET
 NEXTAUTH_URL

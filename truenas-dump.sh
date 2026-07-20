@@ -1,13 +1,15 @@
 #!/bin/bash
 # Run this script FROM THE TRUENAS SHELL or any machine on the 10.0.1.x network
 # It dumps the Postgres DB and prints the DATA_DIR path of the running FDL container
+#
+# Usage: NOCODB_DB_PASSWORD=<password> ./truenas-dump.sh
 
 set -e
 
 DB_HOST="10.0.1.10"
 DB_PORT="5432"
 DB_USER="nocodb"
-DB_PASS="teddyboy"
+DB_PASS="${NOCODB_DB_PASSWORD:?Set NOCODB_DB_PASSWORD, e.g. NOCODB_DB_PASSWORD=... ./truenas-dump.sh}"
 DB_NAME="nocodb"
 DUMP_OUT="/tmp/nocodb_dump.pgdump"
 

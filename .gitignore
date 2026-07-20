@@ -5,6 +5,13 @@
 .env.lab
 .mcp.json
 
+# Local dev compose file — has a real DB password inline once configured.
+# Copy sample_compose.yaml to docker-compose.yml and edit that instead.
+docker-compose.yml
+
+# Working planning doc — not project documentation, may contain notes/creds.
+Planned Changes.md
+
 # Dependencies and build output
 node_modules/
 .next/
