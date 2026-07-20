@@ -18,10 +18,10 @@ npx prisma db pull    # sync schema from live DB (overwrites schema.prisma — u
 Migrations live in `migrations/`. Run every new file against both DB instances immediately — a missing column crashes Prisma on any page that touches that model:
 
 ```bash
-# local dev
-PGPASSWORD=teddyboy psql -h localhost -p 5433 -U nocodb -d nocodb -f migrations/<file>.sql
+# local dev — set FDL_DB_PASSWORD in your shell first, never hardcode it here
+PGPASSWORD=$FDL_DB_PASSWORD psql -h localhost -p 5433 -U nocodb -d nocodb -f migrations/<file>.sql
 # production (SSH tunnel must be open on 15432)
-PGPASSWORD=teddyboy psql -h localhost -p 15432 -U nocodb -d nocodb -f migrations/<file>.sql
+PGPASSWORD=$FDL_DB_PASSWORD psql -h localhost -p 15432 -U nocodb -d nocodb -f migrations/<file>.sql
 ```
 
 All migration files use `IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` — safe to re-run.
