@@ -15,7 +15,24 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { name = null, track_data, start_time = "", end_time = "", ticket_ref = "" } = body;
+    const { name = null, track_data, start_time = "", end_time = "", ticket_ref = "", content_hash = "" } = body;
+
+    // Deduplicate by content_hash first, scoped to the same submitter (same
+    // reasoning as notes -- GPS tracks are more collision-prone across
+    // different submitters than photo/audio bytes). Checked before any file write.
+    if (content_hash) {
+      if (auth.kind === "contact") {
+        const existing = await prisma.location.findFirst({
+          where: { content_hash, contact_id: auth.contact.id },
+        });
+        if (existing) return NextResponse.json({ ok: true, duplicate: true, id: existing.id });
+      } else {
+        const existing = await prisma.labMemberUpload.findFirst({
+          where: { content_hash, lab_member_id: auth.labMember.id, media_type: "location" },
+        });
+        if (existing) return NextResponse.json({ ok: true, duplicate: true, id: existing.id });
+      }
+    }
 
     // Deduplicate by ticket_ref before writing any file
     if (auth.kind === "contact" && ticket_ref) {
@@ -50,6 +67,7 @@ export async function POST(request: Request) {
           end_time: end_time ? new Date(end_time) : null,
           date_collected: start_time ? new Date(start_time) : null,
           status: farmId != null ? 2 : 1,
+          content_hash: content_hash || null,
           stage: "Unread",
         },
       });
@@ -67,6 +85,7 @@ export async function POST(request: Request) {
           end_time: end_time ? new Date(end_time) : null,
           status: 2,
           ticket_ref: ticket_ref || null,
+          content_hash: content_hash || null,
           stage: "Unread",
         },
       });

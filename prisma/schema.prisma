@@ -394,6 +394,7 @@ model Photo {
   timestamp   DateTime?
   status      Int       @default(2)
   ticket_ref  String?                         // human-readable OFEDashBot reference
+  content_hash String?                        // SHA-256 of raw file bytes, client-supplied dedup key
   category    String?   @db.VarChar(100)
   description String?
   stage          String?   @db.VarChar(50)
@@ -421,6 +422,7 @@ model Recording {
   end_time     DateTime?
   status       Int       @default(2)
   ticket_ref   String?                         // human-readable OFEDashBot reference
+  content_hash String?                        // SHA-256 of raw file bytes, client-supplied dedup key
   category     String?   @db.VarChar(100)
   description  String?
   stage          String?   @db.VarChar(50)
@@ -447,6 +449,7 @@ model Note {
   timestamp   DateTime?
   status      Int       @default(2)
   ticket_ref  String?                         // human-readable OFEDashBot reference
+  content_hash String?                        // SHA-256 of note content, client-supplied dedup key
   category    String?   @db.VarChar(100)
   description String?
   stage          String?   @db.VarChar(50)
@@ -473,6 +476,7 @@ model Location {
   end_time       DateTime?
   status         Int       @default(2)
   ticket_ref     String?                         // human-readable OFEDashBot reference
+  content_hash   String?                         // SHA-256 of track_data GeoJSON, client-supplied dedup key
   category       String?   @db.VarChar(100)
   description    String?
   stage          String?   @db.VarChar(50)
@@ -503,6 +507,7 @@ model LabMemberUpload {
   end_time       DateTime?
   date_collected DateTime?
   status         Int       @default(1)
+  content_hash   String?                         // SHA-256 dedup key (file bytes or content string), client-supplied
   category       String?   @db.VarChar(100)
   description    String?
   stage          String?   @db.VarChar(50)

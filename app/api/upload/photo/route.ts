@@ -21,9 +21,18 @@ export async function POST(request: Request) {
     const ticket_ref = (formData.get("ticket_ref") as string) ?? "";
     const note = (formData.get("note") as string) ?? "";
     const timestamp = (formData.get("timestamp") as string) ?? "";
+    const content_hash = (formData.get("content_hash") as string) ?? "";
 
     let geo: { latitude?: number; longitude?: number } = {};
     try { geo = JSON.parse(geoJSON); } catch (_) {}
+
+    // Deduplicate by content_hash first (global -- identical file bytes across
+    // submitters is effectively impossible, and this also survives a device
+    // re-onboarding with a new token).
+    if (content_hash) {
+      const existing = await prisma.photo.findFirst({ where: { content_hash } });
+      if (existing) return NextResponse.json({ ok: true, duplicate: true, id: existing.id });
+    }
 
     // Deduplicate by ticket_ref (prevents duplicate records when Twilio fires a webhook twice)
     if (auth.kind === "contact" && ticket_ref) {
@@ -65,6 +74,7 @@ export async function POST(request: Request) {
           content: note || null,
           date_collected: timestamp ? new Date(timestamp) : null,
           status: farmId != null ? 2 : 1,
+          content_hash: content_hash || null,
           stage: "Unread",
         },
       });
@@ -84,6 +94,7 @@ export async function POST(request: Request) {
           timestamp: timestamp ? new Date(timestamp) : null,
           status: 2,
           ticket_ref: ticket_ref || null,
+          content_hash: content_hash || null,
           stage: "Unread",
         },
       });

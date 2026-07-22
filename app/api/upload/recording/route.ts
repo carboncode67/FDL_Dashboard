@@ -89,6 +89,7 @@ export async function POST(request: Request) {
     const endTime = fields.endTime ?? "";
     const ticket_ref = fields.ticket_ref ?? "";
     const gpsTrack = fields.gpsTrack ?? "";
+    const content_hash = fields.contentHash ?? "";
 
     let gpsFilename: string | null = null;
     if (gpsTrack) {
@@ -99,6 +100,17 @@ export async function POST(request: Request) {
     const firstPt = gpsTrack ? firstPointFromGeoJSON(gpsTrack) : null;
     const ptLat = firstPt?.lat ?? null;
     const ptLng = firstPt?.lng ?? null;
+
+    // Deduplicate by content_hash first (global, client-supplied -- see photo route).
+    // File already written to disk — clean up if duplicate.
+    if (content_hash) {
+      const existing = await prisma.recording.findFirst({ where: { content_hash } });
+      if (existing) {
+        try { fs.unlinkSync(path.join(dir, filename)); } catch (_) {}
+        if (gpsFilename) { try { fs.unlinkSync(path.join(dir, gpsFilename)); } catch (_) {} }
+        return NextResponse.json({ ok: true, duplicate: true, id: existing.id });
+      }
+    }
 
     // Deduplicate by ticket_ref. File already written to disk — clean up if duplicate.
     if (auth.kind === "contact" && ticket_ref) {
@@ -126,6 +138,7 @@ export async function POST(request: Request) {
           end_time: endTime ? new Date(endTime) : null,
           date_collected: startTime ? new Date(startTime) : null,
           status: farmId != null ? 2 : 1,
+          content_hash: content_hash || null,
           stage: "Unread",
         },
       });
@@ -143,6 +156,7 @@ export async function POST(request: Request) {
           end_time: endTime ? new Date(endTime) : null,
           status: 2,
           ticket_ref: ticket_ref || null,
+          content_hash: content_hash || null,
           stage: "Unread",
         },
       });
