@@ -2,8 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
-import { canCreate, canEdit, canDelete, type Role } from "@/lib/roles";
+import { canCreate, canEdit, canDelete, isAdmin, type Role } from "@/lib/roles";
 import { DeleteFarmButton } from "./delete-button";
+import { OfeSyncToggle } from "@/components/ofe-sync-toggle";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +44,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
   const showCreate = canCreate(role);
   const showEdit = canEdit(role);
   const showDelete = canDelete(role, editMode);
+  const showOfeSyncToggle = isAdmin(role);
 
   const [farm, allProjects, farmExperiments] = await Promise.all([
     prisma.farm.findUnique({
@@ -302,6 +304,9 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
           <p className="text-slate-500">{primaryContact?.name ? `Farmer: ${primaryContact.name}` : ""}</p>
         </div>
         <div className="flex items-center gap-2">
+          {showOfeSyncToggle && (
+            <OfeSyncToggle farmId={farm.id} enabled={farm.ofe_sync_enabled} />
+          )}
           {showEdit && (
             <Link href={`/farms/${farm.id}/edit`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Edit</Link>
           )}

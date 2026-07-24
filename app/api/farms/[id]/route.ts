@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { canEdit, canDelete } from "@/lib/roles";
+import { canEdit, canDelete, isAdmin } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -18,6 +18,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   const { id } = await params;
   const body = await req.json();
+  if ("ofe_sync_enabled" in body && !isAdmin(session.user.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const farm = await prisma.farm.update({ where: { id: parseInt(id) }, data: body });
   return NextResponse.json(farm);
 }

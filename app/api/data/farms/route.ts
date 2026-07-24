@@ -14,6 +14,7 @@ export async function GET(req: Request) {
       id: true,
       Farm_Name: true,
       title: true,
+      ofe_sync_enabled: true,
       ProjectFarms: { select: { Projects_id: true, Project: { select: { id: true, Project_Name: true } } } },
     },
     orderBy: { Farm_Name: "asc" },
