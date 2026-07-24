@@ -24,6 +24,7 @@ import {
   Microscope,
   ClipboardList,
   LayoutTemplate,
+  FileText,
 } from "lucide-react";
 import type { Role } from "@/lib/roles";
 
@@ -34,6 +35,7 @@ const dataNav = [
   { href: "/data-sorting", label: "Data Sorting", icon: SlidersHorizontal },
   { href: "/whatsapp", label: "Messaging", icon: MessageCircle },
   { href: "/activity-report", label: "Activity Report", icon: BarChart2 },
+  { href: "/forms", label: "Custom Forms", icon: FileText },
 ];
 
 const fieldOpsNav = [

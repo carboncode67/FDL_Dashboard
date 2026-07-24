@@ -29,6 +29,9 @@ model User {
   FarmFilters        UserFarmFilter[]
   FilterSettings     UserFilterSettings?
   CreatedExperiments FarmExperiment[]    @relation("ExperimentCreatedBy")
+  CreatedForms       Form[]              @relation("FormCreatedBy")
+  FormAssignments    FormAssignment[]
+  FormResponses      FormResponse[]
 
   @@map("users")
   @@schema("public")
@@ -116,6 +119,7 @@ model Farm {
   address              String?
   latitude             Float?
   longitude            Float?
+  ofe_sync_enabled     Boolean   @default(false)
 
   Fields           Field[]
   ExperimentZones  ExperimentZone[]
@@ -130,6 +134,8 @@ model Farm {
   ContactCards     WhatsAppContactCard[]
   LabMemberUploads LabMemberUpload[]
   FarmExperiments  FarmExperiment[]
+  FormAssignments  FormAssignment[]
+  FormResponses    FormResponse[]
 
   @@map("Farms")
   @@schema("pgntarg2udzj1f3")
@@ -376,6 +382,8 @@ model Contact {
   Videos     Video[]
   Documents  Document[]
   ContactCards WhatsAppContactCard[]
+  FormAssignments FormAssignment[]
+  FormResponses   FormResponse[]
 
   @@map("Contacts")
   @@schema("pgntarg2udzj1f3")
@@ -550,6 +558,7 @@ model FarmExperiment {
   ExperimentFields       ExperimentField[]
   Tasks                  Task[]
   AssignedContacts       Contact[]
+  FormAssignments        FormAssignment[]
 
   @@map("Farm_Experiments")
   @@schema("pgntarg2udzj1f3")
@@ -919,5 +928,94 @@ model TaskTemplate {
   Drone Drone? @relation(fields: [drone_id], references: [id], onDelete: Cascade)
 
   @@map("Task_Templates")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Form {
+  id            Int       @id @default(autoincrement())
+  title         String
+  description   String?
+  is_active     Boolean   @default(true)
+  created_by_id String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  CreatedBy        User?                 @relation("FormCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
+  FieldDefinitions FormFieldDefinition[]
+  Assignments      FormAssignment[]
+  Responses        FormResponse[]
+
+  @@map("Forms")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// col_index-keyed field definitions for a custom Form, mirroring the
+// Test_Field_Definitions / Test_Data_Rows pattern: FormResponse.data is
+// JSONB keyed by col_index as a string, with no FK to this table, since
+// schema edits delete+recreate field definitions.
+model FormFieldDefinition {
+  id         Int     @id @default(autoincrement())
+  form_id    Int
+  col_index  Int
+  field_type String  @default("text") // text | number | boolean | date | select
+  label      String
+  required   Boolean @default(false)
+  options    Json?                     // string[] — only used when field_type = "select"
+
+  Form Form @relation(fields: [form_id], references: [id], onDelete: Cascade)
+
+  @@unique([form_id, col_index])
+  @@map("Form_Field_Definitions")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Defines who can see/fill a Form — exactly one of contact/user/farm/experiment
+// per row (enforced by a DB CHECK constraint in the migration). Purely an
+// eligibility record: fully decoupled from FormResponse history, since Forms
+// are repeatable (no "one response per recipient" constraint anywhere).
+model FormAssignment {
+  id                 Int      @id @default(autoincrement())
+  form_id            Int
+  contact_id         Int?
+  user_id            String?
+  farm_id            Int?
+  farm_experiment_id Int?
+  created_at         DateTime @default(now())
+
+  Form           Form            @relation(fields: [form_id], references: [id], onDelete: Cascade)
+  Contact        Contact?        @relation(fields: [contact_id], references: [id], onDelete: Cascade)
+  User           User?           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  Farm           Farm?           @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  FarmExperiment FarmExperiment? @relation(fields: [farm_experiment_id], references: [id], onDelete: Cascade)
+
+  @@index([form_id])
+  @@index([contact_id])
+  @@index([user_id])
+  @@index([farm_id])
+  @@index([farm_experiment_id])
+  @@map("Form_Assignments")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model FormResponse {
+  id           Int      @id @default(autoincrement())
+  form_id      Int
+  contact_id   Int?
+  user_id      String?
+  farm_id      Int?     // resolved at submission time via lib/proximity.ts
+  data         Json     // JSONB keyed by FormFieldDefinition.col_index as a string — no FK to field defs
+  content_hash String?  // client-supplied dedup key, same pattern as Photos/Notes/Recordings
+  submitted_at DateTime @default(now()) @db.Timestamptz(6)
+
+  Form    Form     @relation(fields: [form_id], references: [id], onDelete: Cascade)
+  Contact Contact? @relation(fields: [contact_id], references: [id], onDelete: SetNull)
+  User    User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  Farm    Farm?    @relation(fields: [farm_id], references: [id], onDelete: SetNull)
+
+  @@index([form_id])
+  @@index([contact_id])
+  @@index([user_id])
+  @@index([content_hash])
+  @@map("Form_Responses")
   @@schema("pgntarg2udzj1f3")
 }
