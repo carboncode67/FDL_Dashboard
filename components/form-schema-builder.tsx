@@ -13,6 +13,9 @@ type Column = {
   label: string;
   required: boolean;
   options: string[] | null;
+  optionsText?: string; // raw text of the options input — kept separate from
+  // `options` so the displayed value is never re-derived (and silently
+  // stripped of spaces/trailing commas) from the already-parsed array
 };
 
 interface Props {
@@ -20,15 +23,19 @@ interface Props {
   initialColumns: Column[];
 }
 
+function withOptionsText(col: Column): Column {
+  return { ...col, optionsText: col.optionsText ?? (col.options ?? []).join(", ") };
+}
+
 export function FormSchemaBuilder({ formId, initialColumns }: Props) {
-  const [columns, setColumns] = useState<Column[]>(initialColumns);
+  const [columns, setColumns] = useState<Column[]>(initialColumns.map(withOptionsText));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   function addColumn() {
     setColumns((prev) => [
       ...prev,
-      { col_index: prev.length, field_type: "text", label: "", required: false, options: null },
+      { col_index: prev.length, field_type: "text", label: "", required: false, options: null, optionsText: "" },
     ]);
     setSaved(false);
   }
@@ -58,10 +65,11 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
   async function handleSave() {
     setSaving(true);
     try {
+      const payload = columns.map(({ optionsText: _optionsText, ...c }) => c);
       await fetch(`/api/forms/${formId}/schema`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ columns }),
+        body: JSON.stringify({ columns: payload }),
       });
       setSaved(true);
     } finally {
@@ -128,15 +136,14 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
               {col.field_type === "select" && (
                 <Input
                   placeholder="Comma-separated options (e.g. Yes, No, Unsure)"
-                  value={(col.options ?? []).join(", ")}
-                  onChange={(e) =>
+                  value={col.optionsText ?? ""}
+                  onChange={(e) => {
+                    const text = e.target.value;
                     updateColumn(i, {
-                      options: e.target.value
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter((s) => s.length > 0),
-                    })
-                  }
+                      optionsText: text,
+                      options: text.split(",").map((s) => s.trim()).filter((s) => s.length > 0),
+                    });
+                  }}
                   className="ml-[calc(6rem+0.5rem)]"
                 />
               )}
