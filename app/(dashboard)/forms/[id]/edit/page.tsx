@@ -28,7 +28,7 @@ export default async function EditFormPage({ params }: { params: Promise<{ id: s
       form={{ id: form.id, title: form.title, description: form.description, is_active: form.is_active }}
       fieldDefs={fieldDefs.map((d) => ({
         col_index: d.col_index,
-        field_type: d.field_type as "text" | "number" | "boolean" | "date" | "select",
+        field_type: d.field_type as "text" | "number" | "boolean" | "date" | "select" | "photo",
         label: d.label,
         required: d.required,
         options: (d.options as string[] | null) ?? null,

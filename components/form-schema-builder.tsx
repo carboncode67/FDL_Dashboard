@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, X, ArrowUp, ArrowDown } from "lucide-react";
 
-type FieldType = "text" | "number" | "boolean" | "date" | "select";
+type FieldType = "text" | "number" | "boolean" | "date" | "select" | "photo";
 
 type Column = {
   col_index: number;
@@ -107,6 +107,7 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
                   <option value="boolean">Yes / No</option>
                   <option value="date">Date</option>
                   <option value="select">Single choice</option>
+                  <option value="photo">Photo</option>
                 </select>
                 <Input
                   placeholder="Field label"

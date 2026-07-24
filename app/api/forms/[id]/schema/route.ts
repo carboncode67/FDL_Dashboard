@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit, type Role } from "@/lib/roles";
 
-const FIELD_TYPES = new Set(["text", "number", "boolean", "date", "select"]);
+const FIELD_TYPES = new Set(["text", "number", "boolean", "date", "select", "photo"]);
 
 type Params = { params: Promise<{ id: string }> };
 

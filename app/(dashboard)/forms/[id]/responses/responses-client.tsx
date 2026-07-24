@@ -5,10 +5,11 @@ import Link from "next/link";
 
 interface Props {
   form: { id: number; title: string };
-  fields: { col_index: number; label: string }[];
+  fields: { col_index: number; label: string; field_type: string }[];
   responses: {
     id: number;
     data: Record<string, string | number | boolean | null>;
+    photoFilenames: Record<string, string | null>;
     submitted_at: string;
     recipient: string;
   }[];
@@ -28,8 +29,23 @@ export default function ResponsesClient({ form, fields, responses }: Props) {
       key: `field_${f.col_index}`,
       header: f.label,
       render: (row: Record<string, unknown>) => {
-        const value = (row as unknown as (typeof responses)[number]).data[String(f.col_index)];
-        return <span>{value === null || value === undefined ? "—" : String(value)}</span>;
+        const typedRow = row as unknown as (typeof responses)[number];
+        const value = typedRow.data[String(f.col_index)];
+        if (value === null || value === undefined) return <span className="text-slate-400">—</span>;
+        if (f.field_type === "photo") {
+          const filename = typedRow.photoFilenames[String(f.col_index)];
+          if (!filename) return <span className="text-xs text-amber-600">Uploading…</span>;
+          return (
+            <a href={`/api/files/photos/${filename}`} target="_blank" rel="noopener noreferrer">
+              <img
+                src={`/api/files/photos/${filename}`}
+                alt=""
+                className="h-12 w-12 rounded object-cover"
+              />
+            </a>
+          );
+        }
+        return <span>{String(value)}</span>;
       },
     })),
   ];
