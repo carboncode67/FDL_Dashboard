@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import QRCode from "qrcode";
+import { generateOnboardingQr } from "@/lib/qr-code";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -13,11 +13,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!user.bearer_token) return NextResponse.json({ error: "No token" }, { status: 404 });
 
   const serverUrl = process.env.FARMER_SERVER_URL ?? process.env.NEXTAUTH_URL ?? "";
-  const payload = JSON.stringify({ url: serverUrl, token: user.bearer_token });
-  const dataUrl = await QRCode.toDataURL(payload, {
-    width: 400,
-    margin: 2,
-    color: { dark: "#1B5E20", light: "#FFFFFF" },
-  });
+  const { dataUrl } = await generateOnboardingQr(user.bearer_token);
   return NextResponse.json({ dataUrl, serverUrl, memberName: user.name });
 }

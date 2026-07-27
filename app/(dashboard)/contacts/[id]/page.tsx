@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
+import { getOnboardingMessage } from "@/lib/onboarding-message";
 import { canEdit, canDelete, type Role } from "@/lib/roles";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,12 +20,13 @@ import {
 import Link from "next/link";
 import { QrDisplay } from "./qr-display";
 import { DeleteContactButton } from "./delete-button";
+import { SendOnboardingEmailButton } from "./send-onboarding-email-button";
 
 export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const contactId = parseInt(id);
 
-  const [session, editMode] = await Promise.all([auth(), getEditMode()]);
+  const [session, editMode, onboardingMessage] = await Promise.all([auth(), getEditMode(), getOnboardingMessage()]);
   const role = (session?.user?.role ?? "viewer") as Role;
   const showEdit = canEdit(role);
   const showDelete = canDelete(role, editMode);
@@ -123,6 +125,15 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   Scan this QR code with the FarmerDataLogger app to connect {contact.name}.
                 </p>
                 <QrDisplay contactId={contact.id} name={contact.name} />
+                {showEdit && (
+                  <div className="mt-3">
+                    <SendOnboardingEmailButton
+                      contactId={contact.id}
+                      email={contact.email}
+                      initialMessage={onboardingMessage}
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

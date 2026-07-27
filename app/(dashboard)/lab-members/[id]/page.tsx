@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import { LabMemberQrDisplay } from "./qr-display";
 import { GrantAccessButton } from "./grant-access-button";
+import { SendOnboardingEmailButton } from "./send-onboarding-email-button";
 
 const STATUS_LABEL: Record<number, string> = { 1: "Unassigned", 2: "Farm Matched", 3: "Sorted" };
 const STATUS_VARIANT: Record<number, "outline" | "secondary" | "default"> = {
@@ -128,10 +129,11 @@ export default async function LabMemberDetailPage({ params }: { params: Promise<
                   Scan this QR code with the FarmerDataLogger app to connect {member.name}.
                 </p>
                 <LabMemberQrDisplay key={member.bearer_token ?? 'none'} userId={member.id} name={member.name ?? undefined} />
-                <div className="mt-3">
+                <div className="mt-3 flex items-center gap-2">
                   <GrantAccessButton userId={member.id} />
-                  <p className="text-xs text-slate-400 mt-1">Regenerates and invalidates the old code.</p>
+                  {showEdit && <SendOnboardingEmailButton userId={member.id} email={member.email} />}
                 </div>
+                <p className="text-xs text-slate-400 mt-1">Regenerating invalidates the old code.</p>
               </>
             ) : (
               <>

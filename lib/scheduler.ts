@@ -14,7 +14,7 @@
 import cron from "node-cron";
 import { prisma } from "@/lib/prisma";
 import { buildReportData, generateReportHtml } from "@/lib/report-generator";
-import { Resend } from "resend";
+import { sendMail } from "@/lib/mailer";
 
 let started = false;
 
@@ -70,10 +70,8 @@ export function startScheduler() {
 
         const month   = now.toLocaleString("default", { month: "long" });
         const subject = `Farmers Datalab — Activity Report — ${month} ${now.getFullYear()}`;
-        const from    = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
 
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({ from, to: emails, subject, html });
+        await sendMail({ to: emails, subject, html });
 
         await prisma.reportingSubscription.update({
           where: { id: sub.id },

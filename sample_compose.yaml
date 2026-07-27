@@ -35,9 +35,14 @@ services:
       # Optional. Base URL of the OFEDashBot webhook service. Required for the
       # WhatsApp admin "send message" feature (POST /api/whatsapp/send).
       OFEDASHBOT_URL: ${OFEDASHBOT_URL:-}
-      # Optional. Needed only for scheduled email activity reports (Resend).
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
-      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
+      # Optional. SMTP credentials for outgoing email — scheduled activity
+      # reports and the "Send Onboarding Email" button (Contacts/Lab Members).
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
     volumes:
       - upload-data:/app/upload-data
     depends_on:

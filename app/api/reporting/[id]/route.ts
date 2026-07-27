@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { buildReportData, generateReportHtml, generateEmailHtml } from "@/lib/report-generator";
-import { Resend } from "resend";
+import { sendMail } from "@/lib/mailer";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -53,7 +53,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const now     = new Date();
   const month   = now.toLocaleString("default", { month: "long" });
   const subject = `Farmers Datalab — Activity Report — ${month} ${now.getFullYear()}`;
-  const from    = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
 
   let emailHtml: string;
   try {
@@ -65,8 +64,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    await resend.emails.send({ from, to: emails, subject, html: emailHtml });
+    await sendMail({ to: emails, subject, html: emailHtml });
     await prisma.reportingSubscription.update({
       where: { id: sub.id },
       data:  { last_sent_at: now },
