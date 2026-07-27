@@ -19,6 +19,7 @@ model User {
   contact_phone String?
   faa_part_107  Boolean  @default(false)
   status        String?
+  onboarded_at  DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,6 +21,7 @@ Scan the attached QR code from within the app to connect your account and start 
 If you have any questions, reach out to the lab.`;
 
 export function SendOnboardingEmailButton({ userId, email }: { userId: string; email: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState(DEFAULT_MESSAGE);
   const [sending, setSending] = useState(false);
@@ -41,6 +43,7 @@ export function SendOnboardingEmailButton({ userId, email }: { userId: string; e
         return;
       }
       setSent(true);
+      router.refresh();
     } catch {
       setError("Network error. Please try again.");
     } finally {

@@ -134,6 +134,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                     />
                   </div>
                 )}
+                {contact.onboarded_at && (
+                  <p className="text-xs text-slate-400 mt-2">
+                    Onboarding email sent on {contact.onboarded_at.toLocaleDateString()}
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>

@@ -15,7 +15,7 @@ import { Search, Plus, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-rea
 
 interface Column<T> {
   key: string;
-  header: string;
+  header: React.ReactNode;
   sortable?: boolean;
   render?: (row: T) => React.ReactNode;
 }

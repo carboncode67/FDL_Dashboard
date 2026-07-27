@@ -134,6 +134,11 @@ export default async function LabMemberDetailPage({ params }: { params: Promise<
                   {showEdit && <SendOnboardingEmailButton userId={member.id} email={member.email} />}
                 </div>
                 <p className="text-xs text-slate-400 mt-1">Regenerating invalidates the old code.</p>
+                {member.onboarded_at && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    Onboarding email sent on {member.onboarded_at.toLocaleDateString()}
+                  </p>
+                )}
               </>
             ) : (
               <>

@@ -43,5 +43,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { onboarded_at: new Date() },
+  });
+
   return NextResponse.json({ ok: true, sent_to: user.email });
 }

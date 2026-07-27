@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { canCreate, type Role } from "@/lib/roles";
+import { canCreate, canEdit, type Role } from "@/lib/roles";
 import { LabMembersClient } from "./lab-members-client";
 
 export default async function LabMembersPage() {
@@ -17,6 +17,7 @@ export default async function LabMembersPage() {
     contact_phone: u.contact_phone,
     role: u.role,
     has_token: !!u.bearer_token,
+    onboarded_at: u.onboarded_at ? u.onboarded_at.toISOString() : null,
   }));
-  return <LabMembersClient data={data} canCreate={canCreate(role)} />;
+  return <LabMembersClient data={data} canCreate={canCreate(role)} canEdit={canEdit(role)} />;
 }
