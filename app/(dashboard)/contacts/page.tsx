@@ -33,7 +33,6 @@ export default async function ContactsPage() {
     whatsapp: c.whatsapp,
     farm_name: c.Farm?.Farm_Name ?? null,
     created_at: c.created_at.toISOString(),
-    can_onboard: c.token !== "",
     onboarded_at: c.onboarded_at ? c.onboarded_at.toISOString() : null,
   }));
 

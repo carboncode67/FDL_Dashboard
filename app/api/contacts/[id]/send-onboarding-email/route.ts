@@ -5,6 +5,7 @@ import { canEdit } from "@/lib/roles";
 import { generateOnboardingQr } from "@/lib/qr-code";
 import { sendMail } from "@/lib/mailer";
 import { messageToHtml } from "@/lib/message-to-html";
+import crypto from "crypto";
 
 /**
  * POST /api/contacts/[id]/send-onboarding-email
@@ -29,13 +30,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const contact = await prisma.contact.findUnique({ where: { id: parseInt(id) } });
   if (!contact) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!contact.email) return NextResponse.json({ error: "This contact has no email on file" }, { status: 400 });
-  if (!contact.token) return NextResponse.json({ error: "This contact has no app access token yet — generate one first" }, { status: 400 });
+  const email = contact.email;
 
-  const { buffer } = await generateOnboardingQr(contact.token);
+  // Most contacts are bulk-imported (e.g. from NocoDB) with an empty token and
+  // never get one until someone opens their detail page and clicks "Generate
+  // Token" — which made bulk onboarding-email selection useless in practice
+  // (nothing was ever eligible). Provision one here instead of requiring it
+  // to already exist.
+  let token = contact.token;
+  if (!token) {
+    token = crypto.randomBytes(32).toString("hex");
+    await prisma.contact.update({ where: { id: contact.id }, data: { token } });
+  }
+
+  const { buffer } = await generateOnboardingQr(token);
 
   try {
     await sendMail({
-      to: contact.email,
+      to: email,
       subject: "Welcome to the Farmers Datalab",
       html: messageToHtml(message),
       attachments: [{ filename: "qr-code.png", content: buffer, contentType: "image/png" }],
@@ -50,5 +62,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     data: { onboarded_at: new Date() },
   });
 
-  return NextResponse.json({ ok: true, sent_to: contact.email });
+  return NextResponse.json({ ok: true, sent_to: email });
 }

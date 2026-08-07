@@ -16,7 +16,6 @@ interface ContactRow {
   whatsapp: boolean;
   farm_name: string | null;
   created_at: string;
-  can_onboard: boolean;
   onboarded_at: string | null;
 }
 
@@ -37,7 +36,7 @@ export function ContactsClient({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
 
-  const eligible = data.filter((r) => r.can_onboard && r.email);
+  const eligible = data.filter((r) => r.email);
   const allEligibleSelected = eligible.length > 0 && eligible.every((r) => selected.has(r.id));
 
   function toggleOne(id: number) {
@@ -72,14 +71,14 @@ export function ContactsClient({
       ),
       render: (row: Record<string, unknown>) => {
         const r = row as unknown as ContactRow;
-        const canOnboard = r.can_onboard && !!r.email;
+        const canOnboard = !!r.email;
         return (
           <input
             type="checkbox"
             className="h-4 w-4 accent-slate-700"
             checked={selected.has(r.id)}
             disabled={!canOnboard}
-            title={!canOnboard ? (r.email ? "No app token — created outside the Dashboard" : "No email on file") : undefined}
+            title={!canOnboard ? "No email on file" : undefined}
             onClick={(e) => e.stopPropagation()}
             onChange={() => toggleOne(r.id)}
           />

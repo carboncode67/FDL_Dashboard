@@ -148,9 +148,19 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 ) : (
                   <>
                     <p className="text-sm text-slate-500 mb-4">
-                      No app access token yet. Generate one to allow {contact.name} to connect the FarmerDataLogger app.
+                      No app access token yet — one is generated automatically the first time an onboarding
+                      email is sent, or generate one now to preview the QR code.
                     </p>
-                    {showEdit && <GenerateTokenButton contactId={contact.id} />}
+                    {showEdit && (
+                      <div className="flex items-center gap-2">
+                        <GenerateTokenButton contactId={contact.id} />
+                        <SendOnboardingEmailButton
+                          contactId={contact.id}
+                          email={contact.email}
+                          initialMessage={onboardingMessage}
+                        />
+                      </div>
+                    )}
                   </>
                 )}
               </CardContent>
