@@ -10,6 +10,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const contact = await prisma.contact.findUnique({ where: { id: parseInt(id) } });
   if (!contact) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!contact.token) return NextResponse.json({ error: "No token" }, { status: 404 });
 
   const serverUrl = process.env.FARMER_SERVER_URL ?? process.env.NEXTAUTH_URL ?? "";
   const { dataUrl } = await generateOnboardingQr(contact.token);

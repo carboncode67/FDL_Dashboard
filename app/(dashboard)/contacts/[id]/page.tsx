@@ -21,6 +21,7 @@ import Link from "next/link";
 import { QrDisplay } from "./qr-display";
 import { DeleteContactButton } from "./delete-button";
 import { SendOnboardingEmailButton } from "./send-onboarding-email-button";
+import { GenerateTokenButton } from "./generate-token-button";
 
 export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -121,23 +122,36 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             <Card>
               <CardHeader><CardTitle className="text-base">Mobile App QR Code</CardTitle></CardHeader>
               <CardContent>
-                <p className="text-sm text-slate-500 mb-3">
-                  Scan this QR code with the FarmerDataLogger app to connect {contact.name}.
-                </p>
-                <QrDisplay contactId={contact.id} name={contact.name} />
-                {showEdit && (
-                  <div className="mt-3">
-                    <SendOnboardingEmailButton
-                      contactId={contact.id}
-                      email={contact.email}
-                      initialMessage={onboardingMessage}
-                    />
-                  </div>
-                )}
-                {contact.onboarded_at && (
-                  <p className="text-xs text-slate-400 mt-2">
-                    Onboarding email sent on {contact.onboarded_at.toLocaleDateString()}
-                  </p>
+                {contact.token ? (
+                  <>
+                    <p className="text-sm text-slate-500 mb-3">
+                      Scan this QR code with the FarmerDataLogger app to connect {contact.name}.
+                    </p>
+                    <QrDisplay key={contact.token} contactId={contact.id} name={contact.name} />
+                    {showEdit && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <GenerateTokenButton contactId={contact.id} />
+                        <SendOnboardingEmailButton
+                          contactId={contact.id}
+                          email={contact.email}
+                          initialMessage={onboardingMessage}
+                        />
+                      </div>
+                    )}
+                    <p className="text-xs text-slate-400 mt-1">Regenerating invalidates the old code.</p>
+                    {contact.onboarded_at && (
+                      <p className="text-xs text-slate-400 mt-1">
+                        Onboarding email sent on {contact.onboarded_at.toLocaleDateString()}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-slate-500 mb-4">
+                      No app access token yet. Generate one to allow {contact.name} to connect the FarmerDataLogger app.
+                    </p>
+                    {showEdit && <GenerateTokenButton contactId={contact.id} />}
+                  </>
                 )}
               </CardContent>
             </Card>

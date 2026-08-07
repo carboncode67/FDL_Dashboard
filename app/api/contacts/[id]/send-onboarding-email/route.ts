@@ -29,6 +29,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const contact = await prisma.contact.findUnique({ where: { id: parseInt(id) } });
   if (!contact) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!contact.email) return NextResponse.json({ error: "This contact has no email on file" }, { status: 400 });
+  if (!contact.token) return NextResponse.json({ error: "This contact has no app access token yet — generate one first" }, { status: 400 });
 
   const { buffer } = await generateOnboardingQr(contact.token);
 
