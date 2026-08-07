@@ -97,6 +97,9 @@ export function BulkSendOnboardingEmailModal({
           onChange={(e) => setMessage(e.target.value)}
           disabled={sending || doneCount > 0}
         />
+        <p className="text-xs text-slate-400">
+          Tip: <code>[link text](https://example.com)</code> becomes a clickable link.
+        </p>
 
         {Object.keys(statuses).length > 0 && (
           <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-48 overflow-y-auto">

@@ -77,6 +77,9 @@ export function SendOnboardingEmailButton({ userId, email }: { userId: string; e
           onChange={(e) => setMessage(e.target.value)}
           disabled={sending}
         />
+        <p className="text-xs text-slate-400">
+          Tip: <code>[link text](https://example.com)</code> becomes a clickable link.
+        </p>
         {error && <p className="text-xs text-red-500">{error}</p>}
         {sent && <p className="text-xs text-emerald-600">Sent!</p>}
         <DialogFooter>
