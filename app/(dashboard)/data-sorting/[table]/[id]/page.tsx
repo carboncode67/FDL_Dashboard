@@ -3,6 +3,7 @@ import path from "path";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { UploadItem } from "../../data-sorting-client";
+import { isFlaggedDuplicate } from "@/lib/upload-item-utils";
 import { haversineMetres } from "@/lib/utils";
 import DetailClient from "./detail-client";
 
@@ -48,6 +49,7 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
         filename: r.filename || null, content: r.note ?? null,
         latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
         merge_group_id: r.merge_group_id ?? null, end_time: null,
+        possible_duplicate_of: r.possible_duplicate_of ?? null, duplicate_dismissed: r.duplicate_dismissed ?? false,
       };
     }
     case "notes": {
@@ -63,6 +65,7 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
         filename: null, content: r.content,
         latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
         merge_group_id: r.merge_group_id ?? null, end_time: null,
+        possible_duplicate_of: null, duplicate_dismissed: false,
       };
     }
     case "recordings": {
@@ -78,6 +81,7 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
         filename: r.filename || null, content: null, latitude: null, longitude: null,
         gps_track: r.gps_filename ? loadGpsTrack("recordings", r.gps_filename) : null,
         merge_group_id: r.merge_group_id ?? null, end_time: r.end_time?.toISOString() ?? null,
+        possible_duplicate_of: r.possible_duplicate_of ?? null, duplicate_dismissed: r.duplicate_dismissed ?? false,
       };
     }
     case "locations": {
@@ -93,6 +97,7 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
         filename: null, content: r.name ?? null, latitude: null, longitude: null,
         gps_track: r.track_filename ? loadGpsTrack("locations", r.track_filename) : null,
         merge_group_id: r.merge_group_id ?? null, end_time: r.end_time?.toISOString() ?? null,
+        possible_duplicate_of: null, duplicate_dismissed: false,
       };
     }
     case "lab-member-uploads": {
@@ -118,6 +123,7 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
           ? loadGpsTrack(r.media_type === "recording" ? "recordings" : "locations", r.gps_filename)
           : null,
         merge_group_id: r.merge_group_id ?? null, end_time: r.end_time?.toISOString() ?? null,
+        possible_duplicate_of: r.possible_duplicate_of ?? null, duplicate_dismissed: r.duplicate_dismissed ?? false,
       };
     }
   }
@@ -163,6 +169,7 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       filename: r.filename || null, content: r.note ?? null,
       latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
       merge_group_id: r.merge_group_id ?? null, end_time: null,
+      possible_duplicate_of: r.possible_duplicate_of ?? null, duplicate_dismissed: r.duplicate_dismissed ?? false,
     })),
     ...notes.map((r) => ({
       id: r.id, table: "notes" as const, uploader: r.Contact?.name ?? null,
@@ -174,6 +181,7 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       filename: null, content: r.content,
       latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
       merge_group_id: r.merge_group_id ?? null, end_time: null,
+      possible_duplicate_of: null, duplicate_dismissed: false,
     })),
     ...recordings.map((r) => ({
       id: r.id, table: "recordings" as const, uploader: r.Contact?.name ?? null,
@@ -184,6 +192,7 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
       filename: r.filename || null, content: null, latitude: null, longitude: null, gps_track: null,
       merge_group_id: r.merge_group_id ?? null, end_time: r.end_time?.toISOString() ?? null,
+      possible_duplicate_of: r.possible_duplicate_of ?? null, duplicate_dismissed: r.duplicate_dismissed ?? false,
     })),
     ...locations.map((r) => ({
       id: r.id, table: "locations" as const, uploader: r.Contact?.name ?? null,
@@ -194,6 +203,7 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
       filename: null, content: r.name ?? null, latitude: null, longitude: null, gps_track: null,
       merge_group_id: r.merge_group_id ?? null, end_time: r.end_time?.toISOString() ?? null,
+      possible_duplicate_of: null, duplicate_dismissed: false,
     })),
     ...labUploads.map((r) => ({
       id: r.id, table: "lab-member-uploads" as const, uploader: r.User?.name ?? null,
@@ -205,6 +215,7 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       filename: r.filename ?? null, content: r.content ?? null,
       latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
       merge_group_id: r.merge_group_id ?? null, end_time: r.end_time?.toISOString() ?? null,
+      possible_duplicate_of: r.possible_duplicate_of ?? null, duplicate_dismissed: r.duplicate_dismissed ?? false,
     })),
   ].sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime());
 }
@@ -215,11 +226,13 @@ function applyFilters(
   filterType: string,
   filterFarm: string,
   search: string,
+  filterDuplicate: boolean,
 ) {
   return items.filter((item) => {
     if (filterStatus !== "all" && item.status !== Number(filterStatus)) return false;
     if (filterType !== "all" && item.media_type !== filterType) return false;
     if (filterFarm !== "all" && item.farm_id !== Number(filterFarm)) return false;
+    if (filterDuplicate && !isFlaggedDuplicate(item)) return false;
     if (search) {
       const q = search.toLowerCase();
       const haystack = [item.uploader, item.farm, item.category, item.description]
@@ -237,7 +250,7 @@ export default async function DetailPage({
   searchParams,
 }: {
   params: Promise<{ table: string; id: string }>;
-  searchParams: Promise<{ status?: string; type?: string; farm?: string; search?: string }>;
+  searchParams: Promise<{ status?: string; type?: string; farm?: string; search?: string; duplicate?: string }>;
 }) {
   const { table, id } = await params;
   const sp = await searchParams;
@@ -251,6 +264,7 @@ export default async function DetailPage({
   const filterType   = sp.type   ?? "all";
   const filterFarm   = sp.farm   ?? "all";
   const search       = sp.search ?? "";
+  const filterDuplicate = sp.duplicate === "1";
 
   const [item, allItems, farms, projects] = await Promise.all([
     fetchItem(table, itemId),
@@ -294,14 +308,16 @@ export default async function DetailPage({
     return true;
   });
 
-  const filtered = applyFilters(allItems, filterStatus, filterType, filterFarm, search);
+  const filtered = applyFilters(allItems, filterStatus, filterType, filterFarm, search, filterDuplicate);
   const idx = filtered.findIndex((x) => x.table === table && x.id === itemId);
   const prev = idx > 0 ? filtered[idx - 1] : null;
   const next = idx >= 0 && idx < filtered.length - 1 ? filtered[idx + 1] : null;
   const position = idx >= 0 ? idx + 1 : null;
   const total = filtered.length;
 
-  const filterParams = new URLSearchParams({ status: filterStatus, type: filterType, farm: filterFarm, search });
+  const filterParams = new URLSearchParams({
+    status: filterStatus, type: filterType, farm: filterFarm, search, duplicate: filterDuplicate ? "1" : "0",
+  });
 
   // All other items that belong to the same merge group as the current item.
   const groupMembers = item.merge_group_id
@@ -311,6 +327,11 @@ export default async function DetailPage({
           !(other.id === item.id && other.table === item.table),
       )
     : [];
+
+  // The row this item was flagged as a possible duplicate of, if any -- same table only.
+  const duplicateOfItem = item.possible_duplicate_of != null
+    ? (allItems.find((other) => other.table === item.table && other.id === item.possible_duplicate_of) ?? null)
+    : null;
 
   return (
     <DetailClient
@@ -324,6 +345,7 @@ export default async function DetailPage({
       backHref={`/data-sorting?${filterParams}`}
       similarItems={similarItems}
       groupMembers={groupMembers}
+      duplicateOfItem={duplicateOfItem}
       filterQuery={filterParams.toString()}
     />
   );

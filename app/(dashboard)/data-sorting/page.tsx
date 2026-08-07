@@ -115,6 +115,8 @@ export default async function DataSortingPage() {
       gps_track: null,
       merge_group_id: r.merge_group_id ?? null,
       end_time: null,
+      possible_duplicate_of: r.possible_duplicate_of ?? null,
+      duplicate_dismissed: r.duplicate_dismissed ?? false,
       annotation_count: annCountMap.get(`photos-${r.id}`) ?? 0,
     })),
     ...notes.map((r) => ({
@@ -141,6 +143,8 @@ export default async function DataSortingPage() {
       gps_track: null,
       merge_group_id: r.merge_group_id ?? null,
       end_time: null,
+      possible_duplicate_of: null,
+      duplicate_dismissed: false,
     })),
     ...recordings.map((r) => ({
       annotation_count: 0,
@@ -166,6 +170,8 @@ export default async function DataSortingPage() {
       gps_track: null,
       merge_group_id: r.merge_group_id ?? null,
       end_time: r.end_time?.toISOString() ?? null,
+      possible_duplicate_of: r.possible_duplicate_of ?? null,
+      duplicate_dismissed: r.duplicate_dismissed ?? false,
     })),
     ...locations.map((r) => ({
       annotation_count: 0,
@@ -191,6 +197,8 @@ export default async function DataSortingPage() {
       gps_track: null,
       merge_group_id: r.merge_group_id ?? null,
       end_time: null,
+      possible_duplicate_of: null,
+      duplicate_dismissed: false,
     })),
     ...labUploads.map((r) => ({
       annotation_count: annCountMap.get(`lab-member-uploads-${r.id}`) ?? 0,
@@ -216,6 +224,8 @@ export default async function DataSortingPage() {
       gps_track: null,
       merge_group_id: r.merge_group_id ?? null,
       end_time: r.end_time?.toISOString() ?? null,
+      possible_duplicate_of: r.possible_duplicate_of ?? null,
+      duplicate_dismissed: r.duplicate_dismissed ?? false,
     })),
   ].sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime());
 

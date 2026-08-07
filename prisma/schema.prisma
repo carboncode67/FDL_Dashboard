@@ -404,6 +404,9 @@ model Photo {
   status      Int       @default(2)
   ticket_ref  String?                         // human-readable OFEDashBot reference
   content_hash String?                        // SHA-256 of raw file bytes, client-supplied dedup key
+  phash       String?                         // perceptual hash (dHash), server-computed
+  possible_duplicate_of Int?                  // id of another Photo this may duplicate (server-flagged)
+  duplicate_dismissed   Boolean?  @default(false)
   category    String?   @db.VarChar(100)
   description String?
   stage          String?   @db.VarChar(50)
@@ -429,9 +432,13 @@ model Recording {
   gps_filename String?
   start_time   DateTime?
   end_time     DateTime?
+  start_latitude  Float?                      // representative GPS point at recording start, server-persisted
+  start_longitude Float?
   status       Int       @default(2)
   ticket_ref   String?                         // human-readable OFEDashBot reference
   content_hash String?                        // SHA-256 of raw file bytes, client-supplied dedup key
+  possible_duplicate_of Int?                  // id of another Recording this may duplicate (server-flagged)
+  duplicate_dismissed   Boolean?  @default(false)
   category     String?   @db.VarChar(100)
   description  String?
   stage          String?   @db.VarChar(50)
@@ -517,6 +524,9 @@ model LabMemberUpload {
   date_collected DateTime?
   status         Int       @default(1)
   content_hash   String?                         // SHA-256 dedup key (file bytes or content string), client-supplied
+  phash          String?                         // perceptual hash (dHash) for media_type "photo", server-computed
+  possible_duplicate_of Int?                     // id of another Lab_Member_Uploads row this may duplicate (server-flagged)
+  duplicate_dismissed   Boolean?  @default(false)
   category       String?   @db.VarChar(100)
   description    String?
   stage          String?   @db.VarChar(50)

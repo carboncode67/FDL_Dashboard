@@ -55,6 +55,7 @@ export async function PATCH(
   if ("farm_id" in body)     data.farm_id     = body.farm_id ? Number(body.farm_id) : null;
   if ("stage" in body)          data.stage          = VALID_STAGES.includes(body.stage) ? body.stage : null;
   if ("merge_group_id" in body) data.merge_group_id = body.merge_group_id ?? null;
+  if ("duplicate_dismissed" in body) data.duplicate_dismissed = Boolean(body.duplicate_dismissed);
   if ("status" in body) {
     const s = Number(body.status);
     if ([1, 2, 3, 4].includes(s)) data.status = s;

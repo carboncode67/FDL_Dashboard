@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, ChevronLeft, ChevronRight, GitMerge, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, GitMerge, X } from "lucide-react";
 import {
   UploadItem,
   CATEGORY_OPTIONS,
@@ -22,6 +22,7 @@ import {
   STATUS_VARIANT,
   MEDIA_LABEL,
 } from "../../data-sorting-client";
+import { isFlaggedDuplicate } from "@/lib/upload-item-utils";
 import UploadPointMapWrapper from "@/components/upload-point-map-wrapper";
 import UploadTrackMapWrapper from "@/components/upload-track-map-wrapper";
 
@@ -87,6 +88,7 @@ export default function DetailClient({
   backHref,
   similarItems,
   groupMembers,
+  duplicateOfItem,
   filterQuery,
 }: {
   item: UploadItem;
@@ -99,6 +101,7 @@ export default function DetailClient({
   backHref: string;
   similarItems: UploadItem[];
   groupMembers: UploadItem[];
+  duplicateOfItem: UploadItem | null;
   filterQuery: string;
 }) {
   const router = useRouter();
@@ -114,8 +117,49 @@ export default function DetailClient({
   const [merging, setMerging] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [currentMergeGroup, setCurrentMergeGroup] = useState(item.merge_group_id);
+  const [duplicateDismissed, setDuplicateDismissed] = useState(item.duplicate_dismissed);
+  const [duplicateBusy, setDuplicateBusy] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
 
   const categoryOptions = item.media_type === "recording" ? RECORDING_CATEGORY_OPTIONS : CATEGORY_OPTIONS;
+  const showDuplicateBanner = isFlaggedDuplicate({ ...item, duplicate_dismissed: duplicateDismissed });
+
+  async function handleDismissDuplicate() {
+    setDuplicateBusy(true);
+    setDuplicateError(null);
+    try {
+      const res = await fetch(`/api/uploads/${item.table}/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ duplicate_dismissed: true }),
+      });
+      if (res.ok) {
+        setDuplicateDismissed(true);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setDuplicateError(body.error ?? "Failed to dismiss flag.");
+      }
+    } finally {
+      setDuplicateBusy(false);
+    }
+  }
+
+  async function handleConfirmDuplicateDelete() {
+    setDuplicateBusy(true);
+    setDuplicateError(null);
+    try {
+      const res = await fetch(`/api/uploads/${item.table}/${item.id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push(backHref);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setDuplicateError(body.error ?? "Delete failed — you may not have permission.");
+        setDuplicateBusy(false);
+      }
+    } catch {
+      setDuplicateBusy(false);
+    }
+  }
 
   function toggleMergeId(key: string) {
     setSelectedMergeIds((prev) => {
@@ -244,6 +288,52 @@ export default function DetailClient({
           )}
         </div>
       </div>
+
+      {/* Possible duplicate flag */}
+      {showDuplicateBanner && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 mb-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+            <span className="text-sm font-medium text-amber-800">
+              Possible duplicate
+              {duplicateOfItem && (
+                <>
+                  {" "}of{" "}
+                  <Link
+                    href={`/data-sorting/${duplicateOfItem.table}/${duplicateOfItem.id}?${filterQuery}`}
+                    className="underline hover:text-amber-900"
+                  >
+                    {duplicateOfItem.uploader ?? "another upload"}
+                    {duplicateOfItem.date_collected
+                      ? ` — ${new Date(duplicateOfItem.date_collected).toLocaleString()}`
+                      : ""}
+                  </Link>
+                </>
+              )}
+              {" "}(same submitter, matching length/timestamp/position or image).
+            </span>
+          </div>
+          {duplicateError && <p className="text-xs text-red-600">{duplicateError}</p>}
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={duplicateBusy}
+              onClick={handleDismissDuplicate}
+            >
+              Not a duplicate
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={duplicateBusy}
+              onClick={handleConfirmDuplicateDelete}
+            >
+              {duplicateBusy ? "Working…" : "Confirm & delete"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Merge group indicator */}
       {currentMergeGroup && (

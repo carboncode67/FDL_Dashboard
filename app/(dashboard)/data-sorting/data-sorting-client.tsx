@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FolderKanban, Search, Trash2 } from "lucide-react";
+import { isFlaggedDuplicate } from "@/lib/upload-item-utils";
 
 export interface UploadItem {
   id: number;
@@ -38,6 +39,8 @@ export interface UploadItem {
   gps_track: [number, number][] | null;
   merge_group_id: string | null;
   end_time: string | null;
+  possible_duplicate_of: number | null;
+  duplicate_dismissed: boolean;
   annotation_count?: number;
 }
 
@@ -107,6 +110,7 @@ export function DataSortingClient({
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [filterFarm, setFilterFarm] = useState("all");
+  const [filterDuplicate, setFilterDuplicate] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -143,6 +147,7 @@ export function DataSortingClient({
     if (filterStatus !== "all" && item.status !== Number(filterStatus)) return false;
     if (filterType !== "all" && item.media_type !== filterType) return false;
     if (filterFarm !== "all" && item.farm_id !== Number(filterFarm)) return false;
+    if (filterDuplicate && !isFlaggedDuplicate(item)) return false;
     if (search) {
       const q = search.toLowerCase();
       const haystack = [item.uploader, item.farm, item.category, item.description]
@@ -246,6 +251,7 @@ export function DataSortingClient({
       type: filterType,
       farm: filterFarm,
       search,
+      duplicate: filterDuplicate ? "1" : "0",
     });
     router.push(`/data-sorting/${item.table}/${item.id}?${params.toString()}`);
   }
@@ -361,6 +367,14 @@ export function DataSortingClient({
             <option key={f.id} value={String(f.id)}>{f.name}</option>
           ))}
         </select>
+
+        <Button
+          variant={filterDuplicate ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => setFilterDuplicate((v) => !v)}
+        >
+          Possible Duplicates{filterDuplicate ? "" : ` (${items.filter(isFlaggedDuplicate).length})`}
+        </Button>
 
         <span className="ml-auto text-sm text-slate-500">
           {filtered.length} of {items.length}
@@ -514,6 +528,11 @@ export function DataSortingClient({
                             {item.annotation_count} ann
                           </span>
                         )}
+                        {isFlaggedDuplicate(item) && (
+                          <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                            Possible Duplicate
+                          </span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-slate-500">
@@ -577,9 +596,16 @@ export function DataSortingClient({
                             <TableCell className="text-sm">{member.category ?? <span className="text-slate-400">—</span>}</TableCell>
                             <TableCell className="text-sm">{member.project_name ?? <span className="text-slate-400">—</span>}</TableCell>
                             <TableCell>
-                              <Badge variant={STATUS_VARIANT[member.status] ?? "outline"}>
-                                {STATUS_LABEL[member.status] ?? member.status}
-                              </Badge>
+                              <div className="flex items-center gap-1.5">
+                                <Badge variant={STATUS_VARIANT[member.status] ?? "outline"}>
+                                  {STATUS_LABEL[member.status] ?? member.status}
+                                </Badge>
+                                {isFlaggedDuplicate(member) && (
+                                  <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                                    Possible Duplicate
+                                  </span>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell className="text-sm text-slate-500">{member.stage ?? <span className="text-slate-400">—</span>}</TableCell>
                             {canDelete && (
