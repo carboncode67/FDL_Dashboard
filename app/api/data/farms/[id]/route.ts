@@ -19,15 +19,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       State: true,
       title: true,
       farm_summary: true,
+      interview_transcript: true,
       Contacts: { where: { is_lab_member: false }, take: 1, select: { name: true, phone: true, email: true } },
     },
   });
 
   if (!farm) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { Contacts, ...rest } = farm;
+  const { Contacts, interview_transcript, ...rest } = farm;
   return NextResponse.json({
     ...rest,
+    interview_transcript_present: Boolean(interview_transcript),
     Farmer_Name: Contacts[0]?.name ?? null,
     Contact_Phone: Contacts[0]?.phone ?? null,
     Contact_Email: Contacts[0]?.email ?? null,
