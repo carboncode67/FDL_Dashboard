@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { canDelete } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
 import type { Role } from "@/lib/roles";
+import { matchAndTriggerPipelines } from "@/lib/pipeline-match";
 
 const ALLOWED = ["photos", "notes", "recordings", "locations", "lab-member-uploads"] as const;
 type Table = (typeof ALLOWED)[number];
@@ -66,6 +67,19 @@ export async function PATCH(
   }
 
   const result = await updateRow(table, parseInt(id), data);
+
+  if ("category" in data || "project_id" in data) {
+    const record = result as unknown as { category?: string | null; project_id?: number | null };
+    const baseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
+    matchAndTriggerPipelines({
+      table,
+      id: parseInt(id),
+      category: record.category ?? null,
+      project_id: record.project_id ?? null,
+      inputFileUrl: `${baseUrl}/api/data/files/${table}/${id}`,
+    }).catch((err) => console.error("[uploads PATCH] pipeline trigger failed", err));
+  }
+
   return NextResponse.json(result);
 }
 

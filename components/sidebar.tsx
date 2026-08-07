@@ -25,6 +25,7 @@ import {
   ClipboardList,
   LayoutTemplate,
   FileText,
+  Cpu,
 } from "lucide-react";
 import type { Role } from "@/lib/roles";
 
@@ -132,6 +133,21 @@ export function Sidebar({ role, className, onNavigate }: SidebarProps) {
                 >
                   <Settings2 className="h-4 w-4 shrink-0" />
                   Admin Panel
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/pipelines"
+                  onClick={onNavigate}
+                  className={cn(
+                    "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
+                    pathname.startsWith("/pipelines")
+                      ? "bg-emerald-600 text-white"
+                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  )}
+                >
+                  <Cpu className="h-4 w-4 shrink-0" />
+                  Pipelines
                 </Link>
               </li>
             </ul>

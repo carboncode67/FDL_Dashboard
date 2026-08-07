@@ -33,6 +33,7 @@ model User {
   CreatedForms       Form[]              @relation("FormCreatedBy")
   FormAssignments    FormAssignment[]
   FormResponses      FormResponse[]
+  CreatedPipelines   Pipeline[]
 
   @@map("users")
   @@schema("public")
@@ -1028,5 +1029,63 @@ model FormResponse {
   @@index([user_id])
   @@index([content_hash])
   @@map("Form_Responses")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Pipeline {
+  id                            Int       @id @default(autoincrement())
+  name                          String
+  description                   String?
+  status                        String    @default("draft") // draft | testing | live | failed | disabled
+  match_table                   String    // photos | notes | recordings | locations | lab-member-uploads | test-data-rows | documents
+  match_category                String?
+  match_project_id              Int?
+  match_test_id                 Int?
+  sample_dataset_filename       String
+  sample_dataset_original_name  String
+  script_filename                String
+  script_original_name           String
+  model_filename                 String?
+  model_original_name            String?
+  wired_command                 String?
+  wired_requirements             String?
+  llm_notes                      String?
+  external_pipeline_id          String?
+  last_run_at                   DateTime?
+  last_run_status                String?
+  created_by                     String
+  created_at                     DateTime  @default(now())
+  updated_at                     DateTime  @updatedAt
+
+  Creator User          @relation(fields: [created_by], references: [id])
+  Runs    PipelineRun[]
+
+  @@index([status])
+  @@index([match_table])
+  @@map("Pipelines")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model PipelineRun {
+  id                    Int       @id @default(autoincrement())
+  pipeline_id           Int
+  is_test_run           Boolean   @default(false)
+  trigger_upload_id     Int?
+  trigger_upload_table  String?
+  status                String    @default("queued") // queued | running | success | failed
+  external_job_id       String?
+  stdout_log            String?
+  stderr_log            String?
+  output_files          Json      @default("[]")
+  error_message         String?
+  started_at            DateTime?
+  finished_at           DateTime?
+  created_at            DateTime  @default(now())
+
+  Pipeline Pipeline @relation(fields: [pipeline_id], references: [id], onDelete: Cascade)
+
+  @@index([pipeline_id])
+  @@index([status])
+  @@map("Pipeline_Runs")
   @@schema("pgntarg2udzj1f3")
 }

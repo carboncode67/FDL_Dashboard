@@ -7,13 +7,18 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 
 const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
-const ALLOWED_TYPES = ["photos", "recordings", "locations", "documents", "depth_maps"] as const;
+const ALLOWED_TYPES = [
+  "photos", "recordings", "locations", "documents", "depth_maps",
+  "pipeline-datasets", "pipeline-scripts", "pipeline-models",
+] as const;
 
 const MIME_TYPES: Record<string, string> = {
   jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp",
   mp3: "audio/mpeg", wav: "audio/wav", m4a: "audio/mp4", aac: "audio/aac",
   ogg: "audio/ogg", webm: "audio/webm", mp4: "video/mp4",
   pdf: "application/pdf", json: "application/json",
+  csv: "text/csv", gpkg: "application/geopackage+sqlite3", py: "text/x-python",
+  safetensors: "application/octet-stream", pt: "application/octet-stream",
 };
 
 async function isAuthorized(req: Request): Promise<boolean> {

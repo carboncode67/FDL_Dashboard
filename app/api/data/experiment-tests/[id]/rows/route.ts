@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { matchAndTriggerPipelines } from "@/lib/pipeline-match";
 
 // Normalized label matching: case-, whitespace- and underscore-insensitive.
 function normalizeLabel(s: string): string {
@@ -146,6 +147,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       : []),
     prisma.testDataRow.createMany({ data }),
   ]);
+
+  const baseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
+  matchAndTriggerPipelines({
+    table: "test-data-rows",
+    id: experimentTestId,
+    test_id: et.Test.id,
+    inputFileUrl: `${baseUrl}/api/data/experiment-tests/${experimentTestId}/rows`,
+  }).catch((err) => console.error("[experiment-tests rows POST] pipeline trigger failed", err));
 
   return NextResponse.json({
     ok: true,
