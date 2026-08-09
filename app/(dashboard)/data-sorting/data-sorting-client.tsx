@@ -77,6 +77,10 @@ export const CATEGORY_OPTIONS = [
   "Pest / Disease",
   "Harvest",
   "Planting",
+  "App Test",
+  "Animal",
+  "Product",
+  "Crop Metric",
   "Other",
 ];
 export const RECORDING_CATEGORY_OPTIONS = [

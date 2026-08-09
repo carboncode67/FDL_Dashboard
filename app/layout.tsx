@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FDL Dashboard",
+  title: "Farmers Database",
   description: "On-Farm Experiment research dashboard",
 };
 

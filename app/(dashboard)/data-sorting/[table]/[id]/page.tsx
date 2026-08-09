@@ -5,6 +5,9 @@ import { notFound } from "next/navigation";
 import { UploadItem } from "../../data-sorting-client";
 import { isFlaggedDuplicate } from "@/lib/upload-item-utils";
 import { haversineMetres } from "@/lib/utils";
+import { auth } from "@/lib/auth";
+import { getEditMode } from "@/lib/edit-mode";
+import { canDelete, type Role } from "@/lib/roles";
 import DetailClient from "./detail-client";
 
 const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
@@ -266,12 +269,17 @@ export default async function DetailPage({
   const search       = sp.search ?? "";
   const filterDuplicate = sp.duplicate === "1";
 
-  const [item, allItems, farms, projects] = await Promise.all([
+  const [item, allItems, farms, projects, session, editMode] = await Promise.all([
     fetchItem(table, itemId),
     fetchAllItems(),
     prisma.farm.findMany({ select: { id: true, Farm_Name: true }, orderBy: { Farm_Name: "asc" } }),
     prisma.project.findMany({ select: { id: true, Project_Name: true }, orderBy: { Project_Name: "asc" } }),
+    auth(),
+    getEditMode(),
   ]);
+
+  const role = (session?.user?.role ?? "viewer") as Role;
+  const showDelete = canDelete(role, editMode);
 
   if (!item) notFound();
 
@@ -347,6 +355,7 @@ export default async function DetailPage({
       groupMembers={groupMembers}
       duplicateOfItem={duplicateOfItem}
       filterQuery={filterParams.toString()}
+      canDelete={showDelete}
     />
   );
 }

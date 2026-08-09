@@ -20,6 +20,8 @@ const POSITION_OPTIONS = [
   "Undergrad",
   "Staff",
   "Intern",
+  "Agronomist",
+  "Other",
 ];
 
 const STATUS_OPTIONS = [

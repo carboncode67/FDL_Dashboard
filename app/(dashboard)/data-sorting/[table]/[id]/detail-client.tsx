@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, GitMerge, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, GitMerge, Trash2, X } from "lucide-react";
 import {
   UploadItem,
   CATEGORY_OPTIONS,
@@ -90,6 +90,7 @@ export default function DetailClient({
   groupMembers,
   duplicateOfItem,
   filterQuery,
+  canDelete,
 }: {
   item: UploadItem;
   farms: FarmOption[];
@@ -103,6 +104,7 @@ export default function DetailClient({
   groupMembers: UploadItem[];
   duplicateOfItem: UploadItem | null;
   filterQuery: string;
+  canDelete: boolean;
 }) {
   const router = useRouter();
   const [farmId, setFarmId]       = useState(item.farm_id ? String(item.farm_id) : "");
@@ -120,6 +122,8 @@ export default function DetailClient({
   const [duplicateDismissed, setDuplicateDismissed] = useState(item.duplicate_dismissed);
   const [duplicateBusy, setDuplicateBusy] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const categoryOptions = item.media_type === "recording" ? RECORDING_CATEGORY_OPTIONS : CATEGORY_OPTIONS;
   const showDuplicateBanner = isFlaggedDuplicate({ ...item, duplicate_dismissed: duplicateDismissed });
@@ -158,6 +162,24 @@ export default function DetailClient({
       }
     } catch {
       setDuplicateBusy(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm("Delete this upload? This cannot be undone.")) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/uploads/${item.table}/${item.id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push(backHref);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setDeleteError(body.error ?? "Delete failed — you may not have permission.");
+        setDeleting(false);
+      }
+    } catch {
+      setDeleting(false);
     }
   }
 
@@ -286,8 +308,24 @@ export default function DetailClient({
               Next <ChevronRight className="h-4 w-4" />
             </Button>
           )}
+
+          {canDelete && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-1"
+              disabled={deleting}
+              onClick={handleDelete}
+            >
+              <Trash2 className="h-4 w-4" /> {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          )}
         </div>
       </div>
+
+      {deleteError && (
+        <p className="text-xs text-red-600 -mt-4 mb-4">{deleteError}</p>
+      )}
 
       {/* Possible duplicate flag */}
       {showDuplicateBanner && (
