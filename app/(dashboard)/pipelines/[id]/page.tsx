@@ -39,7 +39,7 @@ export default async function PipelineDetailPage({ params }: { params: Promise<{
         wired_requirements: pipeline.wired_requirements,
         llm_notes: pipeline.llm_notes,
         external_pipeline_id: pipeline.external_pipeline_id,
-        creator_name: pipeline.Creator.name ?? pipeline.Creator.email,
+        creator_name: pipeline.Creator?.name ?? pipeline.Creator?.email ?? "Deleted user",
         created_at: pipeline.created_at.toISOString(),
         runs: pipeline.Runs.map((r) => ({
           id: r.id,

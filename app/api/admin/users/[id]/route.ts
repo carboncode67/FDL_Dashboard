@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getEditMode } from "@/lib/edit-mode";
@@ -48,6 +49,19 @@ export async function DELETE(
     return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 });
   }
 
-  await prisma.user.delete({ where: { id } });
-  return new NextResponse(null, { status: 204 });
+  try {
+    await prisma.user.delete({ where: { id } });
+    return new NextResponse(null, { status: 204 });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError) {
+      if (err.code === "P2025") return NextResponse.json({ error: "User not found" }, { status: 404 });
+      if (err.code === "P2003") {
+        return NextResponse.json(
+          { error: "This user is still referenced by other records and can't be deleted. Run the latest DB migrations, or contact an admin." },
+          { status: 409 }
+        );
+      }
+    }
+    throw err;
+  }
 }

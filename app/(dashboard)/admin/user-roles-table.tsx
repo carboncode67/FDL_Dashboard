@@ -52,6 +52,7 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Project filter dialog state
   const [filterDialogUserId, setFilterDialogUserId] = useState<string | null>(null);
@@ -94,12 +95,18 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
 
   async function handleDelete(userId: string) {
     setDeletingId(userId);
+    setDeleteError(null);
     try {
-      await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setDeleteError(body.error ?? "Failed to delete user.");
+        return;
+      }
       setRows((prev) => prev.filter((u) => u.id !== userId));
+      setConfirmOpen(null);
     } finally {
       setDeletingId(null);
-      setConfirmOpen(null);
     }
   }
 
@@ -195,7 +202,7 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
                   {user.id !== currentUserId && (
                     <Dialog
                       open={confirmOpen === user.id}
-                      onOpenChange={(o) => setConfirmOpen(o ? user.id : null)}
+                      onOpenChange={(o) => { setConfirmOpen(o ? user.id : null); setDeleteError(null); }}
                     >
                       <DialogTrigger render={<Button variant="destructive" size="sm" />}>
                         Delete
@@ -209,6 +216,9 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
                             dashboard access. This cannot be undone.
                           </DialogDescription>
                         </DialogHeader>
+                        {confirmOpen === user.id && deleteError && (
+                          <p className="text-sm text-red-600">{deleteError}</p>
+                        )}
                         <DialogFooter>
                           <Button
                             variant="outline"

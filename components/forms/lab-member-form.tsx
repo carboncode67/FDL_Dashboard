@@ -52,10 +52,12 @@ export function LabMemberForm({ onSuccess, initialData, memberId }: LabMemberFor
   const [status, setStatus] = useState(initialData?.status ?? "");
   const [faa, setFaa] = useState(initialData?.faa_part_107 ?? false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    setError(null);
     try {
       const body: Record<string, unknown> = {
         name: name || null,
@@ -67,12 +69,19 @@ export function LabMemberForm({ onSuccess, initialData, memberId }: LabMemberFor
       if (!memberId) {
         body.email = email;
         if (password) body.password = password;
+      } else if (password) {
+        body.password = password;
       }
-      await fetch(memberId ? `/api/lab-members/${memberId}` : "/api/lab-members", {
+      const res = await fetch(memberId ? `/api/lab-members/${memberId}` : "/api/lab-members", {
         method: memberId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        const resBody = await res.json().catch(() => ({}));
+        setError(resBody.error ?? "Failed to save lab member.");
+        return;
+      }
       onSuccess?.();
     } finally {
       setSaving(false);
@@ -103,6 +112,19 @@ export function LabMemberForm({ onSuccess, initialData, memberId }: LabMemberFor
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Optional"
+          />
+        </div>
+      )}
+
+      {memberId && (
+        <div className="space-y-1.5">
+          <Label>Reset Password <span className="text-slate-400 font-normal">(leave blank to keep current password)</span></Label>
+          <Input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="New password"
+            minLength={8}
           />
         </div>
       )}
@@ -150,6 +172,8 @@ export function LabMemberForm({ onSuccess, initialData, memberId }: LabMemberFor
           FAA Part 107 certified
         </Label>
       </div>
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
       <Button type="submit" disabled={saving} className="w-full">
         {saving ? "Saving..." : memberId ? "Update" : "Create Member"}

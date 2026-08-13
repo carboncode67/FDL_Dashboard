@@ -17,15 +17,26 @@ export function DeleteLabMemberButton({ memberId, memberName }: { memberId: stri
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleDelete() {
     setLoading(true);
-    await fetch(`/api/lab-members/${memberId}`, { method: "DELETE" });
-    router.push("/lab-members");
+    setError(null);
+    try {
+      const res = await fetch(`/api/lab-members/${memberId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Failed to delete lab member.");
+        return;
+      }
+      router.push("/lab-members");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); setError(null); }}>
       <DialogTrigger render={<Button variant="destructive" size="sm" />}>
         Delete
       </DialogTrigger>
@@ -37,6 +48,7 @@ export function DeleteLabMemberButton({ memberId, memberName }: { memberId: stri
             dashboard account. Their uploaded data will remain but will be unlinked. This cannot be undone.
           </DialogDescription>
         </DialogHeader>
+        {error && <p className="text-sm text-red-600">{error}</p>}
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
             Cancel

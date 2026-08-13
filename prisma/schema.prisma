@@ -320,7 +320,7 @@ model ProjectLabMember {
   Projects_id Int
   user_id     String
   Project     Project @relation(fields: [Projects_id], references: [id])
-  User        User    @relation(fields: [user_id], references: [id])
+  User        User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@id([user_id, Projects_id])
   @@map("_nc_m2m_Projects_Lab Members")
@@ -535,7 +535,7 @@ model LabMemberUpload {
   depth_filename String?
   received_at    DateTime  @default(now())
 
-  User    User?    @relation(fields: [lab_member_id], references: [id])
+  User    User?    @relation(fields: [lab_member_id], references: [id], onDelete: SetNull)
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
   Project Project? @relation(fields: [project_id], references: [id])
 
@@ -1053,11 +1053,11 @@ model Pipeline {
   external_pipeline_id          String?
   last_run_at                   DateTime?
   last_run_status                String?
-  created_by                     String
+  created_by                     String?
   created_at                     DateTime  @default(now())
   updated_at                     DateTime  @updatedAt
 
-  Creator User          @relation(fields: [created_by], references: [id])
+  Creator User?         @relation(fields: [created_by], references: [id], onDelete: SetNull)
   Runs    PipelineRun[]
 
   @@index([status])

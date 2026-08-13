@@ -35,7 +35,7 @@ export default async function PipelinesPage() {
         wired_command: p.wired_command,
         last_run_at: p.last_run_at?.toISOString() ?? null,
         last_run_status: p.last_run_status,
-        creator_name: p.Creator.name ?? p.Creator.email,
+        creator_name: p.Creator?.name ?? p.Creator?.email ?? "Deleted user",
         run_count: p._count.Runs,
         created_at: p.created_at.toISOString(),
       }))}
