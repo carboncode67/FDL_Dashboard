@@ -21,10 +21,16 @@ export interface PipelineRunRow {
   stdout_log: string | null;
   stderr_log: string | null;
   output_files: { filename: string; download_url: string }[];
+  output_storage_path: string | null;
   error_message: string | null;
   started_at: string | null;
   finished_at: string | null;
   created_at: string;
+}
+
+export interface DroneFlightOption {
+  id: number;
+  label: string;
 }
 
 export interface PipelineDetail {
@@ -32,7 +38,8 @@ export interface PipelineDetail {
   name: string;
   description: string | null;
   status: string;
-  match_table: string;
+  target_kind: string | null;
+  match_table: string | null;
   match_category: string | null;
   match_project_id: number | null;
   match_test_id: number | null;
@@ -51,18 +58,36 @@ export interface PipelineDetail {
   runs: PipelineRunRow[];
 }
 
-export function PipelineDetailClient({ pipeline, isAdmin }: { pipeline: PipelineDetail; isAdmin: boolean }) {
+export function PipelineDetailClient({
+  pipeline, droneFlights, isAdmin,
+}: {
+  pipeline: PipelineDetail;
+  droneFlights: DroneFlightOption[];
+  isAdmin: boolean;
+}) {
   const router = useRouter();
   const [status, setStatus] = useState(pipeline.status);
   const [busy, setBusy] = useState(false);
   const [expandedRun, setExpandedRun] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const isDroneFlightTarget = pipeline.target_kind === "drone_flight";
+  const [selectedDroneFlightId, setSelectedDroneFlightId] = useState<string>("");
 
   async function handleRun() {
+    if (isDroneFlightTarget && !selectedDroneFlightId) {
+      setError("Choose a drone flight to run against first");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/pipelines/${pipeline.id}/run`, { method: "POST" });
+      const res = await fetch(`/api/pipelines/${pipeline.id}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          isDroneFlightTarget ? { drone_flight_record_id: Number(selectedDroneFlightId) } : {}
+        ),
+      });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to start run"); return; }
       router.refresh();
@@ -103,15 +128,31 @@ export function PipelineDetailClient({ pipeline, isAdmin }: { pipeline: Pipeline
           <div className="mt-2 flex items-center gap-2">
             <Badge variant={STATUS_VARIANT[status] ?? "outline"}>{status}</Badge>
             <span className="text-sm text-slate-500">
-              matches {pipeline.match_table}
-              {pipeline.match_category ? ` / ${pipeline.match_category}` : ""}
+              {isDroneFlightTarget ? (
+                "drone flight — run manually per flight, never auto-triggered"
+              ) : (
+                <>
+                  matches {pipeline.match_table}
+                  {pipeline.match_category ? ` / ${pipeline.match_category}` : ""}
+                </>
+              )}
             </span>
           </div>
         </div>
         {isAdmin && (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {isDroneFlightTarget && (
+              <select
+                value={selectedDroneFlightId}
+                onChange={(e) => setSelectedDroneFlightId(e.target.value)}
+                className="h-8 rounded-md border border-input bg-white px-2 text-sm"
+              >
+                <option value="">— choose flight —</option>
+                {droneFlights.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+              </select>
+            )}
             <Button size="sm" variant="outline" onClick={handleRun} disabled={busy || !pipeline.external_pipeline_id}>
-              Run manually
+              {isDroneFlightTarget ? "Run for flight" : "Run manually"}
             </Button>
             <Button size="sm" variant="outline" onClick={toggleEnabled} disabled={busy || status === "draft" || status === "testing"}>
               {status === "disabled" ? "Enable" : "Disable"}
@@ -191,6 +232,11 @@ export function PipelineDetailClient({ pipeline, isAdmin }: { pipeline: Pipeline
                   <TableRow key={`${r.id}-detail`}>
                     <TableCell colSpan={5} className="bg-slate-50 text-xs space-y-2">
                       {r.error_message && <p className="text-red-600">{r.error_message}</p>}
+                      {r.output_storage_path && (
+                        <p className="text-slate-700">
+                          Written to zraid1: <code className="rounded bg-white border px-1.5 py-0.5">{r.output_storage_path}</code>
+                        </p>
+                      )}
                       {r.stdout_log && (
                         <div>
                           <p className="font-medium text-slate-700">stdout</p>

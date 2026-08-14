@@ -130,14 +130,22 @@ export async function POST(request: Request) {
 
   const { fields, sample, script, model } = parsed;
   const name = fields.name?.trim();
-  const match_table = fields.match_table;
+  const isDroneFlightTarget = fields.target_kind === "drone_flight";
+  const match_table = fields.match_table || null;
 
-  if (!name || !sample || !script || !ALLOWED_MATCH_TABLES.includes(match_table as (typeof ALLOWED_MATCH_TABLES)[number])) {
+  if (!name || !sample || !script) {
     for (const f of written) { try { fs.unlinkSync(f); } catch {} }
     return NextResponse.json(
-      { error: "name, match_table, sample_dataset, and script are required" },
+      { error: "name, sample_dataset, and script are required" },
       { status: 400 }
     );
+  }
+  // Drone-flight pipelines are always run manually against a chosen flight record —
+  // they have no upload to match against, so match_table doesn't apply. Every other
+  // pipeline still needs a valid match_table to be auto-triggered by lib/pipeline-match.ts.
+  if (!isDroneFlightTarget && !ALLOWED_MATCH_TABLES.includes(match_table as (typeof ALLOWED_MATCH_TABLES)[number])) {
+    for (const f of written) { try { fs.unlinkSync(f); } catch {} }
+    return NextResponse.json({ error: "match_table is required unless target_kind is drone_flight" }, { status: 400 });
   }
 
   const pipeline = await prisma.pipeline.create({
@@ -145,10 +153,11 @@ export async function POST(request: Request) {
       name,
       description: fields.description || null,
       status: "draft",
-      match_table,
-      match_category: fields.match_category || null,
-      match_project_id: fields.match_project_id ? Number(fields.match_project_id) : null,
-      match_test_id: fields.match_test_id ? Number(fields.match_test_id) : null,
+      target_kind: isDroneFlightTarget ? "drone_flight" : null,
+      match_table: isDroneFlightTarget ? null : match_table,
+      match_category: isDroneFlightTarget ? null : (fields.match_category || null),
+      match_project_id: isDroneFlightTarget ? null : (fields.match_project_id ? Number(fields.match_project_id) : null),
+      match_test_id: isDroneFlightTarget ? null : (fields.match_test_id ? Number(fields.match_test_id) : null),
       sample_dataset_filename: sample.filename,
       sample_dataset_original_name: sample.originalName,
       script_filename: script.filename,

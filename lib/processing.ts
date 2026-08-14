@@ -24,7 +24,7 @@ async function processingFetch(path: string, init?: RequestInit) {
 export interface RegisterPipelinePayload {
   pipeline_id: number;
   name: string;
-  match_table: string;
+  match_table: string | null; // null for target_kind = "drone_flight" pipelines
   sample_dataset_url: string;
   script_url: string;
   model_url: string | null;
@@ -45,8 +45,12 @@ export async function registerPipeline(
 
 export interface TriggerRunPayload {
   run_id: number;
-  input_file_url: string;
   callback_url: string;
+  // Exactly one of these two — input_file_url for the normal upload-matched/re-test
+  // path, drone_flight_record_id for a manual per-flight organize run (see
+  // PipelineRun.target_drone_flight_id and Item90_Processing_Pipeline_Scope.md).
+  input_file_url?: string;
+  drone_flight_record_id?: number;
 }
 
 export async function triggerPipelineRun(

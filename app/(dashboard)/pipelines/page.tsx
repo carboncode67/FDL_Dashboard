@@ -28,6 +28,7 @@ export default async function PipelinesPage() {
         name: p.name,
         description: p.description,
         status: p.status,
+        target_kind: p.target_kind,
         match_table: p.match_table,
         match_category: p.match_category,
         match_project_id: p.match_project_id,

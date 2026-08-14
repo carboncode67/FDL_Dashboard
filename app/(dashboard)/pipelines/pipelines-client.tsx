@@ -24,7 +24,8 @@ export interface PipelineRow {
   name: string;
   description: string | null;
   status: string;
-  match_table: string;
+  target_kind: string | null;
+  match_table: string | null;
   match_category: string | null;
   match_project_id: number | null;
   match_test_id: number | null;
@@ -53,6 +54,7 @@ export function PipelinesClient({
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [isDroneFlightTarget, setIsDroneFlightTarget] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
@@ -69,7 +71,7 @@ export function PipelinesClient({
       setPipelines((prev) => [
         {
           id: data.id, name: data.name, description: data.description, status: data.status,
-          match_table: data.match_table, match_category: data.match_category,
+          target_kind: data.target_kind, match_table: data.match_table, match_category: data.match_category,
           match_project_id: data.match_project_id, match_test_id: data.match_test_id,
           wired_command: data.wired_command, last_run_at: null, last_run_status: null,
           creator_name: "you", run_count: 0, created_at: data.created_at,
@@ -77,6 +79,7 @@ export function PipelinesClient({
         ...prev,
       ]);
       setShowForm(false);
+      setIsDroneFlightTarget(false);
       formRef.current?.reset();
       router.refresh();
     } catch { setFormError("Network error"); }
@@ -114,13 +117,17 @@ export function PipelinesClient({
                 <label className="text-sm font-medium text-slate-700">Name</label>
                 <Input name="name" required placeholder="e.g. Dualex kriging interpolation" />
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Match table</label>
-                <select name="match_table" required defaultValue=""
-                  className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
-                  <option value="" disabled>— choose —</option>
-                  {MATCH_TABLES.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
+              <div className="flex items-end pb-1.5">
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    name="target_kind"
+                    value="drone_flight"
+                    checked={isDroneFlightTarget}
+                    onChange={(e) => setIsDroneFlightTarget(e.target.checked)}
+                  />
+                  Organizes drone imagery — run manually per flight
+                </label>
               </div>
               <div className="sm:col-span-2 space-y-1">
                 <label className="text-sm font-medium text-slate-700">Description</label>
@@ -128,30 +135,58 @@ export function PipelinesClient({
                   className="w-full rounded-md border border-input bg-white px-3 py-2 text-sm min-h-[60px] resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                   placeholder="What does this pipeline do?" />
               </div>
+              {isDroneFlightTarget ? (
+                <div className="sm:col-span-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                  This pipeline has no match table — it never auto-triggers on uploads. Imagery is
+                  copied directly onto the processing machine's landing folder for a chosen drone
+                  flight, then run manually from that flight's "Run" button. Output is written to
+                  zraid1 and the flight record's storage path is filled in automatically.
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-slate-700">Match table</label>
+                    <select name="match_table" required defaultValue=""
+                      className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
+                      <option value="" disabled>— choose —</option>
+                      {MATCH_TABLES.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-slate-700">Category filter (optional)</label>
+                    <Input name="match_category" placeholder="leave blank to match any category" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-slate-700">Project scope (optional)</label>
+                    <select name="match_project_id" defaultValue=""
+                      className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
+                      <option value="">— any project —</option>
+                      {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-slate-700">Test scope (optional)</label>
+                    <select name="match_test_id" defaultValue=""
+                      className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
+                      <option value="">— any test —</option>
+                      {tests.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
+                </>
+              )}
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Category filter (optional)</label>
-                <Input name="match_category" placeholder="leave blank to match any category" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Project scope (optional)</label>
-                <select name="match_project_id" defaultValue=""
-                  className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
-                  <option value="">— any project —</option>
-                  {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Test scope (optional)</label>
-                <select name="match_test_id" defaultValue=""
-                  className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
-                  <option value="">— any test —</option>
-                  {tests.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Sample dataset</label>
+                <label className="text-sm font-medium text-slate-700">
+                  Sample dataset{isDroneFlightTarget ? " (.zip of sample images)" : ""}
+                </label>
                 <input type="file" name="sample_dataset" required
                   className="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm" />
+                {isDroneFlightTarget && (
+                  <p className="text-xs text-slate-500">
+                    Upload a .zip of a handful of sample images — it's extracted into a folder
+                    on the processing machine so the wired script can be tested against a
+                    directory, same shape as a real flight's landing folder.
+                  </p>
+                )}
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-slate-700">Script (.py)</label>
@@ -203,8 +238,14 @@ export function PipelinesClient({
                   <Badge variant={STATUS_VARIANT[p.status] ?? "outline"}>{p.status}</Badge>
                 </TableCell>
                 <TableCell className="text-sm text-slate-600">
-                  {p.match_table}
-                  {p.match_category ? ` / ${p.match_category}` : ""}
+                  {p.target_kind === "drone_flight" ? (
+                    "drone flight (manual)"
+                  ) : (
+                    <>
+                      {p.match_table}
+                      {p.match_category ? ` / ${p.match_category}` : ""}
+                    </>
+                  )}
                 </TableCell>
                 <TableCell className="text-sm text-slate-500">
                   {p.last_run_at ? new Date(p.last_run_at).toLocaleString() : "—"}

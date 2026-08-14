@@ -18,6 +18,7 @@ interface ProcessingWebhookPayload {
   stdout_log?: string;
   stderr_log?: string;
   output_files?: OutputFile[];
+  output_storage_path?: string; // set for target_kind = "drone_flight" runs — final zraid1 path
   error_message?: string;
 }
 
@@ -94,6 +95,7 @@ async function handlePayload(payload: ProcessingWebhookPayload) {
         stdout_log: payload.stdout_log ?? null,
         stderr_log: payload.stderr_log ?? null,
         output_files: (payload.output_files ?? []) as object[],
+        output_storage_path: payload.output_storage_path ?? null,
         error_message: payload.error_message ?? null,
         finished_at: new Date(),
       },
@@ -102,6 +104,16 @@ async function handlePayload(payload: ProcessingWebhookPayload) {
       where: { id: pipeline.id },
       data: { last_run_at: new Date(), last_run_status: success ? "success" : "failed" },
     });
+
+    // Drone-flight runs organize imagery straight onto zraid1 with no human in the
+    // loop — auto-fill the flight record's storage path from the run result instead
+    // of making someone type it in by hand (the pre-pipeline manual workflow).
+    if (success && run.target_drone_flight_id && payload.output_storage_path) {
+      await prisma.droneFlightRecord.update({
+        where: { id: run.target_drone_flight_id },
+        data: { data_storage_path: payload.output_storage_path },
+      });
+    }
 
     return NextResponse.json({ ok: true, action: success ? "run_success" : "run_failed" });
   }

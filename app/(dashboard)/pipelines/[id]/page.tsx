@@ -9,13 +9,28 @@ export default async function PipelineDetailPage({ params }: { params: Promise<{
   const session = await auth();
   const role = (session?.user?.role ?? "viewer") as Role;
 
-  const pipeline = await prisma.pipeline.findUnique({
-    where: { id: parseInt(id) },
-    include: {
-      Creator: { select: { id: true, name: true, email: true } },
-      Runs: { orderBy: { created_at: "desc" } },
-    },
-  });
+  const [pipeline, droneFlights] = await Promise.all([
+    prisma.pipeline.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        Creator: { select: { id: true, name: true, email: true } },
+        Runs: { orderBy: { created_at: "desc" } },
+      },
+    }),
+    prisma.droneFlightRecord.findMany({
+      include: {
+        ExperimentDroneFlight: {
+          include: {
+            Drone: { select: { id: true, Name: true } },
+            Experiment: {
+              select: { id: true, experiment_name: true, Farm: { select: { id: true, Farm_Name: true } } },
+            },
+          },
+        },
+      },
+      orderBy: [{ flight_date: "desc" }, { created_at: "desc" }],
+    }),
+  ]);
   if (!pipeline) notFound();
 
   return (
@@ -25,6 +40,7 @@ export default async function PipelineDetailPage({ params }: { params: Promise<{
         name: pipeline.name,
         description: pipeline.description,
         status: pipeline.status,
+        target_kind: pipeline.target_kind,
         match_table: pipeline.match_table,
         match_category: pipeline.match_category,
         match_project_id: pipeline.match_project_id,
@@ -48,12 +64,22 @@ export default async function PipelineDetailPage({ params }: { params: Promise<{
           stdout_log: r.stdout_log,
           stderr_log: r.stderr_log,
           output_files: r.output_files as { filename: string; download_url: string }[],
+          output_storage_path: r.output_storage_path,
           error_message: r.error_message,
           started_at: r.started_at?.toISOString() ?? null,
           finished_at: r.finished_at?.toISOString() ?? null,
           created_at: r.created_at.toISOString(),
         })),
       }}
+      droneFlights={droneFlights.map((r) => ({
+        id: r.id,
+        label: [
+          r.ExperimentDroneFlight.Experiment?.Farm?.Farm_Name,
+          r.ExperimentDroneFlight.Experiment?.experiment_name,
+          r.ExperimentDroneFlight.Drone.Name,
+          r.flight_date ? r.flight_date.toISOString().slice(0, 10) : "no date",
+        ].filter(Boolean).join(" / "),
+      }))}
       isAdmin={isAdmin(role)}
     />
   );

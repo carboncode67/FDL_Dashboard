@@ -811,6 +811,7 @@ model DroneFlightRecord {
 
   ExperimentDroneFlight ExperimentDroneFlight @relation(fields: [experiment_drone_flight_id], references: [id], onDelete: Cascade)
   Polygons              DroneFlightPolygon[]
+  PipelineRuns          PipelineRun[]
 
   @@map("Drone_Flight_Records")
   @@schema("pgntarg2udzj1f3")
@@ -1037,7 +1038,8 @@ model Pipeline {
   name                          String
   description                   String?
   status                        String    @default("draft") // draft | testing | live | failed | disabled
-  match_table                   String    // photos | notes | recordings | locations | lab-member-uploads | test-data-rows | documents
+  target_kind                   String?   // null = upload-matched (default) | "drone_flight" = manual per-flight, see PipelineRun.target_drone_flight_id
+  match_table                   String?   // photos | notes | recordings | locations | lab-member-uploads | test-data-rows | documents — null for target_kind = "drone_flight"
   match_category                String?
   match_project_id              Int?
   match_test_id                 Int?
@@ -1067,25 +1069,29 @@ model Pipeline {
 }
 
 model PipelineRun {
-  id                    Int       @id @default(autoincrement())
-  pipeline_id           Int
-  is_test_run           Boolean   @default(false)
-  trigger_upload_id     Int?
-  trigger_upload_table  String?
-  status                String    @default("queued") // queued | running | success | failed
-  external_job_id       String?
-  stdout_log            String?
-  stderr_log            String?
-  output_files          Json      @default("[]")
-  error_message         String?
-  started_at            DateTime?
-  finished_at           DateTime?
-  created_at            DateTime  @default(now())
+  id                      Int       @id @default(autoincrement())
+  pipeline_id             Int
+  is_test_run             Boolean   @default(false)
+  trigger_upload_id       Int?
+  trigger_upload_table    String?
+  target_drone_flight_id  Int?      // set for target_kind = "drone_flight" runs instead of trigger_upload_*
+  status                  String    @default("queued") // queued | running | success | failed
+  external_job_id         String?
+  stdout_log              String?
+  stderr_log              String?
+  output_files            Json      @default("[]")
+  output_storage_path     String?   // final zraid1 path the processing machine wrote to, for drone-flight runs
+  error_message           String?
+  started_at              DateTime?
+  finished_at             DateTime?
+  created_at              DateTime  @default(now())
 
-  Pipeline Pipeline @relation(fields: [pipeline_id], references: [id], onDelete: Cascade)
+  Pipeline          Pipeline           @relation(fields: [pipeline_id], references: [id], onDelete: Cascade)
+  TargetDroneFlight DroneFlightRecord? @relation(fields: [target_drone_flight_id], references: [id], onDelete: SetNull)
 
   @@index([pipeline_id])
   @@index([status])
+  @@index([target_drone_flight_id])
   @@map("Pipeline_Runs")
   @@schema("pgntarg2udzj1f3")
 }
