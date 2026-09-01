@@ -28,7 +28,7 @@ export interface PipelineRow {
   match_table: string | null;
   match_category: string | null;
   match_project_id: number | null;
-  match_test_id: number | null;
+  match_data_table_id: number | null;
   wired_command: string | null;
   last_run_at: string | null;
   last_run_status: string | null;
@@ -38,14 +38,14 @@ export interface PipelineRow {
 }
 
 interface ProjectOption { id: number; name: string; }
-interface TestOption { id: number; name: string; }
+interface DataTableOption { id: number; name: string; }
 
 export function PipelinesClient({
-  initialPipelines, projects, tests, isAdmin,
+  initialPipelines, projects, dataTables, isAdmin,
 }: {
   initialPipelines: PipelineRow[];
   projects: ProjectOption[];
-  tests: TestOption[];
+  dataTables: DataTableOption[];
   isAdmin: boolean;
 }) {
   const router = useRouter();
@@ -72,7 +72,7 @@ export function PipelinesClient({
         {
           id: data.id, name: data.name, description: data.description, status: data.status,
           target_kind: data.target_kind, match_table: data.match_table, match_category: data.match_category,
-          match_project_id: data.match_project_id, match_test_id: data.match_test_id,
+          match_project_id: data.match_project_id, match_data_table_id: data.match_data_table_id,
           wired_command: data.wired_command, last_run_at: null, last_run_status: null,
           creator_name: "you", run_count: 0, created_at: data.created_at,
         },
@@ -165,11 +165,11 @@ export function PipelinesClient({
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">Test scope (optional)</label>
-                    <select name="match_test_id" defaultValue=""
+                    <label className="text-sm font-medium text-slate-700">Table scope (optional)</label>
+                    <select name="match_data_table_id" defaultValue=""
                       className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
-                      <option value="">— any test —</option>
-                      {tests.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      <option value="">— any table —</option>
+                      {dataTables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                   </div>
                 </>

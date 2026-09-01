@@ -52,6 +52,7 @@ export interface NormalizedUpload {
   download_url: string;
   depth_filename: string | null;
   depth_download_url: string | null;
+  metric_values: Record<number, string>; // metric_id -> value, for the item's current category (see Category_Metrics)
 }
 
 export interface QueryOptions {
@@ -137,7 +138,7 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       : Promise.resolve([]),
   ]);
 
-  const results: NormalizedUpload[] = [];
+  const results: Omit<NormalizedUpload, "metric_values">[] = [];
 
   for (const row of photos) {
     const { project_id, project_name: proj } = resolveProject(row.project_id, row.Project, row.farm_id, farmToProject);
@@ -278,7 +279,31 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
     : results;
 
   filtered.sort((a, b) => b.received_at.getTime() - a.received_at.getTime());
-  return filtered;
+
+  // Batch-fetch metric values per table (rather than one big OR-list query)
+  // and attach them by (table, id) key.
+  const idsByTable = new Map<UploadTable, number[]>();
+  for (const r of filtered) {
+    const ids = idsByTable.get(r.table) ?? [];
+    ids.push(r.id);
+    idsByTable.set(r.table, ids);
+  }
+  const valueRows = (
+    await Promise.all(
+      Array.from(idsByTable.entries()).map(([table, ids]) =>
+        prisma.uploadMetricValue.findMany({ where: { upload_table: table, upload_id: { in: ids } } })
+      )
+    )
+  ).flat();
+  const valuesByKey = new Map<string, Record<number, string>>();
+  for (const v of valueRows) {
+    const key = `${v.upload_table}-${v.upload_id}`;
+    const rec = valuesByKey.get(key) ?? {};
+    rec[v.metric_id] = v.value ?? "";
+    valuesByKey.set(key, rec);
+  }
+
+  return filtered.map((r) => ({ ...r, metric_values: valuesByKey.get(`${r.table}-${r.id}`) ?? {} }));
 }
 
 export function parseQueryParams(url: URL): QueryOptions & { limit: number; offset: number } {

@@ -9,9 +9,31 @@ const INCLUDE = {
         select: {
           id: true,
           Test_Name: true,
-          TestFieldDefinitions: {
-            orderBy: { col_index: "asc" as const },
-            select: { col_index: true, field_type: true, label: true },
+          DataTables: {
+            select: {
+              id: true,
+              name: true,
+              data_processing_instructions: true,
+              FieldDefinitions: {
+                orderBy: { col_index: "asc" as const },
+                select: { col_index: true, field_type: true, label: true },
+              },
+            },
+          },
+          UsedDataTables: {
+            select: {
+              DataTable: {
+                select: {
+                  id: true,
+                  name: true,
+                  data_processing_instructions: true,
+                  FieldDefinitions: {
+                    orderBy: { col_index: "asc" as const },
+                    select: { col_index: true, field_type: true, label: true },
+                  },
+                },
+              },
+            },
           },
           Documents: {
             select: { id: true, filename: true, original_name: true, file_type: true, file_size: true },

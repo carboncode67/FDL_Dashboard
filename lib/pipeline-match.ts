@@ -7,7 +7,7 @@ export interface MatchTriggerOpts {
   id: number;
   category?: string | null;
   project_id?: number | null;
-  test_id?: number | null;
+  data_table_id?: number | null;
   inputFileUrl: string;
 }
 
@@ -15,7 +15,7 @@ export interface MatchTriggerOpts {
 // matches uploads of any category. An upload with no value in a dimension only
 // matches pipelines that are wildcard on that dimension.
 function scopeFilter(
-  field: "match_category" | "match_project_id" | "match_test_id",
+  field: "match_category" | "match_project_id" | "match_data_table_id",
   value: string | number | null
 ): Prisma.PipelineWhereInput {
   if (value === null) return { [field]: null };
@@ -35,7 +35,7 @@ export async function matchAndTriggerPipelines(opts: MatchTriggerOpts): Promise<
       AND: [
         scopeFilter("match_category", opts.category ?? null),
         scopeFilter("match_project_id", opts.project_id ?? null),
-        scopeFilter("match_test_id", opts.test_id ?? null),
+        scopeFilter("match_data_table_id", opts.data_table_id ?? null),
       ],
     },
   });

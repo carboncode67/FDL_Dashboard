@@ -8,44 +8,64 @@ function normalizeLabel(s: string): string {
   return s.toLowerCase().replace(/[\s_]+/g, " ").trim();
 }
 
-async function loadExperimentTest(id: number) {
-  return prisma.experimentTest.findUnique({
-    where: { id },
-    include: {
-      Test: {
-        select: {
-          id: true,
-          Test_Name: true,
-          TestFieldDefinitions: {
-            orderBy: { col_index: "asc" },
-            select: { col_index: true, field_type: true, label: true },
-          },
-        },
-      },
-    },
+async function loadContext(experimentTestId: number, dataTableId: number) {
+  const et = await prisma.experimentTest.findUnique({
+    where: { id: experimentTestId },
+    select: { id: true, test_id: true, Test: { select: { id: true, Test_Name: true } } },
   });
+  if (!et) return { error: NextResponse.json({ error: "Experiment test not found" }, { status: 404 }) };
+
+  const table = await prisma.dataTable.findUnique({
+    where: { id: dataTableId },
+    include: { FieldDefinitions: { orderBy: { col_index: "asc" } } },
+  });
+  if (!table) return { error: NextResponse.json({ error: "Table not found" }, { status: 404 }) };
+
+  const isHome = table.test_id === et.test_id;
+  const isJoined = isHome
+    ? true
+    : (await prisma.testDataTable.findUnique({
+        where: { Tests_id_Tables_id: { Tests_id: et.test_id, Tables_id: dataTableId } },
+      })) !== null;
+  if (!isJoined) {
+    return { error: NextResponse.json({ error: "This table is not used by this test" }, { status: 422 }) };
+  }
+
+  return { et, table };
 }
 
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string; tableId: string }> }
+) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
 
-  const { id } = await params;
+  const { id, tableId } = await params;
   const experimentTestId = parseInt(id);
-  if (isNaN(experimentTestId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  const dataTableId = parseInt(tableId);
+  if (isNaN(experimentTestId) || isNaN(dataTableId)) {
+    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  }
 
-  const et = await loadExperimentTest(experimentTestId);
-  if (!et) return NextResponse.json({ error: "Experiment test not found" }, { status: 404 });
+  const ctx = await loadContext(experimentTestId, dataTableId);
+  if ("error" in ctx) return ctx.error;
 
-  const rows = await prisma.testDataRow.findMany({
-    where: { experiment_test_id: experimentTestId },
+  const rows = await prisma.dataTableRow.findMany({
+    where: { experiment_test_id: experimentTestId, data_table_id: dataTableId },
     orderBy: { row_index: "asc" },
   });
 
   return NextResponse.json({
     experiment_test_id: experimentTestId,
-    test: { id: et.Test.id, name: et.Test.Test_Name },
-    columns: et.Test.TestFieldDefinitions,
+    test: { id: ctx.et.Test.id, name: ctx.et.Test.Test_Name },
+    table: {
+      id: ctx.table.id,
+      name: ctx.table.name,
+      description: ctx.table.description,
+      data_processing_instructions: ctx.table.data_processing_instructions,
+    },
+    columns: ctx.table.FieldDefinitions,
     rows: rows.map((r) => ({
       row_index: r.row_index,
       data: r.data,
@@ -55,26 +75,33 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   });
 }
 
-// Bulk ingest rows for an experiment test.
+// Bulk ingest rows for one DataTable used by an experiment test.
 // Body: { columns: string[], rows: (string|number|null)[][], source_file?, mode?: "replace" | "append" }
-// Submitted columns are matched to Test_Field_Definitions by normalized label.
+// Submitted columns are matched to the table's Data_Table_Field_Definitions by normalized label.
 // Missing template columns → 422 (client writes conflict.txt from `missing`).
 // Extra submitted columns → ignored, reported in `ignored_columns`.
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string; tableId: string }> }
+) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
 
-  const { id } = await params;
+  const { id, tableId } = await params;
   const experimentTestId = parseInt(id);
-  if (isNaN(experimentTestId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  const dataTableId = parseInt(tableId);
+  if (isNaN(experimentTestId) || isNaN(dataTableId)) {
+    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  }
 
-  const et = await loadExperimentTest(experimentTestId);
-  if (!et) return NextResponse.json({ error: "Experiment test not found" }, { status: 404 });
+  const ctx = await loadContext(experimentTestId, dataTableId);
+  if ("error" in ctx) return ctx.error;
+  const { table } = ctx;
 
-  const defs = et.Test.TestFieldDefinitions;
+  const defs = table.FieldDefinitions;
   if (defs.length === 0) {
     return NextResponse.json(
-      { error: "Test has no data template columns defined" },
+      { error: "Table has no data template columns defined" },
       { status: 422 }
     );
   }
@@ -119,8 +146,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const startIndex =
     mode === "append"
-      ? ((await prisma.testDataRow.aggregate({
-          where: { experiment_test_id: experimentTestId },
+      ? ((await prisma.dataTableRow.aggregate({
+          where: { experiment_test_id: experimentTestId, data_table_id: dataTableId },
           _max: { row_index: true },
         }))._max.row_index ?? -1) + 1
       : 0;
@@ -134,6 +161,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         v === null || v === undefined ? null : typeof v === "number" ? v : String(v);
     });
     return {
+      data_table_id: dataTableId,
       experiment_test_id: experimentTestId,
       row_index: startIndex + i,
       data: obj,
@@ -143,18 +171,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   await prisma.$transaction([
     ...(mode === "replace"
-      ? [prisma.testDataRow.deleteMany({ where: { experiment_test_id: experimentTestId } })]
+      ? [prisma.dataTableRow.deleteMany({ where: { experiment_test_id: experimentTestId, data_table_id: dataTableId } })]
       : []),
-    prisma.testDataRow.createMany({ data }),
+    prisma.dataTableRow.createMany({ data }),
   ]);
 
   const baseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
   matchAndTriggerPipelines({
     table: "test-data-rows",
     id: experimentTestId,
-    test_id: et.Test.id,
-    inputFileUrl: `${baseUrl}/api/data/experiment-tests/${experimentTestId}/rows`,
-  }).catch((err) => console.error("[experiment-tests rows POST] pipeline trigger failed", err));
+    data_table_id: dataTableId,
+    inputFileUrl: `${baseUrl}/api/data/experiment-tests/${experimentTestId}/tables/${dataTableId}/rows`,
+  }).catch((err) => console.error("[experiment-tests tables rows POST] pipeline trigger failed", err));
 
   return NextResponse.json({
     ok: true,

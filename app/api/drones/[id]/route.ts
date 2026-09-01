@@ -9,7 +9,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const { id } = await params;
   const drone = await prisma.drone.findUnique({
     where: { id: parseInt(id) },
-    include: { TaskTemplates: true },
+    include: { TaskTemplates: true, RequiredByTests: { include: { Test: true } } },
   });
   if (!drone) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(drone);

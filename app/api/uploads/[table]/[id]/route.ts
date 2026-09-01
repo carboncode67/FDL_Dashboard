@@ -62,11 +62,43 @@ export async function PATCH(
     if ([1, 2, 3, 4].includes(s)) data.status = s;
   }
 
-  if (Object.keys(data).length === 0) {
+  const metricValues =
+    "metric_values" in body && body.metric_values && typeof body.metric_values === "object"
+      ? (body.metric_values as Record<string, unknown>)
+      : null;
+
+  if (Object.keys(data).length === 0 && !metricValues) {
     return NextResponse.json({ error: "No valid fields" }, { status: 400 });
   }
 
-  const result = await updateRow(table, parseInt(id), data);
+  const uploadId = parseInt(id);
+
+  if (metricValues) {
+    await Promise.all(
+      Object.entries(metricValues).map(async ([metricIdStr, rawValue]) => {
+        const metric_id = Number(metricIdStr);
+        if (!metric_id) return;
+        const value = rawValue === null || rawValue === undefined ? "" : String(rawValue);
+        if (value === "") {
+          await prisma.uploadMetricValue.deleteMany({
+            where: { upload_table: table, upload_id: uploadId, metric_id },
+          });
+        } else {
+          await prisma.uploadMetricValue.upsert({
+            where: { upload_table_upload_id_metric_id: { upload_table: table, upload_id: uploadId, metric_id } },
+            create: { upload_table: table, upload_id: uploadId, metric_id, value },
+            update: { value, updated_at: new Date() },
+          });
+        }
+      })
+    );
+  }
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ ok: true });
+  }
+
+  const result = await updateRow(table, uploadId, data);
 
   if ("category" in data || "project_id" in data) {
     const record = result as unknown as { category?: string | null; project_id?: number | null };

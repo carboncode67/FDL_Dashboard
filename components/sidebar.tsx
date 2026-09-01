@@ -26,6 +26,9 @@ import {
   LayoutTemplate,
   FileText,
   Cpu,
+  BookOpen,
+  Table2,
+  Tag,
 } from "lucide-react";
 import type { Role } from "@/lib/roles";
 
@@ -34,6 +37,7 @@ const dataNav = [
   { href: "/contacts", label: "Farmers", icon: BookUser },
   { href: "/lab-members", label: "Lab Members", icon: Users },
   { href: "/data-sorting", label: "Data Sorting", icon: SlidersHorizontal },
+  { href: "/data-categories", label: "Data Categories", icon: Tag },
   { href: "/whatsapp", label: "Messaging", icon: MessageCircle },
   { href: "/activity-report", label: "Activity Report", icon: BarChart2 },
   { href: "/forms", label: "Custom Forms", icon: FileText },
@@ -51,10 +55,12 @@ const fieldOpsNav = [
 const referenceNav = [
   { href: "/treatments", label: "Treatment Types", icon: Beaker },
   { href: "/tests", label: "Tests", icon: TestTube },
-  { href: "/drones", label: "Drones", icon: Plane },
+  { href: "/drones", label: "Equipment", icon: Plane },
   { href: "/drones/flights", label: "Drone Flights", icon: Plane },
   { href: "/crops", label: "Crops", icon: Wheat },
   { href: "/task-templates", label: "Task Templates", icon: LayoutTemplate },
+  { href: "/methodologies", label: "Methodologies", icon: BookOpen },
+  { href: "/data-tables", label: "Data Tables", icon: Table2 },
 ];
 
 interface SidebarProps {

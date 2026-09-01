@@ -250,23 +250,26 @@ model ExperimentZone {
 }
 
 model Test {
-  id                           Int       @id @default(autoincrement())
-  title                        String?
-  Test_Name                    String?
-  Test_Description             String?
-  Cost                         Decimal?
-  Planned_Date                 DateTime?
-  Completed_Date               DateTime?
-  Methodology                  String?
-  Data_Processing_Instructions String?
-  created_at                   DateTime?
-  updated_at                   DateTime?
+  id                Int       @id @default(autoincrement())
+  title             String?
+  Test_Name         String?
+  Test_Description  String?
+  Cost              Decimal?
+  Planned_Date      DateTime?
+  Completed_Date    DateTime?
+  Methodology       String?
+  methodology_id    Int?
+  created_at        DateTime?
+  updated_at        DateTime?
 
-  FieldTests           FieldTest[]
-  ExperimentTests      ExperimentTest[]
-  TestFieldDefinitions TestFieldDefinition[]
-  TaskTemplates        TaskTemplate[]
-  Documents            Document[]
+  MethodologyLibrary Methodology?      @relation(fields: [methodology_id], references: [id], onDelete: SetNull)
+  FieldTests         FieldTest[]
+  ExperimentTests    ExperimentTest[]
+  TaskTemplates      TaskTemplate[]
+  Documents          Document[]
+  RequiredEquipment  TestEquipment[]
+  DataTables         DataTable[]
+  UsedDataTables     TestDataTable[]
 
   @@map("Tests")
   @@schema("pgntarg2udzj1f3")
@@ -279,14 +282,63 @@ model Drone {
   Description       String?
   Cost_Per_Acre     Decimal?
   Mobilization_Cost Decimal?
+  quantity          Int       @default(1)
+  methodology_id    Int?
   created_at        DateTime?
   updated_at        DateTime?
 
+  MethodologyLibrary     Methodology?  @relation(fields: [methodology_id], references: [id], onDelete: SetNull)
   FieldDrones            FieldDrone[]
   ExperimentDroneFlights ExperimentDroneFlight[]
   TaskTemplates          TaskTemplate[]
+  EquipmentLoans         EquipmentLoan[]
+  RequiredByTests        TestEquipment[]
+  DataTables             DataTable[]
 
   @@map("Drones")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model Methodology {
+  id         Int      @id @default(autoincrement())
+  title      String
+  body       String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  Tests     Test[]
+  Equipment Drone[]
+
+  @@map("Methodologies")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model TestEquipment {
+  Tests_id  Int
+  Drones_id Int
+  Test      Test  @relation(fields: [Tests_id], references: [id], onDelete: Cascade)
+  Drone     Drone @relation(fields: [Drones_id], references: [id], onDelete: Cascade)
+
+  @@id([Tests_id, Drones_id])
+  @@map("_nc_m2m_Tests_Drones")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model EquipmentLoan {
+  id            Int       @id @default(autoincrement())
+  drone_id      Int
+  contact_id    Int
+  signed_out_by String?
+  signed_out_at DateTime  @default(now())
+  due_at        DateTime
+  returned_at   DateTime?
+  created_at    DateTime  @default(now())
+
+  Drone       Drone   @relation(fields: [drone_id], references: [id], onDelete: Cascade)
+  Contact     Contact @relation(fields: [contact_id], references: [id], onDelete: Cascade)
+  SignedOutBy User?   @relation(fields: [signed_out_by], references: [id], onDelete: SetNull)
+
+  @@map("Equipment_Loans")
   @@schema("pgntarg2udzj1f3")
 }
 
@@ -374,6 +426,7 @@ model Contact {
   channel                String?   // "whatsapp" | "sms" | null — farmer's preferred messaging channel
   onboarded_at  DateTime?
   created_at    DateTime  @default(now())
+  external_ref  String?   @unique // "<system>:<id>" cross-system identity link (e.g. "ofe:42"), so an external service can mint-once/reuse a Contact
 
   Farm               Farm?           @relation(fields: [farms_id], references: [id])
   AssignedExperiment FarmExperiment? @relation(fields: [assigned_experiment_id], references: [id], onDelete: SetNull)
@@ -386,6 +439,7 @@ model Contact {
   ContactCards WhatsAppContactCard[]
   FormAssignments FormAssignment[]
   FormResponses   FormResponse[]
+  EquipmentLoans  EquipmentLoan[]
 
   @@map("Contacts")
   @@schema("pgntarg2udzj1f3")
@@ -586,27 +640,9 @@ model ExperimentTest {
 
   Experiment FarmExperiment @relation(fields: [experiment_id], references: [id], onDelete: Cascade)
   Test       Test           @relation(fields: [test_id], references: [id], onDelete: Cascade)
-  DataRows   TestDataRow[]
+  DataRows   DataTableRow[]
 
   @@map("Experiment_Tests")
-  @@schema("pgntarg2udzj1f3")
-}
-
-// Ingested test data rows (Planned Changes #84). `data` is JSONB keyed by
-// Test_Field_Definitions.col_index as a string — schema edits delete+recreate
-// field definitions, so rows must not FK to them.
-model TestDataRow {
-  id                 Int       @id @default(autoincrement())
-  experiment_test_id Int
-  row_index          Int
-  data               Json
-  source_file        String?
-  ingested_at        DateTime? @default(now()) @db.Timestamptz(6)
-
-  ExperimentTest ExperimentTest @relation(fields: [experiment_test_id], references: [id], onDelete: Cascade)
-
-  @@unique([experiment_test_id, row_index])
-  @@map("Test_Data_Rows")
   @@schema("pgntarg2udzj1f3")
 }
 
@@ -656,17 +692,134 @@ model ExperimentField {
   @@schema("pgntarg2udzj1f3")
 }
 
-model TestFieldDefinition {
-  id         Int    @id @default(autoincrement())
-  test_id    Int
-  col_index  Int
-  field_type String @default("text")
-  label      String
+// A named, reusable data schema — homed to a Test, homed to an Equipment
+// (Drone) item, or free-floating as a shared library entry (mirrors the
+// Methodology library pattern). Replaces the old one-schema-per-Test
+// assumption: a Test can use many DataTables (its own dedicated ones plus
+// shared/library ones via TestDataTable).
+model DataTable {
+  id                            Int       @id @default(autoincrement())
+  name                          String
+  description                   String?
+  data_processing_instructions  String?
+  test_id                       Int?
+  drone_id                      Int?
+  created_at                    DateTime  @default(now())
+  updated_at                    DateTime  @updatedAt
 
-  Test Test @relation(fields: [test_id], references: [id], onDelete: Cascade)
+  HomeTest         Test?                      @relation(fields: [test_id], references: [id], onDelete: SetNull)
+  HomeDrone        Drone?                     @relation(fields: [drone_id], references: [id], onDelete: SetNull)
+  FieldDefinitions DataTableFieldDefinition[]
+  Rows             DataTableRow[]
+  UsedByTests      TestDataTable[]
 
-  @@unique([test_id, col_index])
-  @@map("Test_Field_Definitions")
+  @@index([test_id])
+  @@index([drone_id])
+  @@map("Tables")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model DataTableFieldDefinition {
+  id            Int    @id @default(autoincrement())
+  data_table_id Int
+  col_index     Int
+  field_type    String @default("text")
+  label         String
+
+  DataTable DataTable @relation(fields: [data_table_id], references: [id], onDelete: Cascade)
+
+  @@unique([data_table_id, col_index])
+  @@map("Data_Table_Field_Definitions")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// `data` is JSONB keyed by DataTableFieldDefinition.col_index as a string —
+// schema edits delete+recreate field definitions, so rows must not FK to them.
+model DataTableRow {
+  id                 Int       @id @default(autoincrement())
+  data_table_id      Int
+  experiment_test_id Int
+  row_index          Int
+  data               Json
+  source_file        String?
+  ingested_at        DateTime? @default(now()) @db.Timestamptz(6)
+
+  DataTable      DataTable      @relation(fields: [data_table_id], references: [id], onDelete: Cascade)
+  ExperimentTest ExperimentTest @relation(fields: [experiment_test_id], references: [id], onDelete: Cascade)
+
+  @@unique([data_table_id, experiment_test_id, row_index])
+  @@map("Data_Table_Rows")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// A Test "borrowing" a DataTable it doesn't home (a shared/library table, or
+// one homed to a different Test/Equipment item). A DataTable homed directly
+// to a Test does not need a row here to be usable by that Test.
+model TestDataTable {
+  Tests_id  Int
+  Tables_id Int
+
+  Test      Test      @relation(fields: [Tests_id], references: [id], onDelete: Cascade)
+  DataTable DataTable @relation(fields: [Tables_id], references: [id], onDelete: Cascade)
+
+  @@id([Tests_id, Tables_id])
+  @@map("_nc_m2m_Tests_Tables")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Upload categories are DB-managed (edited from /data-categories) rather than
+// a hardcoded list, so each can carry its own set of metrics (e.g. Grazing
+// Measurement -> Height). media_types scopes which item.media_type values
+// ("photo" | "note" | "recording" | "location") the category shows up for;
+// an empty array means it applies to all of them.
+model UploadCategory {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  media_types String[] @default([])
+  sort_order  Int      @default(0)
+  created_at  DateTime @default(now())
+
+  Metrics CategoryMetric[]
+
+  @@map("Upload_Categories")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model CategoryMetric {
+  id          Int      @id @default(autoincrement())
+  category_id Int
+  label       String
+  field_type  String   @default("text") // text | number | select | boolean
+  unit        String?
+  options     Json? // array of strings, only used when field_type = "select"
+  sort_order  Int      @default(0)
+  created_at  DateTime @default(now())
+
+  Category UploadCategory      @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  Values   UploadMetricValue[]
+
+  @@index([category_id])
+  @@map("Category_Metrics")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Generic (upload_table, upload_id) reference rather than a per-table FK,
+// matching the Annotations / Task_Upload_Links pattern for cross-table
+// upload references, since a metric value can belong to any of the five
+// upload tables.
+model UploadMetricValue {
+  id           Int      @id @default(autoincrement())
+  upload_table String
+  upload_id    Int
+  metric_id    Int
+  value        String?
+  updated_at   DateTime @default(now())
+
+  Metric CategoryMetric @relation(fields: [metric_id], references: [id], onDelete: Cascade)
+
+  @@unique([upload_table, upload_id, metric_id])
+  @@index([upload_table, upload_id])
+  @@map("Upload_Metric_Values")
   @@schema("pgntarg2udzj1f3")
 }
 
@@ -1042,7 +1195,7 @@ model Pipeline {
   match_table                   String?   // photos | notes | recordings | locations | lab-member-uploads | test-data-rows | documents — null for target_kind = "drone_flight"
   match_category                String?
   match_project_id              Int?
-  match_test_id                 Int?
+  match_data_table_id           Int?
   sample_dataset_filename       String
   sample_dataset_original_name  String
   script_filename                String

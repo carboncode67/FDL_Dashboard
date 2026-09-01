@@ -269,14 +269,33 @@ export default async function DetailPage({
   const search       = sp.search ?? "";
   const filterDuplicate = sp.duplicate === "1";
 
-  const [item, allItems, farms, projects, session, editMode] = await Promise.all([
+  const [item, allItems, farms, projects, session, editMode, categoryRows, metricValueRows] = await Promise.all([
     fetchItem(table, itemId),
     fetchAllItems(),
     prisma.farm.findMany({ select: { id: true, Farm_Name: true }, orderBy: { Farm_Name: "asc" } }),
     prisma.project.findMany({ select: { id: true, Project_Name: true }, orderBy: { Project_Name: "asc" } }),
     auth(),
     getEditMode(),
+    prisma.uploadCategory.findMany({
+      orderBy: { sort_order: "asc" },
+      include: { Metrics: { orderBy: { sort_order: "asc" } } },
+    }),
+    prisma.uploadMetricValue.findMany({ where: { upload_table: table, upload_id: itemId } }),
   ]);
+
+  const categories = categoryRows.map((c) => ({
+    id: c.id,
+    name: c.name,
+    media_types: c.media_types,
+    metrics: c.Metrics.map((m) => ({
+      id: m.id,
+      label: m.label,
+      field_type: m.field_type as "text" | "number" | "select" | "boolean",
+      unit: m.unit,
+      options: Array.isArray(m.options) ? (m.options as string[]) : null,
+    })),
+  }));
+  const metricValues = Object.fromEntries(metricValueRows.map((v) => [v.metric_id, v.value ?? ""]));
 
   const role = (session?.user?.role ?? "viewer") as Role;
   const showDelete = canDelete(role, editMode);
@@ -356,6 +375,8 @@ export default async function DetailPage({
       duplicateOfItem={duplicateOfItem}
       filterQuery={filterParams.toString()}
       canDelete={showDelete}
+      categories={categories}
+      metricValues={metricValues}
     />
   );
 }

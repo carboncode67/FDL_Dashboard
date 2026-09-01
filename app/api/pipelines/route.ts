@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdmin, type Role } from "@/lib/roles";
-import { processingConfigured, registerPipeline } from "@/lib/processing";
+import { processingConfigured, registerPipeline, type PipelineDataContext } from "@/lib/processing";
 import fs from "fs";
 import path from "path";
 import { Readable } from "stream";
@@ -157,7 +157,7 @@ export async function POST(request: Request) {
       match_table: isDroneFlightTarget ? null : match_table,
       match_category: isDroneFlightTarget ? null : (fields.match_category || null),
       match_project_id: isDroneFlightTarget ? null : (fields.match_project_id ? Number(fields.match_project_id) : null),
-      match_test_id: isDroneFlightTarget ? null : (fields.match_test_id ? Number(fields.match_test_id) : null),
+      match_data_table_id: isDroneFlightTarget ? null : (fields.match_data_table_id ? Number(fields.match_data_table_id) : null),
       sample_dataset_filename: sample.filename,
       sample_dataset_original_name: sample.originalName,
       script_filename: script.filename,
@@ -174,6 +174,34 @@ export async function POST(request: Request) {
 
   try {
     const baseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
+
+    // Rope the matched Data Table's description / processing instructions / column
+    // schema (plus the pipeline's own general-instructions text) into registration,
+    // so the LLM wiring step has the data's meaning, not just its bytes.
+    const matchedTable = pipeline.match_data_table_id
+      ? await prisma.dataTable.findUnique({
+          where: { id: pipeline.match_data_table_id },
+          include: { FieldDefinitions: { orderBy: { col_index: "asc" } } },
+        })
+      : null;
+    const dataContext: PipelineDataContext | null =
+      pipeline.description || matchedTable
+        ? {
+            pipeline_description: pipeline.description,
+            data_table: matchedTable
+              ? {
+                  name: matchedTable.name,
+                  description: matchedTable.description,
+                  data_processing_instructions: matchedTable.data_processing_instructions,
+                  columns: matchedTable.FieldDefinitions.map((d) => ({
+                    label: d.label,
+                    field_type: d.field_type,
+                  })),
+                }
+              : null,
+          }
+        : null;
+
     const { external_pipeline_id } = await registerPipeline({
       pipeline_id: pipeline.id,
       name: pipeline.name,
@@ -182,6 +210,7 @@ export async function POST(request: Request) {
       script_url: `${baseUrl}/api/files/${SCRIPT_TYPE}/${script.filename}`,
       model_url: model ? `${baseUrl}/api/files/${MODEL_TYPE}/${model.filename}` : null,
       callback_url: `${baseUrl}/api/pipelines/webhook`,
+      data_context: dataContext,
     });
 
     const updated = await prisma.pipeline.update({

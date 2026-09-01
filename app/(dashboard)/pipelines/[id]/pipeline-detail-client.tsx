@@ -42,7 +42,7 @@ export interface PipelineDetail {
   match_table: string | null;
   match_category: string | null;
   match_project_id: number | null;
-  match_test_id: number | null;
+  match_data_table_id: number | null;
   sample_dataset_original_name: string;
   sample_dataset_filename: string;
   script_original_name: string;

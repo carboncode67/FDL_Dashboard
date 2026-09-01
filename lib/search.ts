@@ -241,7 +241,6 @@ async function searchTests(q: string): Promise<SearchHit[]> {
         { Test_Name: contains(q) },
         { Test_Description: contains(q) },
         { Methodology: contains(q) },
-        { Data_Processing_Instructions: contains(q) },
       ],
     },
     select: {
@@ -249,7 +248,6 @@ async function searchTests(q: string): Promise<SearchHit[]> {
       Test_Name: true,
       Test_Description: true,
       Methodology: true,
-      Data_Processing_Instructions: true,
     },
     take: PER_ENTITY_CAP,
   });
@@ -258,7 +256,6 @@ async function searchTests(q: string): Promise<SearchHit[]> {
       Test_Name: r.Test_Name,
       Test_Description: r.Test_Description,
       Methodology: r.Methodology,
-      Data_Processing_Instructions: r.Data_Processing_Instructions,
     });
     return {
       entity: "tests",

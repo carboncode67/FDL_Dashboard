@@ -21,6 +21,19 @@ async function processingFetch(path: string, init?: RequestInit) {
   return res.json();
 }
 
+// Natural-language context about the dataset a pipeline processes, so the
+// LLM script-wiring step (and a human reviewer) knows what the data means and
+// how the lab wants it handled — not just the script source + a filename.
+export interface PipelineDataContext {
+  pipeline_description: string | null;
+  data_table: {
+    name: string;
+    description: string | null;
+    data_processing_instructions: string | null;
+    columns: { label: string; field_type: string }[];
+  } | null;
+}
+
 export interface RegisterPipelinePayload {
   pipeline_id: number;
   name: string;
@@ -29,6 +42,7 @@ export interface RegisterPipelinePayload {
   script_url: string;
   model_url: string | null;
   callback_url: string;
+  data_context?: PipelineDataContext | null;
 }
 
 // Kicks off registration on the processing machine: it downloads the sample

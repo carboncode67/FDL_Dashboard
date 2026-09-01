@@ -9,7 +9,12 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const { id } = await params;
   const test = await prisma.test.findUnique({
     where: { id: parseInt(id) },
-    include: { TaskTemplates: true },
+    include: {
+      TaskTemplates: true,
+      RequiredEquipment: { include: { Drone: true } },
+      DataTables: true,
+      UsedDataTables: { include: { DataTable: true } },
+    },
   });
   if (!test) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(test);
@@ -22,9 +27,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const { id } = await params;
   const testId = parseInt(id);
   const body = await req.json();
-  const { taskTemplates, ...testData } = body;
+  const { taskTemplates, requiredEquipmentIds, dataTableIds, ...testData } = body;
 
   await prisma.taskTemplate.deleteMany({ where: { test_id: testId } });
+  if (requiredEquipmentIds !== undefined) {
+    await prisma.testEquipment.deleteMany({ where: { Tests_id: testId } });
+  }
+  if (dataTableIds !== undefined) {
+    await prisma.testDataTable.deleteMany({ where: { Tests_id: testId } });
+  }
 
   const test = await prisma.test.update({
     where: { id: testId },
@@ -37,8 +48,19 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             priority:       t.priority ?? "medium",
           })) } }
         : {}),
+      ...(requiredEquipmentIds?.length
+        ? { RequiredEquipment: { create: requiredEquipmentIds.map((droneId: number) => ({ Drones_id: droneId })) } }
+        : {}),
+      ...(dataTableIds?.length
+        ? { UsedDataTables: { create: dataTableIds.map((tableId: number) => ({ Tables_id: tableId })) } }
+        : {}),
     },
-    include: { TaskTemplates: true },
+    include: {
+      TaskTemplates: true,
+      RequiredEquipment: { include: { Drone: true } },
+      DataTables: true,
+      UsedDataTables: { include: { DataTable: true } },
+    },
   });
   return NextResponse.json(test);
 }

@@ -9,8 +9,8 @@ export async function GET(_: Request, { params }: Params) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const defs = await prisma.testFieldDefinition.findMany({
-    where: { test_id: parseInt(id) },
+  const defs = await prisma.dataTableFieldDefinition.findMany({
+    where: { data_table_id: parseInt(id) },
     orderBy: { col_index: "asc" },
   });
   return NextResponse.json(defs);
@@ -21,26 +21,26 @@ export async function PUT(req: Request, { params }: Params) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const testId = parseInt(id);
+  const dataTableId = parseInt(id);
   const { columns } = await req.json() as {
     columns: { col_index: number; field_type: string; label: string }[];
   };
 
-  await prisma.testFieldDefinition.deleteMany({ where: { test_id: testId } });
+  await prisma.dataTableFieldDefinition.deleteMany({ where: { data_table_id: dataTableId } });
 
   if (columns.length > 0) {
-    await prisma.testFieldDefinition.createMany({
+    await prisma.dataTableFieldDefinition.createMany({
       data: columns.map((c) => ({
-        test_id:    testId,
-        col_index:  c.col_index,
-        field_type: c.field_type === "number" ? "number" : "text",
-        label:      c.label,
+        data_table_id: dataTableId,
+        col_index:     c.col_index,
+        field_type:    c.field_type === "number" ? "number" : "text",
+        label:         c.label,
       })),
     });
   }
 
-  const defs = await prisma.testFieldDefinition.findMany({
-    where: { test_id: testId },
+  const defs = await prisma.dataTableFieldDefinition.findMany({
+    where: { data_table_id: dataTableId },
     orderBy: { col_index: "asc" },
   });
   return NextResponse.json(defs);

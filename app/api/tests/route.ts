@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { taskTemplates, ...testData } = body;
+  const { taskTemplates, requiredEquipmentIds, dataTableIds, ...testData } = body;
   const test = await prisma.test.create({
     data: {
       ...testData,
@@ -29,8 +29,19 @@ export async function POST(req: Request) {
             priority:       t.priority ?? "medium",
           })) } }
         : {}),
+      ...(requiredEquipmentIds?.length
+        ? { RequiredEquipment: { create: requiredEquipmentIds.map((droneId: number) => ({ Drones_id: droneId })) } }
+        : {}),
+      ...(dataTableIds?.length
+        ? { UsedDataTables: { create: dataTableIds.map((tableId: number) => ({ Tables_id: tableId })) } }
+        : {}),
     },
-    include: { TaskTemplates: true },
+    include: {
+      TaskTemplates: true,
+      RequiredEquipment: { include: { Drone: true } },
+      DataTables: true,
+      UsedDataTables: { include: { DataTable: true } },
+    },
   });
   return NextResponse.json(test, { status: 201 });
 }

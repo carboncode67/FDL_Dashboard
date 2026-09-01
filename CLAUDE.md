@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-The root `../CLAUDE.md` covers the shared database schema, migration workflow, and deployment process (used by multiple components in this platform). This file covers everything specific to Dashboard-UI: the patterns below plus the full feature architecture (auth, roles, uploads, CVAT, messaging, data sorting, tasks, custom forms, geometry, and more) at the bottom of this file.
+The root `../../CLAUDE.md` covers the shared database schema, migration workflow, and deployment process (used by multiple components in this platform). This file covers everything specific to Dashboard-UI: the patterns below plus the full feature architecture (auth, roles, uploads, CVAT, messaging, data sorting, tasks, custom forms, geometry, and more) at the bottom of this file.
 
 ## Commands
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -16,8 +17,6 @@ import {
 import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, GitMerge, Trash2, X } from "lucide-react";
 import {
   UploadItem,
-  CATEGORY_OPTIONS,
-  RECORDING_CATEGORY_OPTIONS,
   STATUS_LABEL,
   STATUS_VARIANT,
   MEDIA_LABEL,
@@ -28,6 +27,19 @@ import UploadTrackMapWrapper from "@/components/upload-track-map-wrapper";
 
 interface FarmOption { id: number; name: string; }
 interface ProjectOption { id: number; name: string; }
+interface MetricOption {
+  id: number;
+  label: string;
+  field_type: "text" | "number" | "select" | "boolean";
+  unit: string | null;
+  options: string[] | null;
+}
+interface CategoryOption {
+  id: number;
+  name: string;
+  media_types: string[];
+  metrics: MetricOption[];
+}
 
 function MediaPreview({ item }: { item: UploadItem }) {
   if (item.media_type === "photo" && item.filename) {
@@ -91,6 +103,8 @@ export default function DetailClient({
   duplicateOfItem,
   filterQuery,
   canDelete,
+  categories,
+  metricValues: initialMetricValues,
 }: {
   item: UploadItem;
   farms: FarmOption[];
@@ -105,6 +119,8 @@ export default function DetailClient({
   duplicateOfItem: UploadItem | null;
   filterQuery: string;
   canDelete: boolean;
+  categories: CategoryOption[];
+  metricValues: Record<number, string>;
 }) {
   const router = useRouter();
   const [farmId, setFarmId]       = useState(item.farm_id ? String(item.farm_id) : "");
@@ -124,8 +140,15 @@ export default function DetailClient({
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [metricInputs, setMetricInputs] = useState<Record<number, string>>(
+    Object.fromEntries(Object.entries(initialMetricValues).map(([k, v]) => [Number(k), v]))
+  );
 
-  const categoryOptions = item.media_type === "recording" ? RECORDING_CATEGORY_OPTIONS : CATEGORY_OPTIONS;
+  const applicableCategories = categories.filter(
+    (c) => c.media_types.length === 0 || c.media_types.includes(item.media_type)
+  );
+  const selectedCategory = applicableCategories.find((c) => c.name === category);
+  const activeMetrics = selectedCategory?.metrics ?? [];
   const showDuplicateBanner = isFlaggedDuplicate({ ...item, duplicate_dismissed: duplicateDismissed });
 
   async function handleDismissDuplicate() {
@@ -241,6 +264,7 @@ export default function DetailClient({
       category:    category || null,
       status:      Number(status),
       description: description || null,
+      metric_values: Object.fromEntries(activeMetrics.map((m) => [m.id, metricInputs[m.id] ?? ""])),
     };
 
     // Auto-advance stage from Unread → Read when a human edits the record
@@ -531,12 +555,52 @@ export default function DetailClient({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">— None —</SelectItem>
-                  {categoryOptions.map((opt) => (
-                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  {applicableCategories.map((opt) => (
+                    <SelectItem key={opt.id} value={opt.name}>{opt.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {activeMetrics.length > 0 && (
+              <div className="space-y-3 rounded-md border bg-slate-50 p-3">
+                <p className="text-xs font-semibold text-slate-600">Metrics</p>
+                {activeMetrics.map((metric) => (
+                  <div key={metric.id} className="space-y-1.5">
+                    <Label>{metric.label}{metric.unit ? ` (${metric.unit})` : ""}</Label>
+                    {metric.field_type === "select" ? (
+                      <select
+                        value={metricInputs[metric.id] ?? ""}
+                        onChange={(e) => setMetricInputs((prev) => ({ ...prev, [metric.id]: e.target.value }))}
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                      >
+                        <option value="">— None —</option>
+                        {(metric.options ?? []).map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    ) : metric.field_type === "boolean" ? (
+                      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={metricInputs[metric.id] === "true"}
+                          onChange={(e) =>
+                            setMetricInputs((prev) => ({ ...prev, [metric.id]: e.target.checked ? "true" : "" }))
+                          }
+                        />
+                        Yes
+                      </label>
+                    ) : (
+                      <Input
+                        type={metric.field_type === "number" ? "number" : "text"}
+                        value={metricInputs[metric.id] ?? ""}
+                        onChange={(e) => setMetricInputs((prev) => ({ ...prev, [metric.id]: e.target.value }))}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label>Status</Label>

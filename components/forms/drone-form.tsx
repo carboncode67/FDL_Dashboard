@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { DuplicateWarningDialog, checkDuplicates, type DuplicateMatch } from "@/components/duplicate-warning-dialog";
+import { MethodologySelect } from "@/components/forms/methodology-select";
 
 const CLASSIFICATIONS = [
   "image annotation", "ocr", "transcription", "categorization",
@@ -24,6 +25,8 @@ interface DroneFormProps {
     Description?: string | null;
     Cost_Per_Acre?: number | null;
     Mobilization_Cost?: number | null;
+    quantity?: number;
+    methodology_id?: number | null;
     TaskTemplates?: { description: string; classification: string | null; priority: string }[];
   };
 }
@@ -33,6 +36,8 @@ export function DroneForm({ onSuccess, droneId, initialData }: DroneFormProps) {
   const [desc, setDesc] = useState(initialData?.Description ?? "");
   const [costAcre, setCostAcre] = useState(initialData?.Cost_Per_Acre?.toString() ?? "");
   const [mobCost, setMobCost] = useState(initialData?.Mobilization_Cost?.toString() ?? "");
+  const [quantity, setQuantity] = useState(initialData?.quantity?.toString() ?? "1");
+  const [methodologyId, setMethodologyId] = useState<number | null>(initialData?.methodology_id ?? null);
   const [templates, setTemplates] = useState<TemplateRow[]>(
     (initialData?.TaskTemplates ?? []).map((t) => ({
       description:    t.description,
@@ -101,6 +106,8 @@ export function DroneForm({ onSuccess, droneId, initialData }: DroneFormProps) {
           Description: desc,
           Cost_Per_Acre: costAcre ? parseFloat(costAcre) : null,
           Mobilization_Cost: mobCost ? parseFloat(mobCost) : null,
+          quantity: quantity ? parseInt(quantity) : 1,
+          methodology_id: methodologyId,
           taskTemplates: templates.filter((t) => t.description.trim()).map((t) => ({
             description:    t.description.trim(),
             classification: t.classification || null,
@@ -127,7 +134,7 @@ export function DroneForm({ onSuccess, droneId, initialData }: DroneFormProps) {
     <>
     <DuplicateWarningDialog
       open={dupCandidates.length > 0}
-      entityLabel="Drone"
+      entityLabel="Equipment Item"
       duplicates={dupCandidates}
       onConfirm={() => { confirmedRef.current = true; setDupCandidates([]); doSave(); }}
       onCancel={() => setDupCandidates([])}
@@ -135,8 +142,22 @@ export function DroneForm({ onSuccess, droneId, initialData }: DroneFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5"><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
       <div className="space-y-1.5"><Label>Description</Label><Input value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
+      <div className="space-y-1.5">
+        <Label>Quantity Owned</Label>
+        <Input type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
+        <p className="text-xs text-slate-500">How many physical units of this item the lab owns.</p>
+      </div>
       <div className="space-y-1.5"><Label>Cost Per Acre ($)</Label><Input type="number" step="0.01" value={costAcre} onChange={(e) => setCostAcre(e.target.value)} /></div>
       <div className="space-y-1.5"><Label>Mobilization Cost ($)</Label><Input type="number" step="0.01" value={mobCost} onChange={(e) => setMobCost(e.target.value)} /></div>
+
+      <div className="space-y-1.5">
+        <Label>Methodology <span className="font-normal text-slate-400">(optional)</span></Label>
+        <MethodologySelect value={methodologyId} onChange={setMethodologyId} placeholder="— none linked —" />
+        <p className="text-xs text-slate-500">
+          The procedure usually run with this instrument. A test that requires this equipment keeps
+          its own methodology — these don&apos;t have to match.
+        </p>
+      </div>
 
       <div className="space-y-2 pt-2 border-t">
         <div className="flex items-center justify-between">

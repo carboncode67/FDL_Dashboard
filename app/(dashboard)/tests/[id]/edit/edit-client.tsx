@@ -3,11 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { TestForm } from "@/components/forms/test-form";
-import { TestSchemaBuilder } from "@/components/test-schema-builder";
 import { DocumentUpload } from "@/components/document-upload";
 import Link from "next/link";
 
-type Column = { col_index: number; field_type: "text" | "number"; label: string };
+type DataSource = { id: number; name: string; columnCount: number; home: boolean };
 
 type TestDocument = {
   id: number;
@@ -26,14 +25,16 @@ interface Props {
     Test_Description: string | null;
     Cost: number | null;
     Methodology: string | null;
-    Data_Processing_Instructions: string | null;
+    methodology_id: number | null;
     TaskTemplates?: { description: string; classification: string | null; priority: string }[];
+    RequiredEquipment?: { Drones_id: number }[];
+    UsedDataTables?: { Tables_id: number }[];
   };
-  fieldDefs: Column[];
+  dataSources: DataSource[];
   documents: TestDocument[];
 }
 
-export default function EditTestClient({ test, fieldDefs, documents }: Props) {
+export default function EditTestClient({ test, dataSources, documents }: Props) {
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -60,8 +61,35 @@ export default function EditTestClient({ test, fieldDefs, documents }: Props) {
         <TestForm testId={test.id} initialData={test} onSuccess={() => router.push("/tests")} />
       </div>
       <div className="bg-white border rounded-lg p-6 space-y-3">
-        <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Data Template</h3>
-        <TestSchemaBuilder testId={test.id} initialColumns={fieldDefs} />
+        <div className="flex items-center justify-between pb-2 border-b">
+          <h3 className="text-sm font-semibold text-slate-900">Data Sources</h3>
+          <Link
+            href={`/data-tables/new?test_id=${test.id}`}
+            className="text-xs text-emerald-700 hover:text-emerald-900 font-medium"
+          >
+            + New Dedicated Table
+          </Link>
+        </div>
+        <p className="text-xs text-slate-500">
+          Each data source is its own schema — a GPS track, a sample form, a results form — with its
+          own processing instructions and pipeline. Attach existing/shared ones below on this form.
+        </p>
+        {dataSources.length === 0 ? (
+          <p className="text-sm text-slate-400 italic">No data tables yet.</p>
+        ) : (
+          <ul className="divide-y">
+            {dataSources.map((d) => (
+              <li key={d.id} className="flex items-center justify-between py-2 text-sm">
+                <Link href={`/data-tables/${d.id}/edit`} className="text-blue-600 hover:underline">
+                  {d.name}
+                </Link>
+                <span className="text-xs text-slate-400">
+                  {d.columnCount} column{d.columnCount === 1 ? "" : "s"}{d.home ? "" : " · shared"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       <div className="bg-white border rounded-lg p-6 space-y-4">
         <div className="pb-2 border-b">

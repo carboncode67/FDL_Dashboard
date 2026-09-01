@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,28 +66,6 @@ export const MEDIA_LABEL: Record<string, string> = {
   location: "GPS Track",
   "lab-member-upload": "Lab Member",
 };
-export const CATEGORY_OPTIONS = [
-  "Biomass Sample",
-  "Grazing Measurement",
-  "Plant ID",
-  "Implement",
-  "Equipment Model Number",
-  "Chemical Label",
-  "Soil Sample",
-  "Pest / Disease",
-  "Harvest",
-  "Planting",
-  "App Test",
-  "Animal",
-  "Product",
-  "Crop Metric",
-  "Other",
-];
-export const RECORDING_CATEGORY_OPTIONS = [
-  "Onboarding Interview",
-  "Voice Memo",
-  "Other",
-];
 export const STAGE_OPTIONS = [
   "Unread",
   "Read",
@@ -109,12 +87,13 @@ export function DataSortingClient({
   activeFilter?: { projectCount: number; farmCount: number } | null;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState(initialItems);
-  const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [filterType, setFilterType] = useState("all");
-  const [filterFarm, setFilterFarm] = useState("all");
-  const [filterDuplicate, setFilterDuplicate] = useState(false);
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
+  const [filterStatus, setFilterStatus] = useState(() => searchParams.get("status") ?? "all");
+  const [filterType, setFilterType] = useState(() => searchParams.get("type") ?? "all");
+  const [filterFarm, setFilterFarm] = useState(() => searchParams.get("farm") ?? "all");
+  const [filterDuplicate, setFilterDuplicate] = useState(() => searchParams.get("duplicate") === "1");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -145,6 +124,32 @@ export function DataSortingClient({
   function exitSelectMode() {
     setSelectMode(false);
     setSelectedForDelete(new Set());
+  }
+
+  // Keep filters in the URL so they survive opening an item and navigating back.
+  // Uses the raw History API (not router.replace) so typing in the search box
+  // doesn't trigger a server re-fetch of every upload on each keystroke --
+  // filtering here is entirely client-side, the URL is just for persistence.
+  useEffect(() => {
+    const params = new URLSearchParams({
+      status: filterStatus,
+      type: filterType,
+      farm: filterFarm,
+      search,
+      duplicate: filterDuplicate ? "1" : "0",
+    });
+    window.history.replaceState(null, "", `/data-sorting?${params.toString()}`);
+  }, [filterStatus, filterType, filterFarm, search, filterDuplicate]);
+
+  const hasActiveFilters =
+    filterStatus !== "all" || filterType !== "all" || filterFarm !== "all" || search !== "" || filterDuplicate;
+
+  function clearFilters() {
+    setSearch("");
+    setFilterStatus("all");
+    setFilterType("all");
+    setFilterFarm("all");
+    setFilterDuplicate(false);
   }
 
   const filtered = items.filter((item) => {
@@ -378,6 +383,15 @@ export function DataSortingClient({
           onClick={() => setFilterDuplicate((v) => !v)}
         >
           Possible Duplicates{filterDuplicate ? "" : ` (${items.filter(isFlaggedDuplicate).length})`}
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!hasActiveFilters}
+          onClick={clearFilters}
+        >
+          Clear Filters
         </Button>
 
         <span className="ml-auto text-sm text-slate-500">

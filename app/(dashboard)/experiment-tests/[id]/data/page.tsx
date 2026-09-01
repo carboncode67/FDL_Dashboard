@@ -21,9 +21,23 @@ export default async function ExperimentTestDataPage({
         select: {
           id: true,
           Test_Name: true,
-          TestFieldDefinitions: {
-            orderBy: { col_index: "asc" },
-            select: { col_index: true, field_type: true, label: true },
+          DataTables: {
+            select: {
+              id: true,
+              name: true,
+              FieldDefinitions: { orderBy: { col_index: "asc" }, select: { col_index: true, field_type: true, label: true } },
+            },
+          },
+          UsedDataTables: {
+            select: {
+              DataTable: {
+                select: {
+                  id: true,
+                  name: true,
+                  FieldDefinitions: { orderBy: { col_index: "asc" }, select: { col_index: true, field_type: true, label: true } },
+                },
+              },
+            },
           },
         },
       },
@@ -40,11 +54,11 @@ export default async function ExperimentTestDataPage({
   });
   if (!et) notFound();
 
-  const columns = et.Test.TestFieldDefinitions;
-  const rows = et.DataRows;
+  const tables = [...et.Test.DataTables, ...et.Test.UsedDataTables.map((u) => u.DataTable)];
+  const allRows = et.DataRows;
   const testName = et.Test.Test_Name ?? `Test #${et.Test.id}`;
-  const sourceFiles = [...new Set(rows.map((r) => r.source_file).filter(Boolean))] as string[];
-  const lastIngested = rows.reduce<Date | null>(
+  const sourceFiles = [...new Set(allRows.map((r) => r.source_file).filter(Boolean))] as string[];
+  const lastIngested = allRows.reduce<Date | null>(
     (max, r) => (r.ingested_at && (!max || r.ingested_at > max) ? r.ingested_at : max),
     null
   );
@@ -68,81 +82,97 @@ export default async function ExperimentTestDataPage({
         </div>
         <h2 className="text-2xl font-bold text-slate-900">{testName} — Collected Data</h2>
         <p className="text-sm text-slate-500 mt-1">
-          {rows.length} row{rows.length === 1 ? "" : "s"}
+          {allRows.length} row{allRows.length === 1 ? "" : "s"} across {tables.length} table{tables.length === 1 ? "" : "s"}
           {lastIngested ? ` · last ingested ${lastIngested.toLocaleDateString()}` : ""}
           {sourceFiles.length > 0 ? ` · from ${sourceFiles.join(", ")}` : ""}
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Data Template</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {columns.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              No template columns defined.{" "}
-              <Link href={`/tests/${et.Test.id}/edit`} className="text-blue-600 hover:underline">
-                Define them on the test
-              </Link>
-              .
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {columns.map((c) => (
-                <Badge key={c.col_index} variant="secondary">
-                  {c.label}
-                  <span className="ml-1 text-slate-400">({c.field_type})</span>
-                </Badge>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {rows.length > 0 && columns.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Ingested Rows</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">#</TableHead>
-                    {columns.map((c) => (
-                      <TableHead key={c.col_index}>{c.label}</TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((r) => {
-                    const data = r.data as Record<string, string | number | null>;
-                    return (
-                      <TableRow key={r.id}>
-                        <TableCell className="text-slate-400">{r.row_index + 1}</TableCell>
-                        {columns.map((c) => (
-                          <TableCell key={c.col_index}>
-                            {data[String(c.col_index)] ?? "—"}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {rows.length === 0 && (
+      {tables.length === 0 ? (
         <p className="text-sm text-slate-500">
-          No data ingested yet. Data tables placed in this test&apos;s{" "}
-          <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">Tests/{testName}/db/</code>{" "}
-          folder are ingested when the client sync runs.
+          No data tables attached to this test yet.{" "}
+          <Link href={`/tests/${et.Test.id}/edit`} className="text-blue-600 hover:underline">
+            Attach or create one on the test
+          </Link>
+          .
         </p>
+      ) : (
+        tables.map((table) => {
+          const columns = table.FieldDefinitions;
+          const rows = allRows.filter((r) => r.data_table_id === table.id);
+          return (
+            <div key={table.id} className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">{table.name} — Data Template</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {columns.length === 0 ? (
+                    <p className="text-sm text-slate-500">
+                      No template columns defined.{" "}
+                      <Link href={`/data-tables/${table.id}/edit`} className="text-blue-600 hover:underline">
+                        Define them on the table
+                      </Link>
+                      .
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {columns.map((c) => (
+                        <Badge key={c.col_index} variant="secondary">
+                          {c.label}
+                          <span className="ml-1 text-slate-400">({c.field_type})</span>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {rows.length > 0 && columns.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">{table.name} — Ingested Rows</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12">#</TableHead>
+                            {columns.map((c) => (
+                              <TableHead key={c.col_index}>{c.label}</TableHead>
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rows.map((r) => {
+                            const data = r.data as Record<string, string | number | null>;
+                            return (
+                              <TableRow key={r.id}>
+                                <TableCell className="text-slate-400">{r.row_index + 1}</TableCell>
+                                {columns.map((c) => (
+                                  <TableCell key={c.col_index}>
+                                    {data[String(c.col_index)] ?? "—"}
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {rows.length === 0 && (
+                <p className="text-sm text-slate-500">
+                  No data ingested yet for this table.
+                </p>
+              )}
+            </div>
+          );
+        })
       )}
     </div>
   );

@@ -5,12 +5,25 @@ import EditTestClient from "./edit-client";
 export default async function EditTestPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const testId = parseInt(id);
-  const [test, fieldDefs, documents] = await Promise.all([
-    prisma.test.findUnique({ where: { id: testId }, include: { TaskTemplates: true } }),
-    prisma.testFieldDefinition.findMany({ where: { test_id: testId }, orderBy: { col_index: "asc" } }),
+  const [test, documents] = await Promise.all([
+    prisma.test.findUnique({
+      where: { id: testId },
+      include: {
+        TaskTemplates: true,
+        RequiredEquipment: true,
+        DataTables: { include: { _count: { select: { FieldDefinitions: true } } } },
+        UsedDataTables: { include: { DataTable: { include: { _count: { select: { FieldDefinitions: true } } } } } },
+      },
+    }),
     prisma.document.findMany({ where: { test_id: testId }, orderBy: { uploaded_at: "desc" } }),
   ]);
   if (!test) notFound();
+
+  const dataSources = [
+    ...test.DataTables.map((t) => ({ id: t.id, name: t.name, columnCount: t._count.FieldDefinitions, home: true as const })),
+    ...test.UsedDataTables.map((u) => ({ id: u.DataTable.id, name: u.DataTable.name, columnCount: u.DataTable._count.FieldDefinitions, home: false as const })),
+  ];
+
   return (
     <EditTestClient
       test={{
@@ -19,14 +32,16 @@ export default async function EditTestPage({ params }: { params: Promise<{ id: s
         Test_Description: test.Test_Description,
         Cost: test.Cost ? Number(test.Cost) : null,
         Methodology: test.Methodology,
-        Data_Processing_Instructions: test.Data_Processing_Instructions,
+        methodology_id: test.methodology_id,
         TaskTemplates: test.TaskTemplates.map((t) => ({
           description:    t.description,
           classification: t.classification,
           priority:       t.priority,
         })),
+        RequiredEquipment: test.RequiredEquipment.map((e) => ({ Drones_id: e.Drones_id })),
+        UsedDataTables: test.UsedDataTables.map((u) => ({ Tables_id: u.Tables_id })),
       }}
-      fieldDefs={fieldDefs.map((d) => ({ col_index: d.col_index, field_type: d.field_type as "text" | "number", label: d.label }))}
+      dataSources={dataSources}
       documents={documents.map((d) => ({
         id: d.id,
         filename: d.filename,

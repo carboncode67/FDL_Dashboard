@@ -35,7 +35,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     status?: string;
     match_category?: string | null;
     match_project_id?: number | null;
-    match_test_id?: number | null;
+    match_data_table_id?: number | null;
   };
 
   const data: Record<string, unknown> = {};
@@ -47,7 +47,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
   if ("match_category" in body) data.match_category = body.match_category || null;
   if ("match_project_id" in body) data.match_project_id = body.match_project_id ?? null;
-  if ("match_test_id" in body) data.match_test_id = body.match_test_id ?? null;
+  if ("match_data_table_id" in body) data.match_data_table_id = body.match_data_table_id ?? null;
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "No valid fields" }, { status: 400 });
