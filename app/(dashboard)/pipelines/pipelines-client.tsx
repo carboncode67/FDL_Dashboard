@@ -15,6 +15,12 @@ export const MATCH_TABLES = [
   "photos", "notes", "recordings", "locations", "lab-member-uploads", "test-data-rows", "documents",
 ];
 
+// Friendlier labels for the trigger dropdown; the stored value stays the raw table slug.
+const MATCH_TABLE_LABELS: Record<string, string> = {
+  "test-data-rows": "Sample Data Upload (a Data Table)",
+  "lab-member-uploads": "lab member uploads",
+};
+
 const STATUS_VARIANT: Record<string, "outline" | "secondary" | "default" | "destructive"> = {
   draft: "outline", testing: "secondary", live: "default", failed: "destructive", disabled: "outline",
 };
@@ -63,11 +69,17 @@ export function PipelinesClient({
   const [warning, setWarning] = useState<string | null>(null);
   const [isDroneFlightTarget, setIsDroneFlightTarget] = useState(false);
   const [selectedDataTableId, setSelectedDataTableId] = useState("");
+  const [matchTable, setMatchTable] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const selectedDataTable = dataTables.find((t) => String(t.id) === selectedDataTableId) ?? null;
+  const dataTableRequired = matchTable === "test-data-rows";
 
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (dataTableRequired && !selectedDataTableId) {
+      setFormError("Pick the Data Table this pipeline processes — a Sample Data Upload trigger fires only for that table's data.");
+      return;
+    }
     setSubmitting(true);
     setFormError(null);
     setWarning(null);
@@ -91,6 +103,7 @@ export function PipelinesClient({
       setShowForm(false);
       setIsDroneFlightTarget(false);
       setSelectedDataTableId("");
+      setMatchTable("");
       formRef.current?.reset();
       router.refresh();
     } catch { setFormError("Network error"); }
@@ -159,13 +172,14 @@ export function PipelinesClient({
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-slate-700">Trigger on (upload type)</label>
                     <p className="text-xs text-slate-500">
-                      Which kind of upload sets this pipeline running. Pick <code>test-data-rows</code> for
-                      tabular data collected against a Data Table.
+                      Which kind of upload sets this pipeline running. &quot;Sample Data Upload&quot; fires
+                      only when data matching a specific Data Table&apos;s schema is ingested.
                     </p>
-                    <select name="match_table" required defaultValue=""
+                    <select name="match_table" required value={matchTable}
+                      onChange={(e) => setMatchTable(e.target.value)}
                       className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                       <option value="" disabled>— choose —</option>
-                      {MATCH_TABLES.map((t) => <option key={t} value={t}>{t}</option>)}
+                      {MATCH_TABLES.map((t) => <option key={t} value={t}>{MATCH_TABLE_LABELS[t] ?? t}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1">
@@ -183,16 +197,20 @@ export function PipelinesClient({
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">Data Table (optional)</label>
+                    <label className="text-sm font-medium text-slate-700">
+                      Data Table {dataTableRequired ? <span className="text-red-500">*</span> : "(optional)"}
+                    </label>
                     <p className="text-xs text-slate-500">
-                      Only trigger for rows ingested into this Data Table. Its description, columns, and
-                      attached sample table are sent to the processing LLM so it knows what the data means.
+                      {dataTableRequired
+                        ? "Required for Sample Data Upload — the pipeline fires only when data matching this table's schema is ingested. Its description, columns, and sample table go to the processing LLM."
+                        : "Only trigger for rows ingested into this Data Table. Its description, columns, and attached sample table are sent to the processing LLM."}
                     </p>
                     <select name="match_data_table_id"
+                      required={dataTableRequired}
                       value={selectedDataTableId}
                       onChange={(e) => setSelectedDataTableId(e.target.value)}
                       className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
-                      <option value="">— any table —</option>
+                      <option value="">{dataTableRequired ? "— choose a table —" : "— any table —"}</option>
                       {dataTables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                     {selectedDataTable && (

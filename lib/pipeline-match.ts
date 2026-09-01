@@ -50,6 +50,7 @@ export async function matchAndTriggerPipelines(opts: MatchTriggerOpts): Promise<
         pipeline_id: pipeline.id,
         trigger_upload_id: opts.id,
         trigger_upload_table: opts.table,
+        trigger_data_table_id: opts.data_table_id ?? null,
         status: "queued",
       },
     });

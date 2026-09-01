@@ -15,6 +15,7 @@ interface ProcessingWebhookPayload {
   wired_command?: string;
   wired_requirements?: string;
   llm_notes?: string;
+  processor_note?: string; // short per-run status the processor emits ("CRS unclear")
   stdout_log?: string;
   stderr_log?: string;
   output_files?: OutputFile[];
@@ -71,6 +72,7 @@ async function handlePayload(payload: ProcessingWebhookPayload) {
         stderr_log: payload.stderr_log ?? null,
         output_files: (payload.output_files ?? []) as object[],
         error_message: payload.error_message ?? null,
+        processor_note: payload.processor_note ?? payload.llm_notes ?? null,
         started_at: new Date(),
         finished_at: new Date(),
       },
@@ -97,6 +99,7 @@ async function handlePayload(payload: ProcessingWebhookPayload) {
         output_files: (payload.output_files ?? []) as object[],
         output_storage_path: payload.output_storage_path ?? null,
         error_message: payload.error_message ?? null,
+        processor_note: payload.processor_note ?? null,
         finished_at: new Date(),
       },
     });

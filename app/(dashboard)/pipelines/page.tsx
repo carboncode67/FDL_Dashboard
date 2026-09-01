@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdmin, type Role } from "@/lib/roles";
-import { PipelinesClient } from "./pipelines-client";
+import { PipelinesTabs } from "./pipelines-tabs";
 
 export const metadata = { title: "Pipelines" };
 
@@ -9,7 +9,7 @@ export default async function PipelinesPage() {
   const session = await auth();
   const role = (session?.user?.role ?? "viewer") as Role;
 
-  const [pipelines, projects, dataTables] = await Promise.all([
+  const [pipelines, projects, dataTables, runs] = await Promise.all([
     prisma.pipeline.findMany({
       include: {
         Creator: { select: { id: true, name: true, email: true } },
@@ -25,10 +25,15 @@ export default async function PipelinesPage() {
       },
       orderBy: { name: "asc" },
     }),
+    prisma.pipelineRun.findMany({
+      include: { Pipeline: { select: { name: true } } },
+      orderBy: { created_at: "desc" },
+      take: 200,
+    }),
   ]);
 
   return (
-    <PipelinesClient
+    <PipelinesTabs
       initialPipelines={pipelines.map((p) => ({
         id: p.id,
         name: p.name,
@@ -54,6 +59,26 @@ export default async function PipelinesPage() {
         description: t.description,
         columnCount: t._count.FieldDefinitions,
         hasSample: !!t.sample_original_name,
+      }))}
+      runs={runs.map((r) => ({
+        id: r.id,
+        pipeline_id: r.pipeline_id,
+        pipeline_name: r.Pipeline.name,
+        is_test_run: r.is_test_run,
+        status: r.status,
+        prompt: r.prompt,
+        processor_note: r.processor_note,
+        error_message: r.error_message,
+        output_files: (r.output_files as { filename: string; download_url: string }[]) ?? [],
+        output_storage_path: r.output_storage_path,
+        stdout_log: r.stdout_log,
+        stderr_log: r.stderr_log,
+        trigger_upload_table: r.trigger_upload_table,
+        trigger_data_table_id: r.trigger_data_table_id,
+        target_drone_flight_id: r.target_drone_flight_id,
+        started_at: r.started_at?.toISOString() ?? null,
+        finished_at: r.finished_at?.toISOString() ?? null,
+        created_at: r.created_at.toISOString(),
       }))}
       isAdmin={isAdmin(role)}
     />

@@ -154,6 +154,12 @@ export async function POST(request: Request) {
     for (const f of written) { try { fs.unlinkSync(f); } catch {} }
     return NextResponse.json({ error: "match_table is required unless target_kind is drone_flight" }, { status: 400 });
   }
+  // A "Sample Data Upload" (test-data-rows) trigger must name its Data Table — that's
+  // what scopes it to one schema; a wildcard would fire for every tabular ingest.
+  if (!isDroneFlightTarget && match_table === "test-data-rows" && !fields.match_data_table_id) {
+    for (const f of written) { try { fs.unlinkSync(f); } catch {} }
+    return NextResponse.json({ error: "A Sample Data Upload trigger requires a Data Table" }, { status: 400 });
+  }
 
   const pipeline = await prisma.pipeline.create({
     data: {

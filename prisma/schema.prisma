@@ -1234,9 +1234,12 @@ model PipelineRun {
   is_test_run             Boolean   @default(false)
   trigger_upload_id       Int?
   trigger_upload_table    String?
+  trigger_data_table_id   Int?      // for test-data-rows auto-runs: which Data Table's ingest fired this
   target_drone_flight_id  Int?      // set for target_kind = "drone_flight" runs instead of trigger_upload_*
   status                  String    @default("queued") // queued | running | success | failed
   external_job_id         String?
+  prompt                  String?   // operator instruction for a re-run, re-wired by the processor LLM
+  processor_note          String?   // short status the processor emits back ("CRS unclear")
   stdout_log              String?
   stderr_log              String?
   output_files            Json      @default("[]")

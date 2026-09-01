@@ -72,6 +72,10 @@ export interface TriggerRunPayload {
   // PipelineRun.target_drone_flight_id and Item90_Processing_Pipeline_Scope.md).
   input_file_url?: string;
   drone_flight_record_id?: number;
+  // Operator instruction for this run only — the processor re-runs its LLM
+  // wiring step with this folded in and executes the one-off command instead
+  // of the pipeline's stored one ("set output raster resolution to 5m").
+  prompt?: string;
 }
 
 export async function triggerPipelineRun(
