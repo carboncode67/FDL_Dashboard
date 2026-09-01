@@ -17,6 +17,8 @@ const MAX_UPLOAD_BYTES = Number(process.env.PIPELINE_MAX_UPLOAD_BYTES ?? 2 * 102
 const SAMPLE_TYPE = "pipeline-datasets";
 const SCRIPT_TYPE = "pipeline-scripts";
 const MODEL_TYPE = "pipeline-models";
+const DATA_TABLE_SAMPLE_TYPE = "data-table-samples";
+const SAMPLE_PREVIEW_MAX_CHARS = 4000;
 
 const ALLOWED_MATCH_TABLES = [
   "photos", "notes", "recordings", "locations", "lab-member-uploads", "test-data-rows", "documents",
@@ -158,6 +160,7 @@ export async function POST(request: Request) {
       match_category: isDroneFlightTarget ? null : (fields.match_category || null),
       match_project_id: isDroneFlightTarget ? null : (fields.match_project_id ? Number(fields.match_project_id) : null),
       match_data_table_id: isDroneFlightTarget ? null : (fields.match_data_table_id ? Number(fields.match_data_table_id) : null),
+      use_spatial_context: isDroneFlightTarget ? false : fields.use_spatial_context === "on",
       sample_dataset_filename: sample.filename,
       sample_dataset_original_name: sample.originalName,
       script_filename: script.filename,
@@ -184,6 +187,23 @@ export async function POST(request: Request) {
           include: { FieldDefinitions: { orderBy: { col_index: "asc" } } },
         })
       : null;
+    // Sample table (real rows, not just column labels) attached to the matched Data
+    // Table — read straight off disk and capped, so the wiring LLM sees actual values.
+    let samplePreview: string | null = null;
+    if (matchedTable?.sample_filename) {
+      try {
+        const raw = fs.readFileSync(
+          path.join(DATA_DIR, DATA_TABLE_SAMPLE_TYPE, matchedTable.sample_filename),
+          "utf-8"
+        );
+        samplePreview = raw.length > SAMPLE_PREVIEW_MAX_CHARS
+          ? raw.slice(0, SAMPLE_PREVIEW_MAX_CHARS) + "\n… (truncated)"
+          : raw;
+      } catch {
+        // sample file missing on disk — proceed without it rather than fail registration
+      }
+    }
+
     const dataContext: PipelineDataContext | null =
       pipeline.description || matchedTable
         ? {
@@ -197,6 +217,7 @@ export async function POST(request: Request) {
                     label: d.label,
                     field_type: d.field_type,
                   })),
+                  sample_preview: samplePreview,
                 }
               : null,
           }
@@ -210,6 +231,7 @@ export async function POST(request: Request) {
       script_url: `${baseUrl}/api/files/${SCRIPT_TYPE}/${script.filename}`,
       model_url: model ? `${baseUrl}/api/files/${MODEL_TYPE}/${model.filename}` : null,
       callback_url: `${baseUrl}/api/pipelines/webhook`,
+      use_spatial_context: pipeline.use_spatial_context,
       data_context: dataContext,
     });
 

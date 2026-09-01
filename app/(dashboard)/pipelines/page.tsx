@@ -18,7 +18,13 @@ export default async function PipelinesPage() {
       orderBy: { created_at: "desc" },
     }),
     prisma.project.findMany({ select: { id: true, Project_Name: true }, orderBy: { Project_Name: "asc" } }),
-    prisma.dataTable.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.dataTable.findMany({
+      select: {
+        id: true, name: true, description: true, sample_original_name: true,
+        _count: { select: { FieldDefinitions: true } },
+      },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   return (
@@ -33,6 +39,7 @@ export default async function PipelinesPage() {
         match_category: p.match_category,
         match_project_id: p.match_project_id,
         match_data_table_id: p.match_data_table_id,
+        use_spatial_context: p.use_spatial_context,
         wired_command: p.wired_command,
         last_run_at: p.last_run_at?.toISOString() ?? null,
         last_run_status: p.last_run_status,
@@ -41,7 +48,13 @@ export default async function PipelinesPage() {
         created_at: p.created_at.toISOString(),
       }))}
       projects={projects.map((p) => ({ id: p.id, name: p.Project_Name ?? `Project #${p.id}` }))}
-      dataTables={dataTables}
+      dataTables={dataTables.map((t) => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        columnCount: t._count.FieldDefinitions,
+        hasSample: !!t.sample_original_name,
+      }))}
       isAdmin={isAdmin(role)}
     />
   );

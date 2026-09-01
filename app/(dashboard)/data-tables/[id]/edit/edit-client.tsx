@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTableForm } from "@/components/forms/data-table-form";
+import { DataTableSample } from "@/components/forms/data-table-sample";
 import { SchemaBuilder } from "@/components/schema-builder";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -22,9 +23,13 @@ interface Props {
   homeLabel: string | null;
   usedByTests: string[];
   fieldDefs: Column[];
+  sampleFilename: string | null;
+  sampleOriginalName: string | null;
 }
 
-export default function EditDataTableClient({ table, homeLabel, usedByTests, fieldDefs }: Props) {
+export default function EditDataTableClient({
+  table, homeLabel, usedByTests, fieldDefs, sampleFilename, sampleOriginalName,
+}: Props) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
 
@@ -63,6 +68,15 @@ export default function EditDataTableClient({ table, homeLabel, usedByTests, fie
       <div className="bg-white border rounded-lg p-6 space-y-3">
         <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Data Template</h3>
         <SchemaBuilder endpoint={`/api/data-tables/${table.id}/schema`} initialColumns={fieldDefs} />
+      </div>
+
+      <div className="bg-white border rounded-lg p-6 space-y-3">
+        <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Sample Table</h3>
+        <DataTableSample
+          dataTableId={table.id}
+          sampleFilename={sampleFilename}
+          sampleOriginalName={sampleOriginalName}
+        />
       </div>
 
       {usedByTests.length > 0 && (

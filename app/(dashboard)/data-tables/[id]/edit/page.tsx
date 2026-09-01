@@ -28,6 +28,8 @@ export default async function EditDataTablePage({ params }: { params: Promise<{ 
         test_id: table.test_id,
         drone_id: table.drone_id,
       }}
+      sampleFilename={table.sample_filename}
+      sampleOriginalName={table.sample_original_name}
       homeLabel={
         table.HomeTest
           ? `Test: ${table.HomeTest.Test_Name ?? `#${table.HomeTest.id}`}`

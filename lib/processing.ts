@@ -31,6 +31,9 @@ export interface PipelineDataContext {
     description: string | null;
     data_processing_instructions: string | null;
     columns: { label: string; field_type: string }[];
+    // Raw text of an attached example table (real rows), capped — see
+    // SAMPLE_PREVIEW_MAX_CHARS in app/api/pipelines/route.ts.
+    sample_preview: string | null;
   } | null;
 }
 
@@ -42,6 +45,10 @@ export interface RegisterPipelinePayload {
   script_url: string;
   model_url: string | null;
   callback_url: string;
+  // When true, per-farm spatial-context rasters (terrain/soil/imagery) are
+  // available on the server and the wiring LLM should account for them —
+  // e.g. spatially-informed interpolation (regression kriging, ML).
+  use_spatial_context?: boolean;
   data_context?: PipelineDataContext | null;
 }
 

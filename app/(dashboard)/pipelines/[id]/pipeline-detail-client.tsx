@@ -43,6 +43,7 @@ export interface PipelineDetail {
   match_category: string | null;
   match_project_id: number | null;
   match_data_table_id: number | null;
+  use_spatial_context: boolean;
   sample_dataset_original_name: string;
   sample_dataset_filename: string;
   script_original_name: string;
@@ -137,6 +138,9 @@ export function PipelineDetailClient({
                 </>
               )}
             </span>
+            {pipeline.use_spatial_context && (
+              <Badge variant="outline" className="text-xs">uses spatial context</Badge>
+            )}
           </div>
         </div>
         {isAdmin && (

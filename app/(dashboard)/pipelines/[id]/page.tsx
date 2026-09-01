@@ -45,6 +45,7 @@ export default async function PipelineDetailPage({ params }: { params: Promise<{
         match_category: pipeline.match_category,
         match_project_id: pipeline.match_project_id,
         match_data_table_id: pipeline.match_data_table_id,
+        use_spatial_context: pipeline.use_spatial_context,
         sample_dataset_original_name: pipeline.sample_dataset_original_name,
         sample_dataset_filename: pipeline.sample_dataset_filename,
         script_original_name: pipeline.script_original_name,

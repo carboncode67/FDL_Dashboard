@@ -29,6 +29,7 @@ export interface PipelineRow {
   match_category: string | null;
   match_project_id: number | null;
   match_data_table_id: number | null;
+  use_spatial_context: boolean;
   wired_command: string | null;
   last_run_at: string | null;
   last_run_status: string | null;
@@ -38,7 +39,13 @@ export interface PipelineRow {
 }
 
 interface ProjectOption { id: number; name: string; }
-interface DataTableOption { id: number; name: string; }
+interface DataTableOption {
+  id: number;
+  name: string;
+  description: string | null;
+  columnCount: number;
+  hasSample: boolean;
+}
 
 export function PipelinesClient({
   initialPipelines, projects, dataTables, isAdmin,
@@ -55,7 +62,9 @@ export function PipelinesClient({
   const [formError, setFormError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [isDroneFlightTarget, setIsDroneFlightTarget] = useState(false);
+  const [selectedDataTableId, setSelectedDataTableId] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+  const selectedDataTable = dataTables.find((t) => String(t.id) === selectedDataTableId) ?? null;
 
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -73,6 +82,7 @@ export function PipelinesClient({
           id: data.id, name: data.name, description: data.description, status: data.status,
           target_kind: data.target_kind, match_table: data.match_table, match_category: data.match_category,
           match_project_id: data.match_project_id, match_data_table_id: data.match_data_table_id,
+          use_spatial_context: !!data.use_spatial_context,
           wired_command: data.wired_command, last_run_at: null, last_run_status: null,
           creator_name: "you", run_count: 0, created_at: data.created_at,
         },
@@ -80,6 +90,7 @@ export function PipelinesClient({
       ]);
       setShowForm(false);
       setIsDroneFlightTarget(false);
+      setSelectedDataTableId("");
       formRef.current?.reset();
       router.refresh();
     } catch { setFormError("Network error"); }
@@ -131,21 +142,26 @@ export function PipelinesClient({
               </div>
               <div className="sm:col-span-2 space-y-1">
                 <label className="text-sm font-medium text-slate-700">Description</label>
+                <p className="text-xs text-slate-500">Include a description of the desired output.</p>
                 <textarea name="description"
                   className="w-full rounded-md border border-input bg-white px-3 py-2 text-sm min-h-[60px] resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                  placeholder="What does this pipeline do?" />
+                  placeholder={'e.g. "A GeoTIFF surface of interpolated NBI at 1 m resolution, plus a CSV of per-zone means."'} />
               </div>
               {isDroneFlightTarget ? (
                 <div className="sm:col-span-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
                   This pipeline has no match table — it never auto-triggers on uploads. Imagery is
-                  copied directly onto the processing machine's landing folder for a chosen drone
-                  flight, then run manually from that flight's "Run" button. Output is written to
-                  zraid1 and the flight record's storage path is filled in automatically.
+                  copied directly onto the processing machine&apos;s landing folder for a chosen drone
+                  flight, then run manually from that flight&apos;s &quot;Run&quot; button. Output is written to
+                  zraid1 and the flight record&apos;s storage path is filled in automatically.
                 </div>
               ) : (
                 <>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">Match table</label>
+                    <label className="text-sm font-medium text-slate-700">Trigger on (upload type)</label>
+                    <p className="text-xs text-slate-500">
+                      Which kind of upload sets this pipeline running. Pick <code>test-data-rows</code> for
+                      tabular data collected against a Data Table.
+                    </p>
                     <select name="match_table" required defaultValue=""
                       className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                       <option value="" disabled>— choose —</option>
@@ -154,10 +170,12 @@ export function PipelinesClient({
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-slate-700">Category filter (optional)</label>
+                    <p className="text-xs text-slate-500">Only trigger for uploads tagged with this category.</p>
                     <Input name="match_category" placeholder="leave blank to match any category" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-slate-700">Project scope (optional)</label>
+                    <p className="text-xs text-slate-500">Only trigger for uploads in this project.</p>
                     <select name="match_project_id" defaultValue=""
                       className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                       <option value="">— any project —</option>
@@ -165,12 +183,40 @@ export function PipelinesClient({
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">Table scope (optional)</label>
-                    <select name="match_data_table_id" defaultValue=""
+                    <label className="text-sm font-medium text-slate-700">Data Table (optional)</label>
+                    <p className="text-xs text-slate-500">
+                      Only trigger for rows ingested into this Data Table. Its description, columns, and
+                      attached sample table are sent to the processing LLM so it knows what the data means.
+                    </p>
+                    <select name="match_data_table_id"
+                      value={selectedDataTableId}
+                      onChange={(e) => setSelectedDataTableId(e.target.value)}
                       className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                       <option value="">— any table —</option>
                       {dataTables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
+                    {selectedDataTable && (
+                      <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 space-y-1">
+                        <p>{selectedDataTable.description || <span className="italic text-slate-400">No description set.</span>}</p>
+                        <p>
+                          {selectedDataTable.columnCount} column{selectedDataTable.columnCount === 1 ? "" : "s"} defined ·{" "}
+                          {selectedDataTable.hasSample
+                            ? "sample table attached — sent to the LLM"
+                            : <span className="text-amber-700">no sample table attached</span>}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="sm:col-span-2 flex items-start gap-2 pt-1">
+                    <input type="checkbox" name="use_spatial_context" id="use_spatial_context" className="mt-0.5" />
+                    <label htmlFor="use_spatial_context" className="text-sm text-slate-700">
+                      <span className="font-medium">Use spatial context</span>
+                      <p className="text-xs text-slate-500">
+                        Tell the processing LLM that per-farm spatial-context rasters (terrain, soil,
+                        imagery) are available on the server, so it can use them for spatially-informed
+                        interpolation — regression, regression kriging, ML, etc.
+                      </p>
+                    </label>
                   </div>
                 </>
               )}
@@ -182,9 +228,9 @@ export function PipelinesClient({
                   className="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm" />
                 {isDroneFlightTarget && (
                   <p className="text-xs text-slate-500">
-                    Upload a .zip of a handful of sample images — it's extracted into a folder
+                    Upload a .zip of a handful of sample images — it&apos;s extracted into a folder
                     on the processing machine so the wired script can be tested against a
-                    directory, same shape as a real flight's landing folder.
+                    directory, same shape as a real flight&apos;s landing folder.
                   </p>
                 )}
               </div>

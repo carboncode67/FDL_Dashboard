@@ -708,6 +708,8 @@ model DataTable {
   data_processing_instructions  String?
   test_id                       Int?
   drone_id                      Int?
+  sample_filename               String?
+  sample_original_name          String?
   created_at                    DateTime  @default(now())
   updated_at                    DateTime  @updatedAt
 
@@ -1200,6 +1202,7 @@ model Pipeline {
   match_category                String?
   match_project_id              Int?
   match_data_table_id           Int?
+  use_spatial_context           Boolean   @default(false) // tell the processing LLM per-farm spatial-context rasters are available for interpolation
   sample_dataset_filename       String
   sample_dataset_original_name  String
   script_filename                String

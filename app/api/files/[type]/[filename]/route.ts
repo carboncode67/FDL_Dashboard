@@ -10,7 +10,7 @@ const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 const ALLOWED_TYPES = [
   "photos", "recordings", "locations", "documents", "depth_maps",
   "pipeline-datasets", "pipeline-scripts", "pipeline-models",
-  "context",
+  "context", "data-table-samples",
 ] as const;
 
 const MIME_TYPES: Record<string, string> = {
