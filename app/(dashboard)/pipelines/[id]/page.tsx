@@ -9,7 +9,7 @@ export default async function PipelineDetailPage({ params }: { params: Promise<{
   const session = await auth();
   const role = (session?.user?.role ?? "viewer") as Role;
 
-  const [pipeline, droneFlights] = await Promise.all([
+  const [pipeline, droneFlights, projects, dataTables] = await Promise.all([
     prisma.pipeline.findUnique({
       where: { id: parseInt(id) },
       include: {
@@ -29,6 +29,14 @@ export default async function PipelineDetailPage({ params }: { params: Promise<{
         },
       },
       orderBy: [{ flight_date: "desc" }, { created_at: "desc" }],
+    }),
+    prisma.project.findMany({ select: { id: true, Project_Name: true }, orderBy: { Project_Name: "asc" } }),
+    prisma.dataTable.findMany({
+      select: {
+        id: true, name: true, description: true, sample_original_name: true,
+        _count: { select: { FieldDefinitions: true } },
+      },
+      orderBy: { name: "asc" },
     }),
   ]);
   if (!pipeline) notFound();
@@ -80,6 +88,14 @@ export default async function PipelineDetailPage({ params }: { params: Promise<{
           r.ExperimentDroneFlight.Drone.Name,
           r.flight_date ? r.flight_date.toISOString().slice(0, 10) : "no date",
         ].filter(Boolean).join(" / "),
+      }))}
+      projects={projects.map((p) => ({ id: p.id, name: p.Project_Name ?? `Project #${p.id}` }))}
+      dataTables={dataTables.map((t) => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        columnCount: t._count.FieldDefinitions,
+        hasSample: !!t.sample_original_name,
       }))}
       isAdmin={isAdmin(role)}
     />
