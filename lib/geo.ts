@@ -42,6 +42,85 @@ function geometryAreaSqMeters(geom: any): number {
   }
 }
 
+// [minLng, minLat, maxLng, maxLat]
+export type Bounds = [number, number, number, number];
+
+function extendBounds(b: Bounds | null, coords: unknown): Bounds | null {
+  if (!Array.isArray(coords)) return b;
+  // A position is [number, number, ...]; anything else is a nested coordinate array.
+  if (typeof coords[0] === "number" && typeof coords[1] === "number") {
+    const [lng, lat] = coords as number[];
+    if (!b) return [lng, lat, lng, lat];
+    return [Math.min(b[0], lng), Math.min(b[1], lat), Math.max(b[2], lng), Math.max(b[3], lat)];
+  }
+  let acc = b;
+  for (const c of coords) acc = extendBounds(acc, c);
+  return acc;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function geometryBounds(geom: any, b: Bounds | null): Bounds | null {
+  if (!geom) return b;
+  if (geom.type === "GeometryCollection") {
+    let acc = b;
+    for (const g of geom.geometries ?? []) acc = geometryBounds(g, acc);
+    return acc;
+  }
+  return extendBounds(b, geom.coordinates);
+}
+
+/** Bounding box of a raw GeoJSON geometry / Feature / FeatureCollection string. */
+export function geojsonBounds(geojsonStr: string | null | undefined): Bounds | null {
+  if (!geojsonStr) return null;
+  try {
+    const parsed = JSON.parse(geojsonStr);
+    if (parsed.type === "Feature") return geometryBounds(parsed.geometry, null);
+    if (parsed.type === "FeatureCollection") {
+      let acc: Bounds | null = null;
+      for (const f of parsed.features ?? []) acc = geometryBounds(f?.geometry, acc);
+      return acc;
+    }
+    return geometryBounds(parsed, null);
+  } catch {
+    return null;
+  }
+}
+
+/** Union of several geometry bounding boxes (nulls skipped). */
+export function unionBounds(all: (Bounds | null)[]): Bounds | null {
+  let acc: Bounds | null = null;
+  for (const b of all) {
+    if (!b) continue;
+    acc = acc
+      ? [Math.min(acc[0], b[0]), Math.min(acc[1], b[1]), Math.max(acc[2], b[2]), Math.max(acc[3], b[3])]
+      : b;
+  }
+  return acc;
+}
+
+/**
+ * A closed [[lng,lat],...] ring for `bounds` expanded by `bufferMeters`, rounded
+ * to 6 dp. This is the shape GeoDaRT's `aoi_coords` accepts (a bare ring — not a
+ * GeoJSON geometry object).
+ */
+export function bboxRing(bounds: Bounds, bufferMeters = 0): [number, number][] {
+  const dLat = bufferMeters / METERS_PER_DEGREE_LAT;
+  const meanLat = (bounds[1] + bounds[3]) / 2;
+  const dLng = bufferMeters / (METERS_PER_DEGREE_LAT * Math.cos((meanLat * Math.PI) / 180) || METERS_PER_DEGREE_LAT);
+  const r = (n: number) => Math.round(n * 1e6) / 1e6;
+  const minX = r(bounds[0] - dLng);
+  const minY = r(bounds[1] - dLat);
+  const maxX = r(bounds[2] + dLng);
+  const maxY = r(bounds[3] + dLat);
+  return [
+    [minX, minY],
+    [maxX, minY],
+    [maxX, maxY],
+    [minX, maxY],
+    [minX, minY],
+  ];
+}
+
 export function geojsonAreaAcres(geojsonStr: string | null | undefined): number {
   if (!geojsonStr) return 0;
   try {

@@ -43,6 +43,13 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      # Optional. GeoDaRT spatial-context pulls ("Pull spatial context" on farm
+      # pages). Works keyless for POLARIS / USGS 3DEP / US Drought Monitor;
+      # GEODART_PASSWORD_HASH (once GeoDaRT issues it) unlocks SOLUS + Sentinel-2.
+      GEODART_URL: ${GEODART_URL:-https://geodart-api.farmersdatalab.scienceversa.com}
+      GEODART_USER_GUID: ${GEODART_USER_GUID:-}
+      GEODART_USER_EMAIL: ${GEODART_USER_EMAIL:-}
+      GEODART_PASSWORD_HASH: ${GEODART_PASSWORD_HASH:-}
     volumes:
       - upload-data:/app/upload-data
     depends_on:

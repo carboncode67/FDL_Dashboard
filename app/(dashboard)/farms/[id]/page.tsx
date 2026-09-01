@@ -27,6 +27,9 @@ import { FieldBoundaryUpload } from "@/components/field-boundary-upload";
 import { DocumentUpload } from "@/components/document-upload";
 import { AddContactButton } from "@/components/add-contact-button";
 import { DrawFieldButton } from "@/components/draw-field-button";
+import { SpatialContextCard } from "@/components/spatial-context-card";
+import { serializeContextJob } from "@/lib/context-types";
+import { geodartHasKey } from "@/lib/geodart";
 
 const STATUS_LABELS: Record<number, { label: string; variant: "default" | "secondary" | "outline" }> = {
   1: { label: "Unassigned", variant: "outline" },
@@ -289,6 +292,17 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
   const farmFieldNames = farm.Fields.map((f) => ({ id: f.id, name: f.Name }));
   const fieldGeometries = farm.Fields.map((f) => ({ id: f.id, geometry: f.geometry ?? null }));
 
+  const contextJobs = (
+    await prisma.contextFetchJob.findMany({
+      where: { farm_id: farmId },
+      include: { Rasters: { orderBy: { id: "asc" } } },
+      orderBy: { created_at: "desc" },
+      take: 20,
+    })
+  ).map(serializeContextJob);
+  const farmHasGeometry =
+    farm.Fields.some((f) => f.geometry) || farm.ExperimentZones.some((z) => z.geometry);
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
@@ -492,6 +506,14 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             farmId={farm.id}
             fieldCount={farm.Fields.length}
             drawButton={showCreate ? <DrawFieldButton farmId={farm.id} /> : undefined}
+          />
+
+          <SpatialContextCard
+            farmId={farm.id}
+            hasGeometry={farmHasGeometry}
+            canPull={showEdit}
+            hasKey={geodartHasKey}
+            initialJobs={contextJobs}
           />
         </TabsContent>
 

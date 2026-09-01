@@ -10,6 +10,7 @@ const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 const ALLOWED_TYPES = [
   "photos", "recordings", "locations", "documents", "depth_maps",
   "pipeline-datasets", "pipeline-scripts", "pipeline-models",
+  "context",
 ] as const;
 
 const MIME_TYPES: Record<string, string> = {
@@ -18,6 +19,7 @@ const MIME_TYPES: Record<string, string> = {
   ogg: "audio/ogg", webm: "audio/webm", mp4: "video/mp4",
   pdf: "application/pdf", json: "application/json",
   csv: "text/csv", gpkg: "application/geopackage+sqlite3", py: "text/x-python",
+  tif: "image/tiff", tiff: "image/tiff",
   safetensors: "application/octet-stream", pt: "application/octet-stream",
 };
 

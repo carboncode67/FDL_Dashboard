@@ -15,6 +15,7 @@ import cron from "node-cron";
 import { prisma } from "@/lib/prisma";
 import { buildReportData, generateReportHtml } from "@/lib/report-generator";
 import { sendMail } from "@/lib/mailer";
+import { advanceContextJobs } from "@/lib/context-fetch";
 
 let started = false;
 
@@ -86,4 +87,11 @@ export function startScheduler() {
   });
 
   console.log("[Scheduler] Report scheduler started — checks daily at 7:00 AM");
+
+  // Advance in-flight GeoDaRT "pull spatial context" jobs: submit retries, poll,
+  // and download + ingest finished ones. See lib/context-fetch.ts.
+  cron.schedule("*/2 * * * *", () => {
+    advanceContextJobs().catch((e) => console.error("[ContextFetch]", e));
+  });
+  console.log("[Scheduler] Spatial-context job sweep started — every 2 minutes");
 }

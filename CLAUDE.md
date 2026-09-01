@@ -60,6 +60,16 @@ Slide-over forms live in `components/forms/`. The wrapper is `SlideOverForm` (sh
 
 `Fields.geometry` and `ExperimentZones.geometry` are stored as raw GeoJSON geometry objects (not Feature wrappers) in TEXT columns. The draw UI (`components/field-draw-map.tsx`, dynamically imported via `field-draw-map-wrapper.tsx`) uses `@geoman-io/leaflet-geoman-free`. ESRI satellite tiles use `{z}/{y}/{x}` order (not `{z}/{x}/{y}`).
 
+## Spatial context ("Pull spatial context")
+
+Per-farm environmental rasters (soil / terrain / drought, later imagery) fetched from the ScienceVersa **GeoDaRT** API. Entry point is a card on the farm detail page's Overview tab (`components/spatial-context-card.tsx`).
+
+- **Client** (`lib/geodart.ts`): TS port of GeoDaRT's async HTTP contract — `submitJob → getJob → jobDownloadLink`. GeoDaRT does the AOI clipping and COG conversion, so nothing here needs GDAL. `aoi_coords` **must be a bare `[[lon,lat],…]` ring** — GeoJSON geometry/Feature dicts, bbox arrays and WKT are all rejected. Products: `POLARIS`, `USGS3DEP_10m`, `USDroughtMonitor` need no key (placeholder guid+email); `SOLUS`, `Sentinel2` need `GEODART_PASSWORD_HASH` which GeoDaRT hasn't issued yet. All `GEODART_*` env vars optional.
+- **Worker** (`lib/context-fetch.ts`, wired into `lib/scheduler.ts` on a `*/2 * * * *` cron): `advanceContextJobs()` claims each in-flight `Context_Fetch_Jobs` row (optimistic `claimed_at` lock), (re)submits `pending` ones, polls `submitted`/`running` ones, and on a terminal GeoDaRT status streams the signed zip to a temp file, `yauzl`-extracts each `.tif` into `DATA_DIR/context/` as a flat `ctx_<jobId>_<product>_<NN>.tif`, and writes `Context_Rasters` rows.
+- **DB**: `Context_Fetch_Jobs` (one per pull — `products[]`, date range, `aoi` ring, `status` pending|submitted|running|success|partial|failed, `product_results` JSONB) and `Context_Rasters` (one per file — `product`, `filename`, `bytes`, `sha256`, `footprint`, `capture_date`). Migration `054_context_rasters.sql`.
+- **API**: `POST /api/farms/[id]/context` (session + `canEdit`) builds the AOI from the farm's `Fields`/`ExperimentZones` geometry via `lib/geo.ts` `geojsonBounds`+`bboxRing`, submits, creates the job row (`pending` if GeoDaRT is unreachable — cron retries). `GET /api/context/jobs/[jobId]` is a plain status read the card polls every 5 s.
+- **Serving**: rasters are served by the existing `GET /api/files/context/[filename]` route (`"context"` added to `ALLOWED_TYPES`, `tif`→`image/tiff`). It already does HTTP range requests, so COGs are directly usable by a web map / tiler / `rio-tiler`.
+
 ## Key `lib/` Modules
 
 | File | Purpose |

@@ -34,6 +34,8 @@ model User {
   FormAssignments    FormAssignment[]
   FormResponses      FormResponse[]
   CreatedPipelines   Pipeline[]
+  EquipmentLoansSignedOut EquipmentLoan[]
+  ContextFetchJobs   ContextFetchJob[]
 
   @@map("users")
   @@schema("public")
@@ -138,6 +140,8 @@ model Farm {
   FarmExperiments  FarmExperiment[]
   FormAssignments  FormAssignment[]
   FormResponses    FormResponse[]
+  ContextFetchJobs ContextFetchJob[]
+  ContextRasters   ContextRaster[]
 
   @@map("Farms")
   @@schema("pgntarg2udzj1f3")
@@ -1246,5 +1250,63 @@ model PipelineRun {
   @@index([status])
   @@index([target_drone_flight_id])
   @@map("Pipeline_Runs")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model ContextFetchJob {
+  id                 Int       @id @default(autoincrement())
+  farm_id            Int
+  requested_by       String?
+  products           String[]  @default([]) // GeoDaRT product codes: POLARIS | USGS3DEP_10m | USDroughtMonitor | SOLUS | Sentinel2
+  start_date         DateTime  @db.Date
+  end_date           DateTime  @db.Date
+  buffer_m           Float     @default(150)
+  aoi                Json // the [[lon,lat],...] ring sent to GeoDaRT
+  export_format      String    @default("COG")
+  status             String    @default("pending") // pending | submitted | running | success | partial | failed
+  progress           Int       @default(0)
+  geodart_job_id     String?
+  geodart_request_id String?
+  product_results    Json      @default("{}")
+  error_message      String?
+  claimed_at         DateTime? // optimistic lock for the cron sweep
+  created_at         DateTime  @default(now())
+  submitted_at       DateTime?
+  finished_at        DateTime?
+
+  Farm      Farm            @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  Requester User?           @relation(fields: [requested_by], references: [id], onDelete: SetNull)
+  Rasters   ContextRaster[]
+
+  @@index([status])
+  @@index([farm_id])
+  @@map("Context_Fetch_Jobs")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model ContextRaster {
+  id           Int       @id @default(autoincrement())
+  job_id       Int
+  farm_id      Int
+  product      String
+  band_names   String[]  @default([])
+  start_date   DateTime? @db.Date
+  end_date     DateTime? @db.Date
+  capture_date DateTime? @db.Date
+  filename     String // flat basename under DATA_DIR/context/
+  bytes        BigInt
+  sha256       String
+  footprint    Json // GeoJSON Polygon of the requested AOI bbox
+  crs          String?
+  pixel_size_m Float?
+  fetched_at   DateTime  @default(now())
+
+  Job  ContextFetchJob @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  Farm Farm            @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+
+  @@unique([job_id, filename])
+  @@index([job_id])
+  @@index([farm_id, product])
+  @@map("Context_Rasters")
   @@schema("pgntarg2udzj1f3")
 }
