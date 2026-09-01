@@ -85,8 +85,13 @@ export async function POST(request: Request) {
 
       bb.on("file", (fieldname, fileStream, info) => {
         const dir = fieldname === "sample_dataset" ? sampleDir : fieldname === "script" ? scriptDir : fieldname === "model" ? modelDir : null;
-        if (!dir) {
-          fileStream.resume(); // drain unknown field
+        // A <form>'s optional file input (here, "model") with nothing chosen still shows
+        // up as a file part when the browser builds FormData from the whole form — but
+        // with no filename. Drain it like an unknown field rather than treat it as a real
+        // upload (info.filename is undefined here, not "", so passing it to sanitizedName
+        // throws "Cannot read properties of undefined (reading 'replace')").
+        if (!dir || !info.filename) {
+          fileStream.resume();
           return;
         }
         const filename = sanitizedName(info.filename);
