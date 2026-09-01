@@ -24,6 +24,8 @@ const STATUS_VARIANT: Record<string, "outline" | "secondary" | "default" | "dest
 
 export interface PipelineRunRow {
   id: number;
+  farm_id: number | null;
+  farm_name: string | null;
   is_test_run: boolean;
   status: string;
   stdout_log: string | null;
@@ -367,6 +369,7 @@ export function PipelineDetailClient({
           <TableHeader>
             <TableRow>
               <TableHead>Status</TableHead>
+              <TableHead>Farm</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Started</TableHead>
               <TableHead>Finished</TableHead>
@@ -376,13 +379,22 @@ export function PipelineDetailClient({
           <TableBody>
             {pipeline.runs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-slate-500 py-8">No runs yet</TableCell>
+                <TableCell colSpan={6} className="text-center text-slate-500 py-8">No runs yet</TableCell>
               </TableRow>
             ) : pipeline.runs.map((r) => (
               <Fragment key={r.id}>
                 <TableRow className="cursor-pointer hover:bg-slate-50"
                   onClick={() => setExpandedRun(expandedRun === r.id ? null : r.id)}>
                   <TableCell><Badge variant={STATUS_VARIANT[r.status] ?? "outline"}>{r.status}</Badge></TableCell>
+                  <TableCell className="text-sm">
+                    {r.farm_name ? (
+                      <a href={`/farms/${r.farm_id}`} className="text-blue-600 hover:underline" onClick={(e) => e.stopPropagation()}>
+                        {r.farm_name}
+                      </a>
+                    ) : (
+                      <span className="text-slate-400 italic">No Farm Associated</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-sm text-slate-600">{r.is_test_run ? "test" : "triggered"}</TableCell>
                   <TableCell className="text-sm text-slate-500">{r.started_at ? new Date(r.started_at).toLocaleString() : "—"}</TableCell>
                   <TableCell className="text-sm text-slate-500">{r.finished_at ? new Date(r.finished_at).toLocaleString() : "—"}</TableCell>
@@ -390,7 +402,7 @@ export function PipelineDetailClient({
                 </TableRow>
                 {expandedRun === r.id && (
                   <TableRow key={`${r.id}-detail`}>
-                    <TableCell colSpan={5} className="bg-slate-50 text-xs space-y-2">
+                    <TableCell colSpan={6} className="bg-slate-50 text-xs space-y-2">
                       {r.error_message && <p className="text-red-600">{r.error_message}</p>}
                       {r.output_storage_path && (
                         <p className="text-slate-700">

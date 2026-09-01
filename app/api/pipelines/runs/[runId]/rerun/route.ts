@@ -59,6 +59,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ runId: 
       trigger_upload_table: priorRun.trigger_upload_table,
       trigger_data_table_id: priorRun.trigger_data_table_id,
       target_drone_flight_id: priorRun.target_drone_flight_id,
+      // Same trigger context as priorRun (same upload/experiment/flight, just run
+      // again) — reuse its already-resolved farm rather than re-resolving.
+      farm_id: priorRun.farm_id,
       prompt,
       status: "queued",
     },

@@ -142,6 +142,8 @@ model Farm {
   FormResponses    FormResponse[]
   ContextFetchJobs ContextFetchJob[]
   ContextRasters   ContextRaster[]
+  PipelineRuns     PipelineRun[]
+  PipelineOutputRasters PipelineOutputRaster[]
 
   @@map("Farms")
   @@schema("pgntarg2udzj1f3")
@@ -1265,14 +1267,44 @@ model PipelineRun {
   started_at              DateTime?
   finished_at             DateTime?
   created_at              DateTime  @default(now())
+  // Resolved once at creation from whichever trigger shape applies (see
+  // lib/pipeline-farm.ts) — NULL means no farm could be resolved (e.g. a manual
+  // "Run"/registration test-run with no upload/experiment context).
+  farm_id                 Int?
 
-  Pipeline          Pipeline           @relation(fields: [pipeline_id], references: [id], onDelete: Cascade)
-  TargetDroneFlight DroneFlightRecord? @relation(fields: [target_drone_flight_id], references: [id], onDelete: SetNull)
+  Pipeline          Pipeline                @relation(fields: [pipeline_id], references: [id], onDelete: Cascade)
+  TargetDroneFlight DroneFlightRecord?      @relation(fields: [target_drone_flight_id], references: [id], onDelete: SetNull)
+  Farm              Farm?                   @relation(fields: [farm_id], references: [id], onDelete: SetNull)
+  OutputRasters     PipelineOutputRaster[]
 
   @@index([pipeline_id])
   @@index([status])
   @@index([target_drone_flight_id])
+  @@index([farm_id])
   @@map("Pipeline_Runs")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// A spatial (raster) pipeline output, pulled down from the processing machine and
+// linked to the farm its triggering run resolved to, so it can be shown on that
+// farm's map. Same shape/precedent as ContextRaster; farm_id is only ever set when
+// the run itself resolved to a farm — see PipelineRun.farm_id.
+model PipelineOutputRaster {
+  id                Int      @id @default(autoincrement())
+  pipeline_run_id   Int
+  farm_id           Int
+  filename          String // flat basename under DATA_DIR/pipeline-outputs/
+  original_filename String // the name the processing machine's output/ dir gave it
+  bytes             BigInt
+  sha256            String
+  created_at        DateTime @default(now())
+
+  Run  PipelineRun @relation(fields: [pipeline_run_id], references: [id], onDelete: Cascade)
+  Farm Farm        @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+
+  @@index([pipeline_run_id])
+  @@index([farm_id])
+  @@map("Pipeline_Output_Rasters")
   @@schema("pgntarg2udzj1f3")
 }
 

@@ -5,6 +5,18 @@ import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, Polyline, useMap
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 
+// georaster-layer-for-leaflet is a plain Leaflet plugin, not a react-leaflet
+// component — RasterLayer below wires it in imperatively via useMap(), same pattern
+// as BoundsAdjuster. Dynamically imported inside the effect (not at module scope):
+// both packages assume a browser environment (they touch `window`) and this whole
+// component is already ssr:false via farm-map-wrapper.tsx, but a static top-level
+// import would still make Next's build step try to evaluate them at bundle time.
+export interface MapRaster {
+  id: number
+  url: string
+  label: string
+}
+
 interface MapField {
   id: number
   name: string
@@ -60,6 +72,7 @@ export interface FarmMapProps {
   notes: MapNote[]
   farmId: number
   labUploads?: LabUploadPin[]
+  rasters?: MapRaster[]
   farmLat?: number
   farmLng?: number
 }
@@ -109,8 +122,44 @@ function BoundsAdjuster({ bounds }: { bounds: L.LatLngBoundsExpression }) {
   return null
 }
 
-export default function FarmMap({ fields, zones, photos, notes, farmId, labUploads = [], farmLat, farmLng }: FarmMapProps) {
+// Fetches and parses a GeoTIFF (whole-file, not tiled COG streaming — fine for
+// lab-scale pipeline outputs; a large raster would want geotiff.js's own tile
+// reader instead) and renders it as a Leaflet layer, geo-referenced from the
+// file's own embedded bounds — no separate footprint/extent needs storing in the DB.
+function RasterLayer({ url }: { url: string }) {
+  const map = useMap()
+  useEffect(() => {
+    let cancelled = false
+    let layer: L.Layer | null = null
+
+    Promise.all([import("georaster"), import("georaster-layer-for-leaflet")])
+      .then(([georasterMod, geoRasterLayerMod]) =>
+        fetch(url)
+          .then((r) => r.arrayBuffer())
+          .then((buf) => georasterMod.default(buf))
+          .then((georaster) => {
+            if (cancelled) return
+            const GeoRasterLayer = geoRasterLayerMod.default
+            layer = new GeoRasterLayer({ georaster, opacity: 0.75, resolution: 256 })
+            layer.addTo(map)
+          })
+      )
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+      if (layer) map.removeLayer(layer)
+    }
+  }, [map, url])
+  return null
+}
+
+export default function FarmMap({ fields, zones, photos, notes, farmId, labUploads = [], rasters = [], farmLat, farmLng }: FarmMapProps) {
   const [gpsTracks, setGpsTracks] = useState<GpsTrack[]>([])
+  // Off by default — overlaying every pipeline-output raster at once (e.g. 4+ from a
+  // single EM38 interpolation run) would just be visual noise; the checklist below
+  // the map lets someone turn on the one(s) they actually want to look at.
+  const [visibleRasterIds, setVisibleRasterIds] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     fetch(`/api/farms/${farmId}/gps-tracks`)
@@ -159,6 +208,11 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+
+          {/* Pipeline output rasters — toggled via the checklist below the map */}
+          {rasters.filter((r) => visibleRasterIds.has(r.id)).map((r) => (
+            <RasterLayer key={`raster-${r.id}`} url={r.url} />
+          ))}
 
           {/* Field boundaries — green */}
           {fields.map((f) => {
@@ -332,6 +386,29 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
           })}
         </MapContainer>
       </div>
+
+      {rasters.length > 0 && (
+        <div className="flex flex-wrap gap-3 px-1 text-sm">
+          <span className="text-slate-500">Pipeline outputs:</span>
+          {rasters.map((r) => (
+            <label key={r.id} className="flex items-center gap-1.5 text-slate-700">
+              <input
+                type="checkbox"
+                checked={visibleRasterIds.has(r.id)}
+                onChange={(e) =>
+                  setVisibleRasterIds((prev) => {
+                    const next = new Set(prev)
+                    if (e.target.checked) next.add(r.id)
+                    else next.delete(r.id)
+                    return next
+                  })
+                }
+              />
+              {r.label}
+            </label>
+          ))}
+        </div>
+      )}
 
       {/* Legend */}
       <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-600 px-1">

@@ -26,7 +26,10 @@ export default async function PipelinesPage() {
       orderBy: { name: "asc" },
     }),
     prisma.pipelineRun.findMany({
-      include: { Pipeline: { select: { name: true } } },
+      include: {
+        Pipeline: { select: { name: true } },
+        Farm: { select: { id: true, Farm_Name: true } },
+      },
       orderBy: { created_at: "desc" },
       take: 200,
     }),
@@ -64,6 +67,8 @@ export default async function PipelinesPage() {
         id: r.id,
         pipeline_id: r.pipeline_id,
         pipeline_name: r.Pipeline.name,
+        farm_id: r.Farm?.id ?? null,
+        farm_name: r.Farm?.Farm_Name ?? null,
         is_test_run: r.is_test_run,
         status: r.status,
         prompt: r.prompt,

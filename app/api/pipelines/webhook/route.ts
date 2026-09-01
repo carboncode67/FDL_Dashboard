@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import fs from "fs";
+import path from "path";
+import { createHash } from "crypto";
+
+export const runtime = "nodejs";
 
 // The processing machine calls this when a registration test-run or a
 // triggered run finishes. Configure PROCESSING_WEBHOOK_SECRET on both sides —
 // same HMAC-over-body pattern as the CVAT webhook (app/api/annotations/webhook).
 
-interface OutputFile { filename: string; download_url: string }
+const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
+const OUTPUT_RASTER_TYPE = "pipeline-outputs";
+
+interface OutputFile { filename: string; download_url: string; kind?: "raster" | "file" }
 
 interface ProcessingWebhookPayload {
   event: "pipeline_registered" | "pipeline_failed" | "run_completed" | "run_failed";
@@ -21,6 +29,60 @@ interface ProcessingWebhookPayload {
   output_files?: OutputFile[];
   output_storage_path?: string; // set for target_kind = "drone_flight" runs — final zraid1 path
   error_message?: string;
+}
+
+// Pulls down every "raster"-kind output file (currently .tif/.tiff, see
+// PipelineProcessor's main.py _collect_outputs) from the processing machine's own
+// GET /outputs/{pipeline_id}/{filename} route and registers each as a
+// Pipeline_Output_Rasters row, farm-linked so it shows up on that farm's map —
+// same precedent as Context_Rasters (GeoDaRT pulls). Only called when the run
+// resolved to a farm (see lib/pipeline-farm.ts / PipelineRun.farm_id) — a
+// registration test-run against the pipeline's own sample dataset has no farm_id by
+// design and never reaches here, so sample data never pollutes a farm's map.
+// Best-effort: a download failure for one file logs and continues rather than
+// failing the whole webhook response (the run itself already succeeded).
+async function ingestOutputRasters(
+  pipelineRunId: number,
+  farmId: number,
+  outputFiles: OutputFile[]
+): Promise<void> {
+  const rasters = outputFiles.filter((f) => f.kind === "raster");
+  if (rasters.length === 0) return;
+
+  const processingApiKey = process.env.PROCESSING_API_KEY;
+  if (!processingApiKey) return; // processing not configured — nothing to authenticate the pull with
+
+  const destDir = path.join(DATA_DIR, OUTPUT_RASTER_TYPE);
+  fs.mkdirSync(destDir, { recursive: true });
+
+  for (const file of rasters) {
+    try {
+      const res = await fetch(file.download_url, {
+        headers: { Authorization: `Bearer ${processingApiKey}` },
+      });
+      if (!res.ok || !res.body) {
+        console.error(`[pipelines webhook] failed to fetch output ${file.filename}: ${res.status}`);
+        continue;
+      }
+      const buffer = Buffer.from(await res.arrayBuffer());
+      const sha256 = createHash("sha256").update(buffer).digest("hex");
+      const storedFilename = `${Date.now()}_${file.filename.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      fs.writeFileSync(path.join(destDir, storedFilename), buffer);
+
+      await prisma.pipelineOutputRaster.create({
+        data: {
+          pipeline_run_id: pipelineRunId,
+          farm_id: farmId,
+          filename: storedFilename,
+          original_filename: file.filename,
+          bytes: buffer.length,
+          sha256,
+        },
+      });
+    } catch (err) {
+      console.error(`[pipelines webhook] error ingesting output ${file.filename}`, err);
+    }
+  }
 }
 
 export async function POST(req: Request) {
@@ -116,6 +178,10 @@ async function handlePayload(payload: ProcessingWebhookPayload) {
         where: { id: run.target_drone_flight_id },
         data: { data_storage_path: payload.output_storage_path },
       });
+    }
+
+    if (success && run.farm_id && payload.output_files) {
+      await ingestOutputRasters(run.id, run.farm_id, payload.output_files);
     }
 
     return NextResponse.json({ ok: true, action: success ? "run_success" : "run_failed" });

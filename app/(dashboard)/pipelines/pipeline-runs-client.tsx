@@ -16,6 +16,8 @@ export interface PipelineRunRow {
   id: number;
   pipeline_id: number;
   pipeline_name: string;
+  farm_id: number | null;
+  farm_name: string | null;
   is_test_run: boolean;
   status: string;
   prompt: string | null;
@@ -79,6 +81,7 @@ export function PipelineRunsClient({ runs, isAdmin }: { runs: PipelineRunRow[]; 
           <TableHeader>
             <TableRow>
               <TableHead>Pipeline</TableHead>
+              <TableHead>Farm</TableHead>
               <TableHead>Trigger</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>When</TableHead>
@@ -90,6 +93,15 @@ export function PipelineRunsClient({ runs, isAdmin }: { runs: PipelineRunRow[]; 
               <Fragment key={r.id}>
                 <TableRow className="cursor-pointer hover:bg-slate-50" onClick={() => setExpanded(expanded === r.id ? null : r.id)}>
                   <TableCell className="font-medium">{r.pipeline_name}</TableCell>
+                  <TableCell className="text-sm">
+                    {r.farm_name ? (
+                      <a href={`/farms/${r.farm_id}`} className="text-blue-600 hover:underline" onClick={(e) => e.stopPropagation()}>
+                        {r.farm_name}
+                      </a>
+                    ) : (
+                      <span className="text-slate-400 italic">No Farm Associated</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-sm text-slate-600">
                     {triggerLabel(r)}
                     {r.prompt && <Badge variant="outline" className="ml-2 text-xs">prompted</Badge>}
@@ -115,7 +127,7 @@ export function PipelineRunsClient({ runs, isAdmin }: { runs: PipelineRunRow[]; 
 
                 {promptForId === r.id && (
                   <TableRow>
-                    <TableCell colSpan={5} className="bg-slate-50">
+                    <TableCell colSpan={6} className="bg-slate-50">
                       <div className="space-y-2 py-1">
                         <p className="text-xs text-slate-500">
                           Re-run with an instruction for the processing model — it re-wires the script for this run only.
@@ -140,7 +152,7 @@ export function PipelineRunsClient({ runs, isAdmin }: { runs: PipelineRunRow[]; 
 
                 {expanded === r.id && (
                   <TableRow>
-                    <TableCell colSpan={5} className="bg-slate-50">
+                    <TableCell colSpan={6} className="bg-slate-50">
                       <div className="space-y-3 py-2 text-sm">
                         {r.prompt && (
                           <div>

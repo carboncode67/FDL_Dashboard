@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdmin, type Role } from "@/lib/roles";
 import { processingConfigured, triggerPipelineRun } from "@/lib/processing";
+import { resolveFarmForDroneFlight } from "@/lib/pipeline-farm";
 
 // Manual run trigger. For a normal (upload-matched) pipeline this re-tests the
 // pipeline's own sample dataset. For a target_kind = "drone_flight" pipeline, the
@@ -37,11 +38,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!flight) return NextResponse.json({ error: "Drone flight record not found" }, { status: 404 });
   }
 
+  // A "Run manually" on a normal pipeline replays the pipeline's own sample dataset —
+  // no real upload/experiment context, so no farm to resolve there. A drone-flight
+  // pipeline's flight record does resolve to one.
+  const farm_id = droneFlightRecordId !== null
+    ? await resolveFarmForDroneFlight(droneFlightRecordId)
+    : null;
+
   const run = await prisma.pipelineRun.create({
     data: {
       pipeline_id: pipeline.id,
       is_test_run: droneFlightRecordId === null,
       target_drone_flight_id: droneFlightRecordId,
+      farm_id,
       status: "queued",
     },
   });

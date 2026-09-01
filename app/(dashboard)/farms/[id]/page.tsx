@@ -91,6 +91,10 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
         Documents: {
           orderBy: { uploaded_at: "desc" },
         },
+        PipelineOutputRasters: {
+          orderBy: { created_at: "desc" },
+          include: { Run: { select: { id: true, Pipeline: { select: { name: true } } } } },
+        },
       },
     }),
     prisma.project.findMany({ select: { id: true, Project_Name: true } }),
@@ -195,6 +199,15 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
       category: u.category ?? null,
     })),
   ].sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
+
+  // Pipeline output rasters for the map — label pairs the pipeline name with the
+  // original output filename (e.g. "EM 38 — CV-1.0m.tif") since one run can produce
+  // several (one GeoTIFF per interpolated column).
+  const pipelineRasters = farm.PipelineOutputRasters.map((r) => ({
+    id: r.id,
+    url: `/api/files/pipeline-outputs/${r.filename}`,
+    label: `${r.Run.Pipeline.name} — ${r.original_filename}`,
+  }));
 
   // Lab upload map pins (GPS-tagged only)
   const labUploadPins = farm.LabMemberUploads.filter(
@@ -497,6 +510,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             }))}
             photos={[]}
             notes={[]}
+            rasters={pipelineRasters}
             farmId={farm.id}
             farmLat={farm.latitude ?? undefined}
             farmLng={farm.longitude ?? undefined}
@@ -680,6 +694,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             photos={contactPhotosPins}
             notes={contactNotesPins}
             labUploads={labUploadPins}
+            rasters={pipelineRasters}
             farmId={farm.id}
             farmLat={farm.latitude ?? undefined}
             farmLng={farm.longitude ?? undefined}

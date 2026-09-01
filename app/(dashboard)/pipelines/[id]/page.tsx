@@ -14,7 +14,10 @@ export default async function PipelineDetailPage({ params }: { params: Promise<{
       where: { id: parseInt(id) },
       include: {
         Creator: { select: { id: true, name: true, email: true } },
-        Runs: { orderBy: { created_at: "desc" } },
+        Runs: {
+          orderBy: { created_at: "desc" },
+          include: { Farm: { select: { id: true, Farm_Name: true } } },
+        },
       },
     }),
     prisma.droneFlightRecord.findMany({
@@ -68,6 +71,8 @@ export default async function PipelineDetailPage({ params }: { params: Promise<{
         created_at: pipeline.created_at.toISOString(),
         runs: pipeline.Runs.map((r) => ({
           id: r.id,
+          farm_id: r.Farm?.id ?? null,
+          farm_name: r.Farm?.Farm_Name ?? null,
           is_test_run: r.is_test_run,
           status: r.status,
           stdout_log: r.stdout_log,

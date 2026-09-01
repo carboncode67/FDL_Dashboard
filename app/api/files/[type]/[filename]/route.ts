@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 const ALLOWED_TYPES = [
   "photos", "recordings", "locations", "documents", "depth_maps",
-  "pipeline-datasets", "pipeline-scripts", "pipeline-models",
+  "pipeline-datasets", "pipeline-scripts", "pipeline-models", "pipeline-outputs",
   "context", "data-table-samples",
 ] as const;
 
