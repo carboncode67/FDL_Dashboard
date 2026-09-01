@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
 import { resolveFarmId, resolveFarmIdForLabMember } from "@/lib/proximity";
+import { matchDocumentToTemplate } from "@/lib/document-template-match";
+import { matchAndTriggerPipelines } from "@/lib/pipeline-match";
 import fs from "fs";
 import path from "path";
 
@@ -21,11 +23,13 @@ export async function POST(request: Request) {
     const timestamp = (formData.get("timestamp") as string) ?? "";
 
     let filename = "";
+    let fileBuffer: Buffer | null = null;
     if (file && file.size > 0) {
       const dir = path.join(DATA_DIR, "documents");
       fs.mkdirSync(dir, { recursive: true });
       filename = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-      fs.writeFileSync(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
+      fileBuffer = Buffer.from(await file.arrayBuffer());
+      fs.writeFileSync(path.join(dir, filename), fileBuffer);
     }
 
     if (auth.kind === "labMember") {
@@ -43,7 +47,10 @@ export async function POST(request: Request) {
       });
     } else {
       const farmId = await resolveFarmId(auth.contact, null, null);
-      await prisma.document.create({
+      const ext = filename ? path.extname(filename).toLowerCase() : "";
+      const match = fileBuffer ? await matchDocumentToTemplate(fileBuffer, ext) : null;
+
+      const doc = await prisma.document.create({
         data: {
           source: "whatsapp",
           contact_id: auth.contact.id,
@@ -53,8 +60,21 @@ export async function POST(request: Request) {
           timestamp: timestamp ? new Date(timestamp) : null,
           status: 2,
           ticket_ref: ticket_ref || null,
+          data_table_id: match?.dataTableId ?? null,
+          test_id: match?.testId ?? null,
+          drone_id: match?.droneId ?? null,
         },
       });
+
+      const baseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
+      matchAndTriggerPipelines({
+        table: "documents",
+        id: doc.id,
+        category: doc.category ?? null,
+        project_id: doc.project_id ?? null,
+        data_table_id: doc.data_table_id ?? null,
+        inputFileUrl: `${baseUrl}/api/data/files/documents/${doc.id}`,
+      }).catch((err) => console.error("[upload/document POST] pipeline trigger failed", err));
     }
 
     return NextResponse.json({ ok: true });

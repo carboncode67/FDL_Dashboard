@@ -298,6 +298,7 @@ model Drone {
   EquipmentLoans         EquipmentLoan[]
   RequiredByTests        TestEquipment[]
   DataTables             DataTable[]
+  MatchedDocuments       Document[]
 
   @@map("Drones")
   @@schema("pgntarg2udzj1f3")
@@ -718,6 +719,7 @@ model DataTable {
   FieldDefinitions DataTableFieldDefinition[]
   Rows             DataTableRow[]
   UsedByTests      TestDataTable[]
+  MatchedDocuments Document[]
 
   @@index([test_id])
   @@index([drone_id])
@@ -892,6 +894,17 @@ model Document {
   farm_id       Int?
   project_id    Int?
   test_id       Int?
+  // Data Table this document's columns were auto-matched against at upload
+  // time (see lib/document-template-match.ts) — a document, not a row, so
+  // this only records the match for pipeline scoping / provenance; the
+  // actual parsed data still goes through the ordinary
+  // experiment-tests/[id]/tables/[tableId]/rows ingest path, not here.
+  // drone_id mirrors test_id for an Equipment(Drone)-homed match, since a
+  // DataTable can be homed to either. Independent of test_id: a Test-scoped
+  // upload (app/api/tests/[id]/documents) sets test_id explicitly regardless
+  // of whether a template match was found.
+  data_table_id Int?
+  drone_id      Int?
   filename      String
   original_name String?                           // dashboard uploads
   file_type     String?   @db.VarChar(20)         // dashboard uploads
@@ -904,11 +917,15 @@ model Document {
   ticket_ref    String?                            // human-readable OFEDashBot reference
   uploaded_at   DateTime  @default(now())
 
-  Contact Contact? @relation(fields: [contact_id], references: [id])
-  Farm    Farm?    @relation(fields: [farm_id], references: [id])
-  Project Project? @relation(fields: [project_id], references: [id])
-  Test    Test?    @relation(fields: [test_id], references: [id], onDelete: Cascade)
+  Contact   Contact?   @relation(fields: [contact_id], references: [id])
+  Farm      Farm?      @relation(fields: [farm_id], references: [id])
+  Project   Project?   @relation(fields: [project_id], references: [id])
+  Test      Test?      @relation(fields: [test_id], references: [id], onDelete: Cascade)
+  DataTable DataTable? @relation(fields: [data_table_id], references: [id], onDelete: SetNull)
+  Drone     Drone?     @relation(fields: [drone_id], references: [id], onDelete: SetNull)
 
+  @@index([data_table_id])
+  @@index([drone_id])
   @@map("Documents")
   @@schema("pgntarg2udzj1f3")
 }

@@ -3,6 +3,8 @@ import fs from "fs";
 import path from "path";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { matchDocumentToTemplate } from "@/lib/document-template-match";
+import { matchAndTriggerPipelines } from "@/lib/pipeline-match";
 
 export const runtime = "nodejs";
 
@@ -35,7 +37,10 @@ export async function POST(
   const filename = `${Date.now()}_${sanitizedName}`;
   const dir = path.join(DATA_DIR, "documents");
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
+  const buffer = Buffer.from(await file.arrayBuffer());
+  fs.writeFileSync(path.join(dir, filename), buffer);
+
+  const match = await matchDocumentToTemplate(buffer, ext);
 
   const doc = await prisma.document.create({
     data: {
@@ -45,8 +50,21 @@ export async function POST(
       file_type: ext.slice(1),
       file_size: file.size,
       description: description ?? null,
+      data_table_id: match?.dataTableId ?? null,
+      test_id: match?.testId ?? null,
+      drone_id: match?.droneId ?? null,
     },
   });
 
-  return NextResponse.json({ ok: true, id: doc.id });
+  const baseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
+  matchAndTriggerPipelines({
+    table: "documents",
+    id: doc.id,
+    category: doc.category ?? null,
+    project_id: doc.project_id ?? null,
+    data_table_id: doc.data_table_id ?? null,
+    inputFileUrl: `${baseUrl}/api/data/files/documents/${doc.id}`,
+  }).catch((err) => console.error("[projects documents POST] pipeline trigger failed", err));
+
+  return NextResponse.json({ ok: true, id: doc.id, matched_data_table_id: doc.data_table_id });
 }

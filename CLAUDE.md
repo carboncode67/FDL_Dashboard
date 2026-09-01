@@ -159,6 +159,22 @@ CVAT_WEBHOOK_SECRET=random-secret
 NEXT_PUBLIC_CVAT_URL=http://your-cvat-host:8080
 ```
 
+**Automated processing pipelines** (`app/(dashboard)/pipelines/`, `app/api/pipelines/`, `lib/processing.ts`, `lib/pipeline-match.ts`): item 90 — lets a lab member upload a sample dataset + a script (+ optional model weights) and have an LLM wire it into a runnable pipeline that then auto-runs on every future matching upload, no human approval step. The compute side is a whole separate component, `FarmersDatabase/PipelineProcessor/` (own `CLAUDE.md`), meant to run on its own dedicated machine (in practice, the lab's Datamachine box, which also hosts the Ollama server this uses for LLM wiring) — Dashboard-UI never runs scripts or touches Docker itself.
+
+- Feature-flagged like CVAT: `processingConfigured` in `lib/processing.ts` is true only when both `PROCESSING_URL` and `PROCESSING_API_KEY` are set; pipeline creation/run routes no-op (leave `status: "draft"`) otherwise.
+- `lib/processing.ts` — `processingFetch()` sends `Authorization: Bearer ${PROCESSING_API_KEY}` to `PROCESSING_URL`; `registerPipeline()`, `triggerPipelineRun()`, `deletePipeline()` are thin wrappers over it.
+- `lib/pipeline-match.ts` — called on every new upload; matches against live pipelines' `match_table`/`match_category`/`match_project_id`/`match_data_table_id` and calls `triggerPipelineRun()` on a hit.
+- `app/api/pipelines/route.ts`, `app/api/pipelines/[id]/run/route.ts`, `app/api/pipelines/runs/[runId]/rerun/route.ts` — all build `callback_url: ${baseUrl}/api/pipelines/webhook` for the processor to report back to.
+- `app/api/pipelines/webhook/route.ts` — verifies `X-Signature-256` HMAC-SHA256 (same scheme as the CVAT webhook) using `PROCESSING_WEBHOOK_SECRET`, then updates `Pipeline`/`PipelineRun` rows; for `target_kind = "drone_flight"` pipelines, auto-fills `DroneFlightRecord.data_storage_path` from the reported `output_storage_path`. Exempted from session-auth redirect in `proxy.ts` alongside the other bearer-token routes.
+- `Pipeline.id` doubles as the processor's `external_pipeline_id` — no separate ID space. Schema: `migrations/041_pipelines.sql` (+ `043`, `044`, `055`, `056`), tables `Pipelines` (`status`: draft/testing/live/failed/disabled) and `Pipeline_Runs`.
+- The processor's own `FDL_BEARER_TOKEN` (its credential back to this Dashboard, separate from `PROCESSING_API_KEY`) is just an ordinary `public.users.bearer_token` — create a dedicated lab-member row for it (e.g. `pipeline-processor@service.local`) the same way `OFE_Dashboard/CLAUDE.md` describes for its own `FDL_SYNC_TOKEN`; there's no separate service-account mechanism.
+
+```
+PROCESSING_URL=http://your-processing-host:8010
+PROCESSING_API_KEY=random-key-shared-with-the-processor
+PROCESSING_WEBHOOK_SECRET=random-secret-shared-with-the-processor
+```
+
 **Outgoing email** (`lib/mailer.ts`): All server-sent email (activity reports, onboarding emails) goes through a single `sendMail()` wrapper around **nodemailer**, using plain SMTP credentials for an existing mailbox (Gmail, Office365, institutional mail, etc.) — not a transactional-email API. Env vars: `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL` (optional, defaults to `SMTP_USER`) — all optional, omit to disable email features. Not in the production compose by default; add them only if email is needed. (A prior version of this used Resend; that's been fully replaced.)
 
 **Activity reports** (`app/api/reporting/`): Sends email digests of recent upload activity, either on-demand (`POST /api/reporting/[id]`) or via `lib/scheduler.ts`'s daily cron check. Requires the SMTP env vars above — omit to disable.

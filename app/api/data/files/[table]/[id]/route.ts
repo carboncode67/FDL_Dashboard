@@ -38,7 +38,13 @@ export async function GET(
   if ("error" in auth) return auth.error;
 
   const { table, id } = await params;
-  if (!isUploadTable(table)) return NextResponse.json({ error: "Unknown table" }, { status: 400 });
+  // "documents" is deliberately not one of the 5 general UPLOAD_TABLES (that's the
+  // wider data-sorting-eligible upload set, still an in-progress change) — it's
+  // allowed here on its own so a documents-triggered pipeline has a URL to fetch
+  // the file from, without pulling Documents into /api/data/uploads(/manifest).
+  if (table !== "documents" && !isUploadTable(table)) {
+    return NextResponse.json({ error: "Unknown table" }, { status: 400 });
+  }
 
   const numId = parseInt(id);
   if (isNaN(numId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
@@ -86,6 +92,13 @@ export async function GET(
           ? "recordings"
           : "locations";
       return serveFile(path.join(DATA_DIR, dir, path.basename(row.filename)), row.filename);
+    }
+
+    case "documents": {
+      const row = await prisma.document.findUnique({ where: { id: numId } });
+      if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      if (!row.filename) return NextResponse.json({ error: "No file" }, { status: 404 });
+      return serveFile(path.join(DATA_DIR, "documents", path.basename(row.filename)), row.filename);
     }
   }
 }

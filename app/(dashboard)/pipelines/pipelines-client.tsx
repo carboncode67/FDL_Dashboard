@@ -203,7 +203,9 @@ export function PipelinesClient({
                     <p className="text-xs text-slate-500">
                       {dataTableRequired
                         ? "Required for Sample Data Upload — the pipeline fires only when data matching this table's schema is ingested. Its description, columns, and sample table go to the processing LLM."
-                        : "Only trigger for rows ingested into this Data Table. Its description, columns, and attached sample table are sent to the processing LLM."}
+                        : matchTable === "documents"
+                          ? "Only trigger for documents auto-matched to this Data Table's column schema (CSV headers checked at upload time). Leave blank to trigger for every document instead. Its description, columns, and attached sample table are sent to the processing LLM."
+                          : "Only trigger for rows ingested into this Data Table. Its description, columns, and attached sample table are sent to the processing LLM."}
                     </p>
                     <select name="match_data_table_id"
                       required={dataTableRequired}

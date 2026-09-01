@@ -4,6 +4,8 @@ import path from "path";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit, type Role } from "@/lib/roles";
+import { matchDocumentToTemplate } from "@/lib/document-template-match";
+import { matchAndTriggerPipelines } from "@/lib/pipeline-match";
 
 export const runtime = "nodejs";
 
@@ -60,7 +62,14 @@ export async function POST(
   const filename = `${Date.now()}_${sanitizedName}`;
   const dir = path.join(DATA_DIR, "documents");
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
+  const buffer = Buffer.from(await file.arrayBuffer());
+  fs.writeFileSync(path.join(dir, filename), buffer);
+
+  // test_id comes from the page the lab member is already on — a template
+  // match only fills in data_table_id (for pipeline scoping); it never
+  // overrides the explicit test_id, even if the match happens to resolve to
+  // a different test's table.
+  const match = await matchDocumentToTemplate(buffer, ext);
 
   const doc = await prisma.document.create({
     data: {
@@ -71,8 +80,19 @@ export async function POST(
       file_size: file.size,
       category: "test_form",
       description: description ?? null,
+      data_table_id: match?.dataTableId ?? null,
     },
   });
 
-  return NextResponse.json({ ok: true, id: doc.id });
+  const baseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
+  matchAndTriggerPipelines({
+    table: "documents",
+    id: doc.id,
+    category: doc.category ?? null,
+    project_id: null,
+    data_table_id: doc.data_table_id ?? null,
+    inputFileUrl: `${baseUrl}/api/data/files/documents/${doc.id}`,
+  }).catch((err) => console.error("[tests documents POST] pipeline trigger failed", err));
+
+  return NextResponse.json({ ok: true, id: doc.id, matched_data_table_id: doc.data_table_id });
 }

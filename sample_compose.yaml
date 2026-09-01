@@ -50,6 +50,14 @@ services:
       GEODART_USER_GUID: ${GEODART_USER_GUID:-}
       GEODART_USER_EMAIL: ${GEODART_USER_EMAIL:-}
       GEODART_PASSWORD_HASH: ${GEODART_PASSWORD_HASH:-}
+      # Optional. Automated processing pipelines ("Processing" tab, item 90) —
+      # disabled unless PROCESSING_URL and PROCESSING_API_KEY are both set.
+      # Points at a PipelineProcessor instance on its own dedicated machine —
+      # see FarmersDatabase/PipelineProcessor/CLAUDE.md. PROCESSING_API_KEY and
+      # PROCESSING_WEBHOOK_SECRET must match the values in that machine's .env.
+      PROCESSING_URL: ${PROCESSING_URL:-}
+      PROCESSING_API_KEY: ${PROCESSING_API_KEY:-}
+      PROCESSING_WEBHOOK_SECRET: ${PROCESSING_WEBHOOK_SECRET:-}
     volumes:
       - upload-data:/app/upload-data
     depends_on:
