@@ -29,6 +29,7 @@ import {
   BookOpen,
   Table2,
   Tag,
+  MapPin,
 } from "lucide-react";
 import type { Role } from "@/lib/roles";
 
@@ -41,6 +42,7 @@ const dataNav = [
   { href: "/whatsapp", label: "Messaging", icon: MessageCircle },
   { href: "/activity-report", label: "Activity Report", icon: BarChart2 },
   { href: "/forms", label: "Custom Forms", icon: FileText },
+  { href: "/geofences", label: "Geofences", icon: MapPin },
 ];
 
 const fieldOpsNav = [

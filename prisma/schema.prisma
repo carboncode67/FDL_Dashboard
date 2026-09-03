@@ -33,6 +33,9 @@ model User {
   CreatedForms       Form[]              @relation("FormCreatedBy")
   FormAssignments    FormAssignment[]
   FormResponses      FormResponse[]
+  CreatedGeofences   Geofence[]          @relation("GeofenceCreatedBy")
+  GeofenceAssignments GeofenceAssignment[]
+  GeofenceEvents     GeofenceEvent[]
   CreatedPipelines   Pipeline[]
   EquipmentLoansSignedOut EquipmentLoan[]
   ContextFetchJobs   ContextFetchJob[]
@@ -140,6 +143,7 @@ model Farm {
   FarmExperiments  FarmExperiment[]
   FormAssignments  FormAssignment[]
   FormResponses    FormResponse[]
+  GeofenceAssignments GeofenceAssignment[]
   ContextFetchJobs ContextFetchJob[]
   ContextRasters   ContextRaster[]
   PipelineRuns     PipelineRun[]
@@ -446,6 +450,8 @@ model Contact {
   ContactCards WhatsAppContactCard[]
   FormAssignments FormAssignment[]
   FormResponses   FormResponse[]
+  GeofenceAssignments GeofenceAssignment[]
+  GeofenceEvents  GeofenceEvent[]
   EquipmentLoans  EquipmentLoan[]
 
   @@map("Contacts")
@@ -473,6 +479,7 @@ model Photo {
   description String?
   stage          String?   @db.VarChar(50)
   merge_group_id String?   @db.VarChar(36)
+  needs_further_processing Boolean? @default(false)
   depth_filename String?
   received_at    DateTime  @default(now())
 
@@ -505,6 +512,7 @@ model Recording {
   description  String?
   stage          String?   @db.VarChar(50)
   merge_group_id String?   @db.VarChar(36)
+  needs_further_processing Boolean? @default(false)
   received_at    DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
@@ -532,6 +540,7 @@ model Note {
   description String?
   stage          String?   @db.VarChar(50)
   merge_group_id String?   @db.VarChar(36)
+  needs_further_processing Boolean? @default(false)
   received_at    DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
@@ -559,6 +568,7 @@ model Location {
   description    String?
   stage          String?   @db.VarChar(50)
   merge_group_id String?   @db.VarChar(36)
+  needs_further_processing Boolean? @default(false)
   received_at    DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
@@ -593,6 +603,7 @@ model LabMemberUpload {
   description    String?
   stage          String?   @db.VarChar(50)
   merge_group_id String?   @db.VarChar(36)
+  needs_further_processing Boolean? @default(false)
   depth_filename String?
   received_at    DateTime  @default(now())
 
@@ -632,6 +643,7 @@ model FarmExperiment {
   Tasks                  Task[]
   AssignedContacts       Contact[]
   FormAssignments        FormAssignment[]
+  GeofenceAssignments    GeofenceAssignment[]
 
   @@map("Farm_Experiments")
   @@schema("pgntarg2udzj1f3")
@@ -877,6 +889,9 @@ model Video {
   ticket_ref  String?                         // human-readable OFEDashBot reference
   category    String?   @db.VarChar(100)
   description String?
+  stage          String?   @db.VarChar(50)
+  merge_group_id String?   @db.VarChar(36)
+  needs_further_processing Boolean? @default(false)
   received_at DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
@@ -914,6 +929,9 @@ model Document {
   note          String?                           // whatsapp captions
   category      String?   @db.VarChar(100)
   description   String?
+  stage          String?   @db.VarChar(50)
+  merge_group_id String?   @db.VarChar(36)
+  needs_further_processing Boolean? @default(false)
   timestamp     DateTime?                          // whatsapp message time
   status        Int       @default(2)
   ticket_ref    String?                            // human-readable OFEDashBot reference
@@ -1211,6 +1229,92 @@ model FormResponse {
   @@schema("pgntarg2udzj1f3")
 }
 
+// Phase 1 geofencing: staff draw a polygon and assign it to an individual contact/user (or
+// broadly to a farm/experiment, same shape as Form_Assignments) with a simple notification
+// action. Detection is entirely on-device (hybrid OS circular-region wake trigger + precise
+// point-in-polygon check on wake) — this table is config only, never triggers anything itself.
+model Geofence {
+  id             Int      @id @default(autoincrement())
+  title          String
+  description    String?
+  geometry       String   // raw GeoJSON geometry object (not a Feature wrapper), TEXT — same
+                           // never-parsed-at-the-API-boundary convention as Fields.geometry /
+                           // ExperimentZones.geometry; lib/proximity.ts-style consumers JSON.parse it
+  is_active      Boolean  @default(true)
+  action_type    String   @default("notification") // Phase 1: only "notification" is valid —
+                                                     // enforced in the API route (lib/geofences.ts's
+                                                     // ACTION_TYPES), not a DB CHECK, so a future
+                                                     // action_type needs no migration
+  action_message String   // notification body shown on entry; notification title = Geofence.title
+  created_by_id  String?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  CreatedBy   User?                @relation("GeofenceCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
+  Assignments GeofenceAssignment[]
+  Events      GeofenceEvent[]
+
+  @@map("Geofences")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Defines who a Geofence's on-device monitoring + notification applies to — exactly one of
+// contact/user/farm/experiment per row (DB CHECK constraint in the migration), same shape and
+// same known limitation as Form_Assignments (lab members have no Farm<->User relation, so a
+// broad farm/experiment assignment only resolves to Contact recipients).
+model GeofenceAssignment {
+  id                 Int      @id @default(autoincrement())
+  geofence_id        Int
+  contact_id         Int?
+  user_id            String?
+  farm_id            Int?
+  farm_experiment_id Int?
+  created_at         DateTime @default(now())
+
+  Geofence       Geofence        @relation(fields: [geofence_id], references: [id], onDelete: Cascade)
+  Contact        Contact?        @relation(fields: [contact_id], references: [id], onDelete: Cascade)
+  User           User?           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  Farm           Farm?           @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  FarmExperiment FarmExperiment? @relation(fields: [farm_experiment_id], references: [id], onDelete: Cascade)
+
+  @@index([geofence_id])
+  @@index([contact_id])
+  @@index([user_id])
+  @@index([farm_id])
+  @@index([farm_experiment_id])
+  @@map("Geofence_Assignments")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Log of confirmed on-device entries — written client-side AFTER the precise polygon check
+// passes, POSTed for staff visibility only. Purely additive/informational, same relationship to
+// Geofence as Form_Responses is to Forms (decoupled from "assignment", no completion semantics).
+// No server-side polygon re-validation on the POST — the device already did the authoritative
+// check; a strict re-check would produce GPS-accuracy false rejections.
+model GeofenceEvent {
+  id           Int      @id @default(autoincrement())
+  geofence_id  Int
+  contact_id   Int?
+  user_id      String?
+  event_type   String   @default("enter") // Phase 1: always "enter"; exit reserved for later
+  lat          Float
+  lng          Float
+  occurred_at  DateTime                    // device-reported timestamp of the precise fix
+  received_at  DateTime @default(now()) @db.Timestamptz(6)
+  content_hash String?                     // client dedup key, same pattern as Notes/Locations
+
+  Geofence Geofence @relation(fields: [geofence_id], references: [id], onDelete: Cascade)
+  Contact  Contact? @relation(fields: [contact_id], references: [id], onDelete: SetNull)
+  User     User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([geofence_id])
+  @@index([contact_id])
+  @@index([user_id])
+  @@index([content_hash])
+  @@map("Geofence_Events")
+  @@schema("pgntarg2udzj1f3")
+}
+
 model Pipeline {
   id                            Int       @id @default(autoincrement())
   name                          String
@@ -1285,10 +1389,11 @@ model PipelineRun {
   @@schema("pgntarg2udzj1f3")
 }
 
-// A spatial (raster) pipeline output, pulled down from the processing machine and
-// linked to the farm its triggering run resolved to, so it can be shown on that
-// farm's map. Same shape/precedent as ContextRaster; farm_id is only ever set when
-// the run itself resolved to a farm — see PipelineRun.farm_id.
+// A spatial (raster or vector) pipeline output, pulled down from the processing
+// machine and linked to the farm its triggering run resolved to, so it can be shown
+// on that farm's map. Same shape/precedent as ContextRaster; farm_id is only ever
+// set when the run itself resolved to a farm — see PipelineRun.farm_id. Despite the
+// table name (predates vector support), `kind` distinguishes raster vs. vector.
 model PipelineOutputRaster {
   id                Int      @id @default(autoincrement())
   pipeline_run_id   Int
@@ -1297,6 +1402,15 @@ model PipelineOutputRaster {
   original_filename String // the name the processing machine's output/ dir gave it
   bytes             BigInt
   sha256            String
+  kind              String   @default("raster") // "raster" | "vector"
+  // Set by PipelineProcessor's geo_sanity.py, which verifies the output's own
+  // centroid against the run's farm centroid before ever reaching here and
+  // reprojects to EPSG:4326 on a confident match. "ok" = safe to render as-is;
+  // "unclear" = left un-normalized, do not plot (see components/farm-map.tsx);
+  // NULL = no farm to check against (shouldn't occur here since farm_id is required,
+  // but tolerated for pre-migration rows).
+  crs_status        String?
+  crs_epsg          Int?    // the EPSG geo_sanity matched, when crs_status = "ok"
   created_at        DateTime @default(now())
 
   Run  PipelineRun @relation(fields: [pipeline_run_id], references: [id], onDelete: Cascade)
