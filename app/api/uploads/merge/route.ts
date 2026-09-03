@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-const ALLOWED = ["photos", "notes", "recordings", "locations", "lab-member-uploads"] as const;
+const ALLOWED = ["photos", "notes", "recordings", "locations", "lab-member-uploads", "documents", "videos"] as const;
 type Table = (typeof ALLOWED)[number];
 
 function isAllowed(t: string): t is Table {
@@ -16,6 +16,8 @@ async function setMergeGroup(table: Table, id: number, mergeGroupId: string | nu
     case "recordings":         return prisma.recording.update({ where: { id }, data: { merge_group_id: mergeGroupId } });
     case "locations":          return prisma.location.update({ where: { id }, data: { merge_group_id: mergeGroupId } });
     case "lab-member-uploads": return prisma.labMemberUpload.update({ where: { id }, data: { merge_group_id: mergeGroupId } });
+    case "documents":          return prisma.document.update({ where: { id }, data: { merge_group_id: mergeGroupId } });
+    case "videos":             return prisma.video.update({ where: { id }, data: { merge_group_id: mergeGroupId } });
   }
 }
 

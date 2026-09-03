@@ -37,6 +37,8 @@ const MEDIA_TYPE_OPTIONS = [
   { value: "note", label: "Note" },
   { value: "recording", label: "Recording" },
   { value: "location", label: "GPS Track" },
+  { value: "document", label: "Document" },
+  { value: "video", label: "Video" },
 ];
 
 const FIELD_TYPE_OPTIONS = [

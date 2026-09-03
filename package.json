@@ -24,6 +24,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "epsg-index": "^2.0.0",
+    "fast-xml-parser": "^5.11.1",
     "georaster": "^1.6.0",
     "georaster-layer-for-leaflet": "^4.1.2",
     "leaflet": "^1.9.4",

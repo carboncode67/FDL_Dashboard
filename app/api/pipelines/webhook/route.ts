@@ -13,7 +13,18 @@ export const runtime = "nodejs";
 const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 const OUTPUT_RASTER_TYPE = "pipeline-outputs";
 
-interface OutputFile { filename: string; download_url: string; kind?: "raster" | "file" }
+interface OutputFile {
+  filename: string;
+  download_url: string;
+  kind?: "raster" | "vector" | "file";
+  // Set by PipelineProcessor's geo_sanity.py (see main._collect_outputs) — "ok" once
+  // the file has been verified against the run's farm centroid and reprojected to
+  // EPSG:4326, "unclear" if no candidate CRS matched confidently (left as PipelineProcessor
+  // wrote it — not safe to plot). Absent when the run had no farm_centroid to check
+  // against, same as older Dashboards omitting it entirely.
+  crs_status?: "ok" | "unclear";
+  crs_epsg?: number;
+}
 
 interface ProcessingWebhookPayload {
   event: "pipeline_registered" | "pipeline_failed" | "run_completed" | "run_failed";
@@ -31,14 +42,17 @@ interface ProcessingWebhookPayload {
   error_message?: string;
 }
 
-// Pulls down every "raster"-kind output file (currently .tif/.tiff, see
-// PipelineProcessor's main.py _collect_outputs) from the processing machine's own
-// GET /outputs/{pipeline_id}/{filename} route and registers each as a
-// Pipeline_Output_Rasters row, farm-linked so it shows up on that farm's map —
-// same precedent as Context_Rasters (GeoDaRT pulls). Only called when the run
+// Pulls down every "raster"/"vector"-kind output file (currently .tif/.tiff and
+// .geojson/.gpkg — see PipelineProcessor's main.py _collect_outputs) from the
+// processing machine's own GET /outputs/{pipeline_id}/{filename} route and registers
+// each as a Pipeline_Output_Rasters row, farm-linked so it shows up on that farm's
+// map — same precedent as Context_Rasters (GeoDaRT pulls). Only called when the run
 // resolved to a farm (see lib/pipeline-farm.ts / PipelineRun.farm_id) — a
 // registration test-run against the pipeline's own sample dataset has no farm_id by
 // design and never reaches here, so sample data never pollutes a farm's map.
+// A file with crs_status "unclear" is still recorded (visible/downloadable rather
+// than silently vanishing) — components/farm-map.tsx is responsible for not
+// plotting it as a layer.
 // Best-effort: a download failure for one file logs and continues rather than
 // failing the whole webhook response (the run itself already succeeded).
 async function ingestOutputRasters(
@@ -46,7 +60,7 @@ async function ingestOutputRasters(
   farmId: number,
   outputFiles: OutputFile[]
 ): Promise<void> {
-  const rasters = outputFiles.filter((f) => f.kind === "raster");
+  const rasters = outputFiles.filter((f) => f.kind === "raster" || f.kind === "vector");
   if (rasters.length === 0) return;
 
   const processingApiKey = process.env.PROCESSING_API_KEY;
@@ -77,6 +91,9 @@ async function ingestOutputRasters(
           original_filename: file.filename,
           bytes: buffer.length,
           sha256,
+          kind: file.kind === "vector" ? "vector" : "raster",
+          crs_status: file.crs_status ?? null,
+          crs_epsg: file.crs_epsg ?? null,
         },
       });
     } catch (err) {

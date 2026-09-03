@@ -203,11 +203,17 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
   // Pipeline output rasters for the map — label pairs the pipeline name with the
   // original output filename (e.g. "EM 38 — CV-1.0m.tif") since one run can produce
   // several (one GeoTIFF per interpolated column).
-  const pipelineRasters = farm.PipelineOutputRasters.map((r) => ({
-    id: r.id,
-    url: `/api/files/pipeline-outputs/${r.filename}`,
-    label: `${r.Run.Pipeline.name} — ${r.original_filename}`,
-  }));
+  const pipelineRasters = farm.PipelineOutputRasters.map((r) => {
+    const crsStatus: "ok" | "unclear" | null =
+      r.crs_status === "ok" ? "ok" : r.crs_status === "unclear" ? "unclear" : null;
+    return {
+      id: r.id,
+      url: `/api/files/pipeline-outputs/${r.filename}`,
+      label: `${r.Run.Pipeline.name} — ${r.original_filename}`,
+      kind: r.kind === "vector" ? ("vector" as const) : ("raster" as const),
+      crsStatus,
+    };
+  });
 
   // Lab upload map pins (GPS-tagged only)
   const labUploadPins = farm.LabMemberUploads.filter(

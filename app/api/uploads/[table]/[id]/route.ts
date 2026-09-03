@@ -5,8 +5,9 @@ import { canDelete } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
 import type { Role } from "@/lib/roles";
 import { matchAndTriggerPipelines } from "@/lib/pipeline-match";
+import { propagateToGroup } from "@/lib/upload-group-sync";
 
-const ALLOWED = ["photos", "notes", "recordings", "locations", "lab-member-uploads"] as const;
+const ALLOWED = ["photos", "notes", "recordings", "locations", "lab-member-uploads", "documents", "videos"] as const;
 type Table = (typeof ALLOWED)[number];
 
 function isAllowed(t: string): t is Table {
@@ -20,6 +21,8 @@ async function updateRow(table: Table, id: number, data: Record<string, unknown>
     case "recordings":          return prisma.recording.update({ where: { id }, data });
     case "locations":           return prisma.location.update({ where: { id }, data });
     case "lab-member-uploads":  return prisma.labMemberUpload.update({ where: { id }, data });
+    case "documents":           return prisma.document.update({ where: { id }, data });
+    case "videos":              return prisma.video.update({ where: { id }, data });
   }
 }
 
@@ -30,6 +33,8 @@ async function deleteRow(table: Table, id: number) {
     case "recordings":          return prisma.recording.delete({ where: { id } });
     case "locations":           return prisma.location.delete({ where: { id } });
     case "lab-member-uploads":  return prisma.labMemberUpload.delete({ where: { id } });
+    case "documents":           return prisma.document.delete({ where: { id } });
+    case "videos":              return prisma.video.delete({ where: { id } });
   }
 }
 
@@ -57,6 +62,7 @@ export async function PATCH(
   if ("stage" in body)          data.stage          = VALID_STAGES.includes(body.stage) ? body.stage : null;
   if ("merge_group_id" in body) data.merge_group_id = body.merge_group_id ?? null;
   if ("duplicate_dismissed" in body) data.duplicate_dismissed = Boolean(body.duplicate_dismissed);
+  if ("needs_further_processing" in body) data.needs_further_processing = Boolean(body.needs_further_processing);
   if ("status" in body) {
     const s = Number(body.status);
     if ([1, 2, 3, 4].includes(s)) data.status = s;
@@ -99,6 +105,20 @@ export async function PATCH(
   }
 
   const result = await updateRow(table, uploadId, data);
+
+  // Grouped assets share tags: if this edit touched category or the
+  // processing flag, and the row belongs to a merge group, fan the same
+  // values out to the rest of the group.
+  if ("category" in data || "needs_further_processing" in data) {
+    const record = result as unknown as { merge_group_id?: string | null };
+    if (record.merge_group_id) {
+      const tagFields: { category?: string | null; needs_further_processing?: boolean } = {};
+      if ("category" in data) tagFields.category = data.category as string | null;
+      if ("needs_further_processing" in data) tagFields.needs_further_processing = data.needs_further_processing as boolean;
+      propagateToGroup(table, uploadId, record.merge_group_id, tagFields)
+        .catch((err) => console.error("[uploads PATCH] group tag propagation failed", err));
+    }
+  }
 
   if ("category" in data || "project_id" in data) {
     const record = result as unknown as { category?: string | null; project_id?: number | null };

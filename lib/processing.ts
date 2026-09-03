@@ -76,6 +76,10 @@ export interface TriggerRunPayload {
   // wiring step with this folded in and executes the one-off command instead
   // of the pipeline's stored one ("set output raster resolution to 5m").
   prompt?: string;
+  // The resolved farm's geocoded location (Farms.latitude/longitude), when the
+  // run resolved to one (see lib/pipeline-farm.ts) — ground truth for the
+  // processor's geo_sanity CRS verification, not fed into the pipeline script.
+  farm_centroid?: { lat: number; lng: number };
 }
 
 export async function triggerPipelineRun(

@@ -21,7 +21,7 @@ export default async function DataSortingPage() {
       : {};
   const baseWhere = { ...projectWhere, ...farmWhere };
 
-  const [photos, notes, recordings, locations, labUploads, projects, farms, annotationCounts] = await Promise.all([
+  const [photos, notes, recordings, locations, labUploads, documents, videos, farms, categoryRows, annotationCounts] = await Promise.all([
     prisma.photo.findMany({
       where: baseWhere,
       include: {
@@ -67,13 +67,31 @@ export default async function DataSortingPage() {
       },
       orderBy: { received_at: "desc" },
     }),
-    prisma.project.findMany({
-      select: { id: true, Project_Name: true },
-      orderBy: { Project_Name: "asc" },
+    prisma.document.findMany({
+      where: baseWhere,
+      include: {
+        Contact: { select: { name: true } },
+        Farm:    { select: { Farm_Name: true } },
+        Project: { select: { Project_Name: true } },
+      },
+      orderBy: { uploaded_at: "desc" },
+    }),
+    prisma.video.findMany({
+      where: baseWhere,
+      include: {
+        Contact: { select: { name: true } },
+        Farm:    { select: { Farm_Name: true } },
+        Project: { select: { Project_Name: true } },
+      },
+      orderBy: { received_at: "desc" },
     }),
     prisma.farm.findMany({
       select: { id: true, Farm_Name: true },
       orderBy: { Farm_Name: "asc" },
+    }),
+    prisma.uploadCategory.findMany({
+      orderBy: { sort_order: "asc" },
+      include: { Metrics: { orderBy: { sort_order: "asc" } } },
     }),
     prisma.annotation.groupBy({ by: ["upload_id", "upload_table"], _count: { id: true } }),
   ]);
@@ -117,6 +135,7 @@ export default async function DataSortingPage() {
       end_time: null,
       possible_duplicate_of: r.possible_duplicate_of ?? null,
       duplicate_dismissed: r.duplicate_dismissed ?? false,
+      needs_further_processing: r.needs_further_processing ?? false,
       annotation_count: annCountMap.get(`photos-${r.id}`) ?? 0,
     })),
     ...notes.map((r) => ({
@@ -145,6 +164,7 @@ export default async function DataSortingPage() {
       end_time: null,
       possible_duplicate_of: null,
       duplicate_dismissed: false,
+      needs_further_processing: r.needs_further_processing ?? false,
     })),
     ...recordings.map((r) => ({
       annotation_count: 0,
@@ -172,6 +192,7 @@ export default async function DataSortingPage() {
       end_time: r.end_time?.toISOString() ?? null,
       possible_duplicate_of: r.possible_duplicate_of ?? null,
       duplicate_dismissed: r.duplicate_dismissed ?? false,
+      needs_further_processing: r.needs_further_processing ?? false,
     })),
     ...locations.map((r) => ({
       annotation_count: 0,
@@ -199,6 +220,7 @@ export default async function DataSortingPage() {
       end_time: null,
       possible_duplicate_of: null,
       duplicate_dismissed: false,
+      needs_further_processing: r.needs_further_processing ?? false,
     })),
     ...labUploads.map((r) => ({
       annotation_count: annCountMap.get(`lab-member-uploads-${r.id}`) ?? 0,
@@ -226,16 +248,84 @@ export default async function DataSortingPage() {
       end_time: r.end_time?.toISOString() ?? null,
       possible_duplicate_of: r.possible_duplicate_of ?? null,
       duplicate_dismissed: r.duplicate_dismissed ?? false,
+      needs_further_processing: r.needs_further_processing ?? false,
+    })),
+    ...documents.map((r) => ({
+      annotation_count: 0,
+      id: r.id,
+      table: "documents" as const,
+      uploader: r.Contact?.name ?? null,
+      uploader_type: "contact" as const,
+      farm: r.Farm?.Farm_Name ?? null,
+      farm_id: r.farm_id ?? null,
+      media_type: "document",
+      date_collected: r.timestamp?.toISOString() ?? null,
+      received_at: r.uploaded_at.toISOString(),
+      status: r.status,
+      stage: r.stage ?? null,
+      category: r.category ?? null,
+      description: r.description ?? null,
+      project_id: r.project_id ?? null,
+      project_name: r.Project?.Project_Name ?? null,
+      filename: r.filename || null,
+      content: r.note ?? null,
+      latitude: null,
+      longitude: null,
+      gps_track: null,
+      merge_group_id: r.merge_group_id ?? null,
+      end_time: null,
+      possible_duplicate_of: null,
+      duplicate_dismissed: false,
+      needs_further_processing: r.needs_further_processing ?? false,
+    })),
+    ...videos.map((r) => ({
+      annotation_count: 0,
+      id: r.id,
+      table: "videos" as const,
+      uploader: r.Contact?.name ?? null,
+      uploader_type: "contact" as const,
+      farm: r.Farm?.Farm_Name ?? null,
+      farm_id: r.farm_id ?? null,
+      media_type: "video",
+      date_collected: r.timestamp?.toISOString() ?? null,
+      received_at: r.received_at.toISOString(),
+      status: r.status,
+      stage: r.stage ?? null,
+      category: r.category ?? null,
+      description: r.description ?? null,
+      project_id: r.project_id ?? null,
+      project_name: r.Project?.Project_Name ?? null,
+      filename: r.filename || null,
+      content: r.note ?? null,
+      latitude: r.latitude ?? null,
+      longitude: r.longitude ?? null,
+      gps_track: null,
+      merge_group_id: r.merge_group_id ?? null,
+      end_time: null,
+      possible_duplicate_of: null,
+      duplicate_dismissed: false,
+      needs_further_processing: r.needs_further_processing ?? false,
     })),
   ].sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime());
 
-  const projectList = projects.map((p) => ({ id: p.id, name: p.Project_Name ?? `Project ${p.id}` }));
   const farmList = farms.map((f) => ({ id: f.id, name: f.Farm_Name ?? `Farm ${f.id}` }));
+  const categories = categoryRows.map((c) => ({
+    id: c.id,
+    name: c.name,
+    media_types: c.media_types,
+    metrics: c.Metrics.map((m) => ({
+      id: m.id,
+      label: m.label,
+      field_type: m.field_type as "text" | "number" | "select" | "boolean",
+      unit: m.unit,
+      options: Array.isArray(m.options) ? (m.options as string[]) : null,
+    })),
+  }));
 
   return (
     <DataSortingClient
       items={items}
-      projects={projectList}
+      categories={categories}
       farms={farmList}
       canDelete={showDelete}
       activeFilter={activeFilter}

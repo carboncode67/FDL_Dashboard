@@ -29,6 +29,9 @@ export function FieldBoundaryUpload({ farmId, fieldCount, drawButton }: Props) {
     setMessage("");
   }
 
+  const lowerName = selectedFile?.name.toLowerCase() ?? "";
+  const isKmlLike = lowerName.endsWith(".kml") || lowerName.endsWith(".kmz");
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedFile) return;
@@ -93,7 +96,7 @@ export function FieldBoundaryUpload({ farmId, fieldCount, drawButton }: Props) {
             <input
               ref={fileRef}
               type="file"
-              accept=".geojson,.json,.zip,.gpkg"
+              accept=".geojson,.json,.zip,.gpkg,.kml,.kmz"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -108,29 +111,35 @@ export function FieldBoundaryUpload({ farmId, fieldCount, drawButton }: Props) {
                   Drop a file here or click to browse
                 </p>
                 <p className="text-xs text-slate-400 mt-1">
-                  Supported: .geojson, .json, .zip (shapefile), .gpkg
+                  Supported: .geojson, .json, .zip (shapefile), .gpkg, .kml, .kmz
                 </p>
               </div>
             )}
           </div>
 
-          {/* EPSG input */}
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-slate-600 whitespace-nowrap">
-              Coordinate System (EPSG)
-            </label>
-            <input
-              type="number"
-              value={epsg}
-              onChange={(e) => setEpsg(e.target.value)}
-              className="w-32 rounded-md border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="4326"
-              min={1}
-            />
-            {epsg !== "4326" && (
-              <span className="text-xs text-slate-400">will reproject to WGS84</span>
-            )}
-          </div>
+          {/* EPSG input — not applicable to KML/KMZ, which are always WGS84 */}
+          {isKmlLike ? (
+            <p className="text-xs text-slate-400">
+              KML/KMZ coordinates are always WGS84 — no coordinate system to set.
+            </p>
+          ) : (
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-slate-600 whitespace-nowrap">
+                Coordinate System (EPSG)
+              </label>
+              <input
+                type="number"
+                value={epsg}
+                onChange={(e) => setEpsg(e.target.value)}
+                className="w-32 rounded-md border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="4326"
+                min={1}
+              />
+              {epsg !== "4326" && (
+                <span className="text-xs text-slate-400">will reproject to WGS84</span>
+              )}
+            </div>
+          )}
 
           {/* Status feedback */}
           {status === "success" && (

@@ -15,6 +15,13 @@ export interface MapRaster {
   id: number
   url: string
   label: string
+  kind: "raster" | "vector"
+  // Set by PipelineProcessor's geo_sanity.py (verified against the run's farm
+  // centroid, reprojected to EPSG:4326 on a match — see its CLAUDE.md). "unclear"
+  // means the file was left un-normalized and is NOT safe to plot; null covers rows
+  // from before this check existed, treated the same as a confident "ok" so older
+  // data keeps rendering as it always did.
+  crsStatus: "ok" | "unclear" | null
 }
 
 interface MapField {
@@ -154,6 +161,30 @@ function RasterLayer({ url }: { url: string }) {
   return null
 }
 
+// Fetches and renders a vector pipeline output as a plain GeoJSON layer — already
+// normalized to EPSG:4326 by PipelineProcessor's geo_sanity.py before it ever
+// reached the Dashboard, same convention as Fields/ExperimentZones geometry, so no
+// CRS handling is needed here. Only .geojson actually renders this way: a .gpkg
+// vector output is a binary SQLite file the browser can't parse client-side, so it
+// silently renders nothing (still downloadable via the checklist link below).
+function VectorLayer({ url }: { url: string }) {
+  const [data, setData] = useState<GeoJSON.GeoJsonObject | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch(url)
+      .then((r) => r.json())
+      .then((json) => {
+        if (!cancelled) setData(json)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [url])
+  if (!data) return null
+  return <GeoJSON data={data} style={() => ({ color: "#0891b2", weight: 2, fillColor: "#06b6d4", fillOpacity: 0.25 })} />
+}
+
 export default function FarmMap({ fields, zones, photos, notes, farmId, labUploads = [], rasters = [], farmLat, farmLng }: FarmMapProps) {
   const [gpsTracks, setGpsTracks] = useState<GpsTrack[]>([])
   // Off by default — overlaying every pipeline-output raster at once (e.g. 4+ from a
@@ -167,6 +198,11 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
       .then((data) => setGpsTracks(data.features ?? []))
       .catch(() => {})
   }, [farmId])
+
+  // crsStatus === null covers rows from before this check existed — treated as
+  // renderable so old data keeps behaving the way it always did.
+  const renderableRasters = rasters.filter((r) => r.crsStatus !== "unclear")
+  const unclearRasters = rasters.filter((r) => r.crsStatus === "unclear")
 
   const allLatLngs: [number, number][] = [
     ...fields.flatMap((f) => (f.geometry ? extractLatLngs(f.geometry) : [])),
@@ -209,10 +245,15 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          {/* Pipeline output rasters — toggled via the checklist below the map */}
-          {rasters.filter((r) => visibleRasterIds.has(r.id)).map((r) => (
-            <RasterLayer key={`raster-${r.id}`} url={r.url} />
-          ))}
+          {/* Pipeline outputs — toggled via the checklist below the map. A "CRS
+              unclear" output never renders here regardless of the checkbox (see
+              renderableRasters below) — geo_sanity couldn't confidently place it, so
+              plotting it would risk showing data in the wrong spot with no warning. */}
+          {renderableRasters.filter((r) => visibleRasterIds.has(r.id)).map((r) =>
+            r.kind === "vector"
+              ? <VectorLayer key={`raster-${r.id}`} url={r.url} />
+              : <RasterLayer key={`raster-${r.id}`} url={r.url} />
+          )}
 
           {/* Field boundaries — green */}
           {fields.map((f) => {
@@ -266,7 +307,7 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
                 <img
                   src={`/api/files/photos/${p.filename}`}
                   alt={p.note ?? "Field photo"}
-                  style={{ maxWidth: 220, maxHeight: 160, objectFit: "cover", borderRadius: 4, marginBottom: 6, display: "block" }}
+                  style={{ maxWidth: 220, maxHeight: 160, objectFit: "cover", borderRadius: 4, marginBottom: 6, display: "block", imageOrientation: "from-image" }}
                 />
                 <strong>Photo</strong>
                 <br />
@@ -328,7 +369,7 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
                     <img
                       src={`/api/files/photos/${u.filename}`}
                       alt="Lab upload"
-                      style={{ maxWidth: 220, maxHeight: 160, objectFit: "cover", borderRadius: 4, marginBottom: 6, display: "block" }}
+                      style={{ maxWidth: 220, maxHeight: 160, objectFit: "cover", borderRadius: 4, marginBottom: 6, display: "block", imageOrientation: "from-image" }}
                     />
                   )}
                   <strong>{isPhoto ? "Photo (Lab)" : `${u.media_type.charAt(0).toUpperCase() + u.media_type.slice(1)} (Lab)`}</strong>
@@ -387,10 +428,10 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
         </MapContainer>
       </div>
 
-      {rasters.length > 0 && (
+      {renderableRasters.length > 0 && (
         <div className="flex flex-wrap gap-3 px-1 text-sm">
           <span className="text-slate-500">Pipeline outputs:</span>
-          {rasters.map((r) => (
+          {renderableRasters.map((r) => (
             <label key={r.id} className="flex items-center gap-1.5 text-slate-700">
               <input
                 type="checkbox"
@@ -406,6 +447,22 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
               />
               {r.label}
             </label>
+          ))}
+        </div>
+      )}
+
+      {unclearRasters.length > 0 && (
+        <div className="flex flex-wrap gap-3 px-1 text-sm">
+          <span className="text-amber-600">⚠ CRS unclear — not shown on map:</span>
+          {unclearRasters.map((r) => (
+            <a
+              key={r.id}
+              href={r.url}
+              className="text-slate-700 underline decoration-dotted hover:text-slate-900"
+              title="Location couldn't be verified against this farm — download and check manually"
+            >
+              {r.label}
+            </a>
           ))}
         </div>
       )}

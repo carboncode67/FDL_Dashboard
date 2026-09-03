@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdmin, type Role } from "@/lib/roles";
 import { processingConfigured, triggerPipelineRun } from "@/lib/processing";
+import { farmCentroidFor } from "@/lib/pipeline-farm";
 
 // Re-run a past pipeline run. Optionally carries a `prompt` — an operator
 // instruction the processor folds into its LLM wiring step for this run only
@@ -71,12 +72,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ runId: 
     return NextResponse.json({ ...run, processing_configured: false }, { status: 201 });
   }
 
+  const farmCentroid = priorRun.farm_id ? await farmCentroidFor(priorRun.farm_id) : null;
+
   try {
     const { external_job_id } = await triggerPipelineRun(pipeline.external_pipeline_id, {
       run_id: run.id,
       callback_url: `${baseUrl}/api/pipelines/webhook`,
       ...(droneFlightRecordId ? { drone_flight_record_id: droneFlightRecordId } : { input_file_url: inputFileUrl }),
       ...(prompt ? { prompt } : {}),
+      ...(farmCentroid ? { farm_centroid: farmCentroid } : {}),
     });
     const updated = await prisma.pipelineRun.update({
       where: { id: run.id },

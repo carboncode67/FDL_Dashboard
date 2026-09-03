@@ -24,7 +24,7 @@ function loadGpsTrack(subdir: string, filename: string): [number, number][] | nu
   }
 }
 
-const ALLOWED = ["photos", "notes", "recordings", "locations", "lab-member-uploads"] as const;
+const ALLOWED = ["photos", "notes", "recordings", "locations", "lab-member-uploads", "documents", "videos"] as const;
 type TableSlug = (typeof ALLOWED)[number];
 
 function isAllowed(t: string): t is TableSlug {
@@ -53,6 +53,7 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
         latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
         merge_group_id: r.merge_group_id ?? null, end_time: null,
         possible_duplicate_of: r.possible_duplicate_of ?? null, duplicate_dismissed: r.duplicate_dismissed ?? false,
+        needs_further_processing: r.needs_further_processing ?? false,
       };
     }
     case "notes": {
@@ -69,6 +70,7 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
         latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
         merge_group_id: r.merge_group_id ?? null, end_time: null,
         possible_duplicate_of: null, duplicate_dismissed: false,
+        needs_further_processing: r.needs_further_processing ?? false,
       };
     }
     case "recordings": {
@@ -85,6 +87,7 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
         gps_track: r.gps_filename ? loadGpsTrack("recordings", r.gps_filename) : null,
         merge_group_id: r.merge_group_id ?? null, end_time: r.end_time?.toISOString() ?? null,
         possible_duplicate_of: r.possible_duplicate_of ?? null, duplicate_dismissed: r.duplicate_dismissed ?? false,
+        needs_further_processing: r.needs_further_processing ?? false,
       };
     }
     case "locations": {
@@ -101,6 +104,7 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
         gps_track: r.track_filename ? loadGpsTrack("locations", r.track_filename) : null,
         merge_group_id: r.merge_group_id ?? null, end_time: r.end_time?.toISOString() ?? null,
         possible_duplicate_of: null, duplicate_dismissed: false,
+        needs_further_processing: r.needs_further_processing ?? false,
       };
     }
     case "lab-member-uploads": {
@@ -127,6 +131,41 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
           : null,
         merge_group_id: r.merge_group_id ?? null, end_time: r.end_time?.toISOString() ?? null,
         possible_duplicate_of: r.possible_duplicate_of ?? null, duplicate_dismissed: r.duplicate_dismissed ?? false,
+        needs_further_processing: r.needs_further_processing ?? false,
+      };
+    }
+    case "documents": {
+      const r = await prisma.document.findUnique({ where: { id }, include: INCLUDE_OPTS });
+      if (!r) return null;
+      return {
+        id: r.id, table: "documents", uploader: r.Contact?.name ?? null,
+        uploader_type: "contact", farm: r.Farm?.Farm_Name ?? null, farm_id: r.farm_id ?? null,
+        media_type: "document", date_collected: r.timestamp?.toISOString() ?? null,
+        received_at: r.uploaded_at.toISOString(), status: r.status, stage: r.stage ?? null,
+        category: r.category ?? null, description: r.description ?? null,
+        project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
+        filename: r.filename || null, content: r.note ?? null,
+        latitude: null, longitude: null, gps_track: null,
+        merge_group_id: r.merge_group_id ?? null, end_time: null,
+        possible_duplicate_of: null, duplicate_dismissed: false,
+        needs_further_processing: r.needs_further_processing ?? false,
+      };
+    }
+    case "videos": {
+      const r = await prisma.video.findUnique({ where: { id }, include: INCLUDE_OPTS });
+      if (!r) return null;
+      return {
+        id: r.id, table: "videos", uploader: r.Contact?.name ?? null,
+        uploader_type: "contact", farm: r.Farm?.Farm_Name ?? null, farm_id: r.farm_id ?? null,
+        media_type: "video", date_collected: r.timestamp?.toISOString() ?? null,
+        received_at: r.received_at.toISOString(), status: r.status, stage: r.stage ?? null,
+        category: r.category ?? null, description: r.description ?? null,
+        project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
+        filename: r.filename || null, content: r.note ?? null,
+        latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
+        merge_group_id: r.merge_group_id ?? null, end_time: null,
+        possible_duplicate_of: null, duplicate_dismissed: false,
+        needs_further_processing: r.needs_further_processing ?? false,
       };
     }
   }
@@ -134,7 +173,7 @@ async function fetchItem(table: TableSlug, id: number): Promise<UploadItem | nul
 
 // Replicate the main page's item list (all tables, sorted by received_at desc) for nav context
 async function fetchAllItems(): Promise<UploadItem[]> {
-  const [photos, notes, recordings, locations, labUploads] = await Promise.all([
+  const [photos, notes, recordings, locations, labUploads, documents, videos] = await Promise.all([
     prisma.photo.findMany({
       include: INCLUDE_OPTS,
       orderBy: { received_at: "desc" },
@@ -159,6 +198,14 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       },
       orderBy: { received_at: "desc" },
     }),
+    prisma.document.findMany({
+      include: INCLUDE_OPTS,
+      orderBy: { uploaded_at: "desc" },
+    }),
+    prisma.video.findMany({
+      include: INCLUDE_OPTS,
+      orderBy: { received_at: "desc" },
+    }),
   ]);
 
   return [
@@ -173,6 +220,7 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
       merge_group_id: r.merge_group_id ?? null, end_time: null,
       possible_duplicate_of: r.possible_duplicate_of ?? null, duplicate_dismissed: r.duplicate_dismissed ?? false,
+      needs_further_processing: r.needs_further_processing ?? false,
     })),
     ...notes.map((r) => ({
       id: r.id, table: "notes" as const, uploader: r.Contact?.name ?? null,
@@ -185,6 +233,7 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
       merge_group_id: r.merge_group_id ?? null, end_time: null,
       possible_duplicate_of: null, duplicate_dismissed: false,
+      needs_further_processing: r.needs_further_processing ?? false,
     })),
     ...recordings.map((r) => ({
       id: r.id, table: "recordings" as const, uploader: r.Contact?.name ?? null,
@@ -196,6 +245,7 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       filename: r.filename || null, content: null, latitude: null, longitude: null, gps_track: null,
       merge_group_id: r.merge_group_id ?? null, end_time: r.end_time?.toISOString() ?? null,
       possible_duplicate_of: r.possible_duplicate_of ?? null, duplicate_dismissed: r.duplicate_dismissed ?? false,
+      needs_further_processing: r.needs_further_processing ?? false,
     })),
     ...locations.map((r) => ({
       id: r.id, table: "locations" as const, uploader: r.Contact?.name ?? null,
@@ -207,6 +257,7 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       filename: null, content: r.name ?? null, latitude: null, longitude: null, gps_track: null,
       merge_group_id: r.merge_group_id ?? null, end_time: r.end_time?.toISOString() ?? null,
       possible_duplicate_of: null, duplicate_dismissed: false,
+      needs_further_processing: r.needs_further_processing ?? false,
     })),
     ...labUploads.map((r) => ({
       id: r.id, table: "lab-member-uploads" as const, uploader: r.User?.name ?? null,
@@ -219,6 +270,33 @@ async function fetchAllItems(): Promise<UploadItem[]> {
       latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
       merge_group_id: r.merge_group_id ?? null, end_time: r.end_time?.toISOString() ?? null,
       possible_duplicate_of: r.possible_duplicate_of ?? null, duplicate_dismissed: r.duplicate_dismissed ?? false,
+      needs_further_processing: r.needs_further_processing ?? false,
+    })),
+    ...documents.map((r) => ({
+      id: r.id, table: "documents" as const, uploader: r.Contact?.name ?? null,
+      uploader_type: "contact" as const, farm: r.Farm?.Farm_Name ?? null, farm_id: r.farm_id ?? null,
+      media_type: "document", date_collected: r.timestamp?.toISOString() ?? null,
+      received_at: r.uploaded_at.toISOString(), status: r.status, stage: r.stage ?? null,
+      category: r.category ?? null, description: r.description ?? null,
+      project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
+      filename: r.filename || null, content: r.note ?? null,
+      latitude: null, longitude: null, gps_track: null,
+      merge_group_id: r.merge_group_id ?? null, end_time: null,
+      possible_duplicate_of: null, duplicate_dismissed: false,
+      needs_further_processing: r.needs_further_processing ?? false,
+    })),
+    ...videos.map((r) => ({
+      id: r.id, table: "videos" as const, uploader: r.Contact?.name ?? null,
+      uploader_type: "contact" as const, farm: r.Farm?.Farm_Name ?? null, farm_id: r.farm_id ?? null,
+      media_type: "video", date_collected: r.timestamp?.toISOString() ?? null,
+      received_at: r.received_at.toISOString(), status: r.status, stage: r.stage ?? null,
+      category: r.category ?? null, description: r.description ?? null,
+      project_id: r.project_id ?? null, project_name: r.Project?.Project_Name ?? null,
+      filename: r.filename || null, content: r.note ?? null,
+      latitude: r.latitude ?? null, longitude: r.longitude ?? null, gps_track: null,
+      merge_group_id: r.merge_group_id ?? null, end_time: null,
+      possible_duplicate_of: null, duplicate_dismissed: false,
+      needs_further_processing: r.needs_further_processing ?? false,
     })),
   ].sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime());
 }
@@ -253,7 +331,7 @@ export default async function DetailPage({
   searchParams,
 }: {
   params: Promise<{ table: string; id: string }>;
-  searchParams: Promise<{ status?: string; type?: string; farm?: string; search?: string; duplicate?: string }>;
+  searchParams: Promise<{ tab?: string; status?: string; type?: string; farm?: string; search?: string; duplicate?: string }>;
 }) {
   const { table, id } = await params;
   const sp = await searchParams;
@@ -263,17 +341,17 @@ export default async function DetailPage({
   const itemId = parseInt(id);
   if (isNaN(itemId)) notFound();
 
+  const tab          = sp.tab ?? "images";
   const filterStatus = sp.status ?? "all";
   const filterType   = sp.type   ?? "all";
   const filterFarm   = sp.farm   ?? "all";
   const search       = sp.search ?? "";
   const filterDuplicate = sp.duplicate === "1";
 
-  const [item, allItems, farms, projects, session, editMode, categoryRows, metricValueRows] = await Promise.all([
+  const [item, allItems, farms, session, editMode, categoryRows, metricValueRows] = await Promise.all([
     fetchItem(table, itemId),
     fetchAllItems(),
     prisma.farm.findMany({ select: { id: true, Farm_Name: true }, orderBy: { Farm_Name: "asc" } }),
-    prisma.project.findMany({ select: { id: true, Project_Name: true }, orderBy: { Project_Name: "asc" } }),
     auth(),
     getEditMode(),
     prisma.uploadCategory.findMany({
@@ -343,7 +421,7 @@ export default async function DetailPage({
   const total = filtered.length;
 
   const filterParams = new URLSearchParams({
-    status: filterStatus, type: filterType, farm: filterFarm, search, duplicate: filterDuplicate ? "1" : "0",
+    tab, status: filterStatus, type: filterType, farm: filterFarm, search, duplicate: filterDuplicate ? "1" : "0",
   });
 
   // All other items that belong to the same merge group as the current item.
@@ -364,7 +442,6 @@ export default async function DetailPage({
     <DetailClient
       item={item}
       farms={farms.map((f) => ({ id: f.id, name: f.Farm_Name ?? `Farm ${f.id}` }))}
-      projects={projects.map((p) => ({ id: p.id, name: p.Project_Name ?? `Project ${p.id}` }))}
       prevHref={prev ? `/data-sorting/${prev.table}/${prev.id}?${filterParams}` : null}
       nextHref={next ? `/data-sorting/${next.table}/${next.id}?${filterParams}` : null}
       position={position}

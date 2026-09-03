@@ -41,6 +41,7 @@ export default function ResponsesClient({ form, fields, responses }: Props) {
                 src={`/api/files/photos/${filename}`}
                 alt=""
                 className="h-12 w-12 rounded object-cover"
+                style={{ imageOrientation: "from-image" }}
               />
             </a>
           );

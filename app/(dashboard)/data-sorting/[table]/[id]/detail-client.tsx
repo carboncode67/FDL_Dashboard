@@ -20,26 +20,13 @@ import {
   STATUS_LABEL,
   STATUS_VARIANT,
   MEDIA_LABEL,
+  CategoryOption,
 } from "../../data-sorting-client";
 import { isFlaggedDuplicate } from "@/lib/upload-item-utils";
 import UploadPointMapWrapper from "@/components/upload-point-map-wrapper";
 import UploadTrackMapWrapper from "@/components/upload-track-map-wrapper";
 
 interface FarmOption { id: number; name: string; }
-interface ProjectOption { id: number; name: string; }
-interface MetricOption {
-  id: number;
-  label: string;
-  field_type: "text" | "number" | "select" | "boolean";
-  unit: string | null;
-  options: string[] | null;
-}
-interface CategoryOption {
-  id: number;
-  name: string;
-  media_types: string[];
-  metrics: MetricOption[];
-}
 
 function MediaPreview({ item }: { item: UploadItem }) {
   if (item.media_type === "photo" && item.filename) {
@@ -49,6 +36,7 @@ function MediaPreview({ item }: { item: UploadItem }) {
         src={`/api/files/photos/${item.filename}`}
         alt="Upload preview"
         className="w-full max-h-[480px] object-contain rounded-md border bg-slate-100"
+        style={{ imageOrientation: "from-image" }}
       />
     );
   }
@@ -82,6 +70,30 @@ function MediaPreview({ item }: { item: UploadItem }) {
       </div>
     );
   }
+  if (item.media_type === "video" && item.filename) {
+    return (
+      <video controls className="w-full max-h-[480px] rounded-md border bg-black" preload="metadata">
+        <source src={`/api/files/videos/${item.filename}`} />
+        Your browser does not support video playback.
+      </video>
+    );
+  }
+  if (item.media_type === "document" && item.filename) {
+    return (
+      <div className="rounded-md border bg-slate-50 p-4 space-y-2">
+        <p className="text-sm text-slate-500 font-medium">Document</p>
+        <a
+          href={`/api/files/documents/${item.filename}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-blue-600 hover:underline break-all"
+        >
+          {item.filename}
+        </a>
+        {item.content && <p className="text-sm text-slate-600 whitespace-pre-wrap">{item.content}</p>}
+      </div>
+    );
+  }
   return (
     <div className="rounded-md border bg-slate-50 p-4 text-sm text-slate-400 min-h-[80px] flex items-center justify-center">
       No preview available
@@ -92,7 +104,6 @@ function MediaPreview({ item }: { item: UploadItem }) {
 export default function DetailClient({
   item,
   farms,
-  projects,
   prevHref,
   nextHref,
   position,
@@ -108,7 +119,6 @@ export default function DetailClient({
 }: {
   item: UploadItem;
   farms: FarmOption[];
-  projects: ProjectOption[];
   prevHref: string | null;
   nextHref: string | null;
   position: number | null;
@@ -124,10 +134,10 @@ export default function DetailClient({
 }) {
   const router = useRouter();
   const [farmId, setFarmId]       = useState(item.farm_id ? String(item.farm_id) : "");
-  const [projectId, setProjectId] = useState(item.project_id ? String(item.project_id) : "");
   const [category, setCategory]   = useState(item.category ?? "");
   const [status, setStatus]       = useState(String(item.status));
   const [description, setDescription] = useState(item.description ?? "");
+  const [needsFurtherProcessing, setNeedsFurtherProcessing] = useState(item.needs_further_processing);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showMergeBanner, setShowMergeBanner] = useState(similarItems.length > 0 && !item.merge_group_id);
@@ -260,10 +270,10 @@ export default function DetailClient({
 
     const body: Record<string, unknown> = {
       farm_id:     farmId ? Number(farmId) : null,
-      project_id:  projectId ? Number(projectId) : null,
       category:    category || null,
       status:      Number(status),
       description: description || null,
+      needs_further_processing: needsFurtherProcessing,
       metric_values: Object.fromEntries(activeMetrics.map((m) => [m.id, metricInputs[m.id] ?? ""])),
     };
 
@@ -531,23 +541,6 @@ export default function DetailClient({
             </div>
 
             <div className="space-y-1.5">
-              <Label>Project</Label>
-              <Select value={projectId} onValueChange={(v) => setProjectId(v ?? "")}>
-                <SelectTrigger className="w-full">
-                  <SelectValue>
-                    {projectId ? (projects.find(p => String(p.id) === projectId)?.name ?? projectId) : undefined}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">— None —</SelectItem>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
               <Label>Category</Label>
               <Select value={category} onValueChange={(v) => setCategory(v ?? "")}>
                 <SelectTrigger className="w-full">
@@ -561,6 +554,15 @@ export default function DetailClient({
                 </SelectContent>
               </Select>
             </div>
+
+            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={needsFurtherProcessing}
+                onChange={(e) => setNeedsFurtherProcessing(e.target.checked)}
+              />
+              Needs Further Processing
+            </label>
 
             {activeMetrics.length > 0 && (
               <div className="space-y-3 rounded-md border bg-slate-50 p-3">
@@ -669,6 +671,7 @@ export default function DetailClient({
                     src={`/api/files/photos/${member.filename}`}
                     alt="Group member"
                     className="w-full h-28 object-cover rounded bg-slate-100"
+                    style={{ imageOrientation: "from-image" }}
                   />
                 )}
                 {member.media_type === "note" && member.content && (

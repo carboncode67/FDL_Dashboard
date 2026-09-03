@@ -60,3 +60,22 @@ export async function resolveFarmForDroneFlight(droneFlightRecordId: number): Pr
     return null;
   }
 }
+
+// Ground truth location handed to PipelineProcessor's geo_sanity CRS check (see
+// TriggerRunPayload.farm_centroid in lib/processing.ts) — never fed into the
+// pipeline script itself. Null whenever the farm has no geocoded address yet
+// (Farms.latitude/longitude are nullable, set by Nominatim on the farm edit
+// form's address blur) — callers should just omit farm_centroid in that case
+// rather than send a run with no CRS ground truth to check against.
+export async function farmCentroidFor(farmId: number): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const farm = await prisma.farm.findUnique({
+      where: { id: farmId },
+      select: { latitude: true, longitude: true },
+    });
+    if (farm?.latitude == null || farm?.longitude == null) return null;
+    return { lat: farm.latitude, lng: farm.longitude };
+  } catch {
+    return null;
+  }
+}

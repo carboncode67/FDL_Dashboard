@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { processingConfigured, triggerPipelineRun } from "@/lib/processing";
-import { resolveFarmForTrigger } from "@/lib/pipeline-farm";
+import { resolveFarmForTrigger, farmCentroidFor } from "@/lib/pipeline-farm";
 import type { Prisma } from "@prisma/client";
 
 export interface MatchTriggerOpts {
@@ -44,6 +44,7 @@ export async function matchAndTriggerPipelines(opts: MatchTriggerOpts): Promise<
   const baseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
   // Same trigger event for every pipeline matched below — resolve once, not per-pipeline.
   const farm_id = await resolveFarmForTrigger({ table: opts.table, id: opts.id });
+  const farmCentroid = farm_id ? await farmCentroidFor(farm_id) : null;
 
   for (const pipeline of pipelines) {
     if (!pipeline.external_pipeline_id) continue;
@@ -64,6 +65,7 @@ export async function matchAndTriggerPipelines(opts: MatchTriggerOpts): Promise<
         run_id: run.id,
         input_file_url: opts.inputFileUrl,
         callback_url: `${baseUrl}/api/pipelines/webhook`,
+        ...(farmCentroid ? { farm_centroid: farmCentroid } : {}),
       });
       await prisma.pipelineRun.update({
         where: { id: run.id },

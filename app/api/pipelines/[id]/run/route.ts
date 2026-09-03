@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdmin, type Role } from "@/lib/roles";
 import { processingConfigured, triggerPipelineRun } from "@/lib/processing";
-import { resolveFarmForDroneFlight } from "@/lib/pipeline-farm";
+import { resolveFarmForDroneFlight, farmCentroidFor } from "@/lib/pipeline-farm";
 
 // Manual run trigger. For a normal (upload-matched) pipeline this re-tests the
 // pipeline's own sample dataset. For a target_kind = "drone_flight" pipeline, the
@@ -44,6 +44,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const farm_id = droneFlightRecordId !== null
     ? await resolveFarmForDroneFlight(droneFlightRecordId)
     : null;
+  const farmCentroid = farm_id ? await farmCentroidFor(farm_id) : null;
 
   const run = await prisma.pipelineRun.create({
     data: {
@@ -67,6 +68,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       ...(droneFlightRecordId
         ? { drone_flight_record_id: droneFlightRecordId }
         : { input_file_url: `${baseUrl}/api/files/pipeline-datasets/${pipeline.sample_dataset_filename}` }),
+      ...(farmCentroid ? { farm_centroid: farmCentroid } : {}),
     });
 
     const updated = await prisma.pipelineRun.update({

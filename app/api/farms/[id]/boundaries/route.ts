@@ -5,6 +5,8 @@ import {
   parseGeojson,
   parseShapefile,
   parseGeopackage,
+  parseKml,
+  parseKmz,
   applyEpsgTransform,
 } from "@/lib/parse-boundaries";
 import type { Feature, Polygon, MultiPolygon } from "geojson";
@@ -43,6 +45,10 @@ export async function POST(
   const filename = file.name.toLowerCase();
   const buffer = Buffer.from(await file.arrayBuffer());
 
+  // KML/KMZ coordinates are always WGS84 per spec — no EPSG lookup/reprojection
+  // applies to them, unlike GPKG/SHP/GeoJSON which may carry an arbitrary CRS.
+  const isKmlLike = filename.endsWith(".kml") || filename.endsWith(".kmz");
+
   let fc;
   try {
     if (filename.endsWith(".geojson") || filename.endsWith(".json")) {
@@ -51,9 +57,13 @@ export async function POST(
       fc = await parseShapefile(buffer);
     } else if (filename.endsWith(".gpkg")) {
       fc = await parseGeopackage(buffer);
+    } else if (filename.endsWith(".kml")) {
+      fc = await parseKml(buffer);
+    } else if (filename.endsWith(".kmz")) {
+      fc = await parseKmz(buffer);
     } else {
       return NextResponse.json(
-        { error: "Unsupported file type. Use .geojson, .json, .zip, or .gpkg" },
+        { error: "Unsupported file type. Use .geojson, .json, .zip, .gpkg, .kml, or .kmz" },
         { status: 400 },
       );
     }
@@ -62,11 +72,13 @@ export async function POST(
     return NextResponse.json({ error: `Failed to parse file: ${msg}` }, { status: 400 });
   }
 
-  try {
-    fc = applyEpsgTransform(fc, epsg);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "CRS error";
-    return NextResponse.json({ error: msg }, { status: 400 });
+  if (!isKmlLike) {
+    try {
+      fc = applyEpsgTransform(fc, epsg);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "CRS error";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
   }
 
   const polygonFeatures = fc.features.filter(
