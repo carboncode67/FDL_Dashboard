@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GeofenceBasicsForm } from "@/components/geofence-basics-form";
 import { GeofenceAssignmentPicker } from "@/components/geofence-assignment-picker";
-import FieldMapWrapper from "@/components/field-map-wrapper";
 
 type Assignment = {
   id: number;
@@ -15,15 +14,24 @@ type Assignment = {
   target_label: string;
 };
 
+type ZoneSummary = {
+  id: number;
+  farm_name: string;
+  radius_meters: number;
+  field_names: string[];
+};
+
 interface Props {
   geofence: {
     id: number;
     title: string;
     description: string | null;
-    geometry: string;
-    action_message: string;
+    action_message: string | null;
     is_active: boolean;
+    notify_on_circle_entry: boolean;
+    notify_on_field_entry: boolean;
   };
+  zones: ZoneSummary[];
   assignments: Assignment[];
   contacts: { id: number; name: string }[];
   users: { id: string; name: string | null; email: string }[];
@@ -31,8 +39,14 @@ interface Props {
   experiments: { id: number; experiment_name: string | null }[];
 }
 
-export default function EditGeofenceClient({ geofence, assignments, contacts, users, farms, experiments }: Props) {
+export default function EditGeofenceClient({ geofence, zones, assignments, contacts, users, farms, experiments }: Props) {
   const router = useRouter();
+
+  // Zones auto-derive a Whole-Farm assignment per farm on creation — filter those farms out of
+  // the manual picker's dropdown so it can't create a confusing duplicate row for a farm
+  // already covered. Farms not tied to any zone stay available for manual/supplementary use.
+  const alreadyAssignedFarmIds = new Set(assignments.filter((a) => a.farm_id !== null).map((a) => a.farm_id));
+  const pickerFarms = farms.filter((f) => !alreadyAssignedFarmIds.has(f.id));
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -51,12 +65,22 @@ export default function EditGeofenceClient({ geofence, assignments, contacts, us
 
       <div className="bg-white border rounded-lg p-6 space-y-3">
         <div className="flex items-center justify-between pb-2 border-b">
-          <h3 className="text-sm font-semibold text-slate-900">Boundary</h3>
-          <Link href={`/geofences/${geofence.id}/draw`} className="text-xs font-medium text-emerald-700 hover:text-emerald-900">
-            Redraw boundary →
-          </Link>
+          <h3 className="text-sm font-semibold text-slate-900">Zones</h3>
+          <span className="text-xs text-slate-400">To change zones, delete and recreate this geofence.</span>
         </div>
-        <FieldMapWrapper fieldName={geofence.title} geometry={geofence.geometry} />
+        {zones.length === 0 ? (
+          <p className="text-sm text-slate-400 italic">No zones.</p>
+        ) : (
+          <ul className="divide-y">
+            {zones.map((z) => (
+              <li key={z.id} className="py-2 text-sm">
+                <span className="font-medium">{z.farm_name}</span>
+                <span className="text-slate-500"> — {z.field_names.join(", ")}</span>
+                <span className="text-xs text-slate-400 ml-2">({Math.round(z.radius_meters)}m radius)</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="bg-white border rounded-lg p-6 space-y-3">
@@ -66,7 +90,7 @@ export default function EditGeofenceClient({ geofence, assignments, contacts, us
           initialAssignments={assignments}
           contacts={contacts}
           users={users}
-          farms={farms}
+          farms={pickerFarms}
           experiments={experiments}
         />
       </div>

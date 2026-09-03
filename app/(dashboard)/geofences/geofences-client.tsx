@@ -8,6 +8,7 @@ interface GeofenceRow {
   id: number;
   title: string;
   is_active: boolean;
+  zone_count: number;
   assignment_count: number;
   event_count: number;
 }
@@ -24,6 +25,11 @@ export function GeofencesClient({ data }: { data: GeofenceRow[] }) {
         const active = (row as unknown as GeofenceRow).is_active;
         return <Badge variant={active ? "default" : "outline"}>{active ? "Active" : "Inactive"}</Badge>;
       },
+    },
+    {
+      key: "zone_count",
+      header: "Zones",
+      render: (row: Record<string, unknown>) => <span>{(row as unknown as GeofenceRow).zone_count}</span>,
     },
     {
       key: "assignment_count",

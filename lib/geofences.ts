@@ -1,11 +1,5 @@
 import { prisma } from "@/lib/prisma";
 
-// Phase 1: the only client-interpreted action type. Enforced here (API-layer
-// allow-list) rather than a DB CHECK constraint, so a future action_type
-// (e.g. "mark_task") needs no migration -- an unrecognized action_type is
-// simply skipped client-side, never defaulted to "notification" behavior.
-export const ACTION_TYPES = new Set(["notification"]);
-
 type AssignmentWithTargets = {
   contact_id: number | null;
   user_id: string | null;

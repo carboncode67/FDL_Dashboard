@@ -8,7 +8,17 @@ export default async function EditGeofencePage({ params }: { params: Promise<{ i
   const geofenceId = parseInt(id);
 
   const [geofence, assignments, contacts, users, farms, experiments] = await Promise.all([
-    prisma.geofence.findUnique({ where: { id: geofenceId } }),
+    prisma.geofence.findUnique({
+      where: { id: geofenceId },
+      include: {
+        Zones: {
+          include: {
+            Farm: { select: { Farm_Name: true } },
+            Fields: { include: { Field: { select: { id: true, Name: true } } } },
+          },
+        },
+      },
+    }),
     prisma.geofenceAssignment.findMany({
       where: { geofence_id: geofenceId },
       include: ASSIGNMENT_INCLUDE,
@@ -28,10 +38,17 @@ export default async function EditGeofencePage({ params }: { params: Promise<{ i
         id: geofence.id,
         title: geofence.title,
         description: geofence.description,
-        geometry: geofence.geometry,
         action_message: geofence.action_message,
         is_active: geofence.is_active,
+        notify_on_circle_entry: geofence.notify_on_circle_entry,
+        notify_on_field_entry: geofence.notify_on_field_entry,
       }}
+      zones={geofence.Zones.map((z) => ({
+        id: z.id,
+        farm_name: z.Farm.Farm_Name ?? `Farm #${z.farm_id}`,
+        radius_meters: z.radius_meters,
+        field_names: z.Fields.map((zf) => zf.Field.Name ?? `Field #${zf.Field.id}`),
+      }))}
       assignments={assignments.map((a) => ({
         id: a.id,
         contact_id: a.contact_id,

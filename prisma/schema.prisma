@@ -144,6 +144,7 @@ model Farm {
   FormAssignments  FormAssignment[]
   FormResponses    FormResponse[]
   GeofenceAssignments GeofenceAssignment[]
+  GeofenceZones    GeofenceZone[]
   ContextFetchJobs ContextFetchJob[]
   ContextRasters   ContextRaster[]
   PipelineRuns     PipelineRun[]
@@ -170,6 +171,7 @@ model Field {
   DualexReadings  Dualex[]
   ExperimentZones ExperimentZone[]
   ExperimentFields ExperimentField[]
+  GeofenceZoneFields GeofenceZoneField[]
 
   @@map("Fields")
   @@schema("pgntarg2udzj1f3")
@@ -1233,28 +1235,68 @@ model FormResponse {
 // broadly to a farm/experiment, same shape as Form_Assignments) with a simple notification
 // action. Detection is entirely on-device (hybrid OS circular-region wake trigger + precise
 // point-in-polygon check on wake) — this table is config only, never triggers anything itself.
+// Phase 2: a Geofence is a named group of one or more GeofenceZones (each a farm-scoped
+// circle covering one or more Fields on that farm), replacing Phase 1's single freehand-drawn
+// polygon. notify_on_circle_entry/notify_on_field_entry are geofence-level (apply to every
+// zone) and replace the old action_type — both are just "fire a notification," the type
+// distinction that mattered was WHICH geometry triggers it, now modeled directly by these
+// two flags instead of a string enum.
 model Geofence {
-  id             Int      @id @default(autoincrement())
-  title          String
-  description    String?
-  geometry       String   // raw GeoJSON geometry object (not a Feature wrapper), TEXT — same
-                           // never-parsed-at-the-API-boundary convention as Fields.geometry /
-                           // ExperimentZones.geometry; lib/proximity.ts-style consumers JSON.parse it
-  is_active      Boolean  @default(true)
-  action_type    String   @default("notification") // Phase 1: only "notification" is valid —
-                                                     // enforced in the API route (lib/geofences.ts's
-                                                     // ACTION_TYPES), not a DB CHECK, so a future
-                                                     // action_type needs no migration
-  action_message String   // notification body shown on entry; notification title = Geofence.title
-  created_by_id  String?
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  id                     Int      @id @default(autoincrement())
+  title                  String
+  description            String?
+  is_active              Boolean  @default(true)
+  notify_on_circle_entry Boolean  @default(true)  // fire on entering a zone's circle ("near fields")
+  notify_on_field_entry  Boolean  @default(false) // fire on entering one of a zone's exact Field boundaries
+  action_message         String?  // optional override notification body; null => client generates
+                                   // per-event text ("You're near {Farm}" / "You've entered {Field}")
+  created_by_id          String?
+  created_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
 
   CreatedBy   User?                @relation("GeofenceCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
+  Zones       GeofenceZone[]
   Assignments GeofenceAssignment[]
   Events      GeofenceEvent[]
 
   @@map("Geofences")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// One farm-scoped circle within a Geofence. center/radius are seeded server-side from the
+// bounding circle of the selected Fields (staff can then drag/resize in the wizard before
+// saving) — mobile clients never derive this themselves, they just consume the stored values.
+model GeofenceZone {
+  id            Int      @id @default(autoincrement())
+  geofence_id   Int
+  farm_id       Int
+  center_lat    Float
+  center_lng    Float
+  radius_meters Float
+  created_at    DateTime @default(now())
+
+  Geofence Geofence            @relation(fields: [geofence_id], references: [id], onDelete: Cascade)
+  Farm     Farm                @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  Fields   GeofenceZoneField[]
+
+  @@index([geofence_id])
+  @@index([farm_id])
+  @@map("Geofence_Zones")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Which Fields a GeofenceZone was drawn around — used for the exact-boundary check when
+// notify_on_field_entry is on (the zone's circle alone isn't precise enough for that mode).
+model GeofenceZoneField {
+  zone_id  Int
+  field_id Int
+
+  Zone  GeofenceZone @relation(fields: [zone_id], references: [id], onDelete: Cascade)
+  Field Field        @relation(fields: [field_id], references: [id], onDelete: Cascade)
+
+  @@id([zone_id, field_id])
+  @@index([field_id])
+  @@map("Geofence_Zone_Fields")
   @@schema("pgntarg2udzj1f3")
 }
 
