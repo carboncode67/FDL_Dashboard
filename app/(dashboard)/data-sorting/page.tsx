@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { canDelete, type Role } from "@/lib/roles";
-import { getUserFilters } from "@/lib/get-user-filters";
+import { getEffectiveScope } from "@/lib/get-user-filters";
 import { DataSortingClient, UploadItem } from "./data-sorting-client";
 
 export default async function DataSortingPage() {
@@ -10,7 +10,7 @@ export default async function DataSortingPage() {
   const userId = session?.user?.id ?? null;
 
   const [{ projectIds, farmIds, showUnassigned }, editMode] = await Promise.all([
-    getUserFilters(userId),
+    getEffectiveScope(userId, session?.user?.category),
     getEditMode(),
   ]);
 

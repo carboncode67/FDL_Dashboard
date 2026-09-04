@@ -73,15 +73,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Bootstrap account is always admin
         if (user.id === "bootstrap") {
           token.role = "admin";
+          token.category = "lab_member";
         } else {
           try {
             const dbUser = await prisma.user.findUnique({
               where: { id: user.id as string },
-              select: { role: true },
+              select: { role: true, category: true },
             });
             token.role = (dbUser?.role ?? "member") as "admin" | "member" | "viewer";
+            token.category = (dbUser?.category ?? "lab_member") as "lab_member" | "agronomist";
           } catch {
             token.role = "member";
+            token.category = "lab_member";
           }
         }
       }
@@ -89,8 +92,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       if (token && session.user) {
-        (session.user as { id?: string; role?: string }).id = token.id as string;
-        (session.user as { id?: string; role?: string }).role = (token.role ?? "member") as string;
+        (session.user as { id?: string; role?: string; category?: string }).id = token.id as string;
+        (session.user as { id?: string; role?: string; category?: string }).role = (token.role ?? "member") as string;
+        (session.user as { id?: string; role?: string; category?: string }).category = (token.category ?? "lab_member") as string;
       }
       return session;
     },

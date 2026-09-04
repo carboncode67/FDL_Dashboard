@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
+import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import { DrawFieldPage } from "./draw-field-client";
 
 export default async function DrawFieldRoute({ params }: { params: Promise<{ id: string }> }) {
@@ -17,6 +18,8 @@ export default async function DrawFieldRoute({ params }: { params: Promise<{ id:
     include: { Fields: { select: { id: true, Name: true, geometry: true } } },
   });
   if (!farm) notFound();
+  const scope = await getEffectiveScope(session?.user?.id ?? null, session?.user?.category);
+  if (!scopeIncludesFarm(scope, farm.id)) notFound();
 
   return (
     <DrawFieldPage

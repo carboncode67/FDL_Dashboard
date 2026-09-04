@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
+import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import { EditBoundaryPage } from "./edit-boundary-client";
 
 export default async function DrawBoundaryRoute({ params }: { params: Promise<{ id: string }> }) {
@@ -17,6 +18,8 @@ export default async function DrawBoundaryRoute({ params }: { params: Promise<{ 
     include: { Farm: true },
   });
   if (!field) notFound();
+  const scope = await getEffectiveScope(session?.user?.id ?? null, session?.user?.category);
+  if (!scopeIncludesFarm(scope, field.Farms_id)) notFound();
 
   return (
     <EditBoundaryPage

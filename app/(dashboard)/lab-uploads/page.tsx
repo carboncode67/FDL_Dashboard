@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { getUserFilters } from "@/lib/get-user-filters";
+import { getEffectiveScope } from "@/lib/get-user-filters";
 import { LabUploadsClient } from "./lab-uploads-client";
 
 export default async function LabUploadsPage() {
   const session = await auth();
   const userId = session?.user?.id ?? null;
 
-  const { projectIds, farmIds } = await getUserFilters(userId);
+  const { projectIds, farmIds } = await getEffectiveScope(userId, session?.user?.category);
 
   const uploadWhere = {
     ...(projectIds.length > 0 ? { project_id: { in: projectIds } } : {}),

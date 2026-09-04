@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
-import { getUserFilters } from "@/lib/get-user-filters";
+import { getEffectiveScope } from "@/lib/get-user-filters";
 import { FieldsClient } from "./fields-client";
 
 export default async function FieldsPage() {
@@ -9,7 +9,7 @@ export default async function FieldsPage() {
   const role = (session?.user?.role ?? "viewer") as Role;
   const userId = session?.user?.id ?? null;
 
-  const { farmIds } = await getUserFilters(userId);
+  const { farmIds } = await getEffectiveScope(userId, session?.user?.category);
 
   const fieldWhere = farmIds.length > 0 ? { Farms_id: { in: farmIds } } : {};
 

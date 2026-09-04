@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { canEdit, canDelete, type Role } from "@/lib/roles";
+import { getEffectiveScope, scopeIncludesProject } from "@/lib/get-user-filters";
 import { DeleteProjectButton } from "./delete-button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,6 +61,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   ]);
 
   if (!project) notFound();
+  const scope = await getEffectiveScope(session?.user?.id ?? null, session?.user?.category);
+  if (!scopeIncludesProject(scope, project.id)) notFound();
 
   const linkedMemberIds = new Set(project.ProjectLabMembers.map((pm) => pm.user_id));
 

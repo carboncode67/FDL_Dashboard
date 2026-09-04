@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canCreate, canEdit, type Role } from "@/lib/roles";
-import { getUserFilters } from "@/lib/get-user-filters";
+import { getEffectiveScope } from "@/lib/get-user-filters";
 import { getOnboardingMessage } from "@/lib/onboarding-message";
 import { ContactsClient } from "./contacts-client";
 
@@ -10,7 +10,7 @@ export default async function ContactsPage() {
   const role = (session?.user?.role ?? "viewer") as Role;
   const userId = session?.user?.id ?? null;
 
-  const { farmIds } = await getUserFilters(userId);
+  const { farmIds } = await getEffectiveScope(userId, session?.user?.category);
 
   const contactWhere = farmIds.length > 0 ? { farms_id: { in: farmIds } } : {};
 

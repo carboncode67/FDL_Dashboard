@@ -64,7 +64,10 @@ export default async function LabMemberDetailPage({ params }: { params: Promise<
             <span>/</span>
             <span>{member.name ?? member.email}</span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900">{member.name ?? member.email}</h2>
+          <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            {member.name ?? member.email}
+            {member.category === "agronomist" && <Badge variant="secondary">Agronomist</Badge>}
+          </h2>
           {member.position && <p className="text-slate-500">{member.position}</p>}
         </div>
         <div className="flex items-center gap-2">

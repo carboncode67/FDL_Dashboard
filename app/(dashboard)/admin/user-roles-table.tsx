@@ -27,6 +27,7 @@ interface UserRow {
   name: string | null;
   email: string;
   role: string;
+  category: string;
   position: string | null;
   has_token: boolean;
   createdAt: Date;
@@ -46,6 +47,10 @@ interface UserRolesTableProps {
 }
 
 const ROLES = ["admin", "member", "viewer"] as const;
+const CATEGORIES = [
+  { value: "lab_member", label: "Lab Member" },
+  { value: "agronomist", label: "Agronomist" },
+] as const;
 
 export function UserRolesTable({ users, currentUserId, canDelete, projects }: UserRolesTableProps) {
   const [rows, setRows] = useState(users);
@@ -128,6 +133,24 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
     }
   }
 
+  async function handleCategoryChange(userId: string, newCategory: string) {
+    setSavingId(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: newCategory }),
+      });
+      if (res.ok) {
+        setRows((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, category: newCategory } : u))
+        );
+      }
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   const filterUser = rows.find((u) => u.id === filterDialogUserId);
 
   return (
@@ -140,6 +163,7 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
             <TableHead>Position</TableHead>
             <TableHead>App Access</TableHead>
             <TableHead>Role</TableHead>
+            <TableHead>Category</TableHead>
             <TableHead>Project Filter</TableHead>
             <TableHead>Joined</TableHead>
             {canDelete && <TableHead></TableHead>}
@@ -179,11 +203,33 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
                 )}
               </TableCell>
               <TableCell>
+                <select
+                  value={user.category}
+                  disabled={savingId === user.id}
+                  onChange={(e) => handleCategoryChange(user.id, e.target.value)}
+                  className="text-sm border border-slate-200 rounded px-2 py-1 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </TableCell>
+              <TableCell>
                 <button
                   onClick={() => openFilterDialog(user)}
                   className="text-sm"
                 >
-                  {user.project_filter_ids.length === 0 ? (
+                  {user.category === "agronomist" ? (
+                    user.project_filter_ids.length === 0 ? (
+                      <Badge variant="destructive" className="cursor-pointer">
+                        No access yet
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="cursor-pointer">
+                        {user.project_filter_ids.length} assigned
+                      </Badge>
+                    )
+                  ) : user.project_filter_ids.length === 0 ? (
                     <Badge variant="outline" className="text-slate-400 cursor-pointer hover:border-slate-400">
                       All Projects
                     </Badge>
@@ -252,10 +298,14 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Project Filter — {filterUser?.name ?? filterUser?.email}</DialogTitle>
+            <DialogTitle>
+              {filterUser?.category === "agronomist" ? "Assigned Projects" : "Project Filter"} —{" "}
+              {filterUser?.name ?? filterUser?.email}
+            </DialogTitle>
             <DialogDescription>
-              Select which projects this user sees in Data Sorting. Leave all unchecked to show
-              data from every project.
+              {filterUser?.category === "agronomist"
+                ? "This is an Agronomist — a hard restriction, not a personal preference. They can only see farms, fields, experiments, tasks, contacts and uploads under the project(s) checked below (and can't change this themselves). Leave all unchecked and they see nothing."
+                : "Select which projects this user sees in Data Sorting. Leave all unchecked to show data from every project."}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-72 overflow-y-auto space-y-2 py-1">
@@ -277,7 +327,9 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
           </div>
           <p className="text-xs text-slate-400">
             {filterSelection.length === 0
-              ? "No filter — user sees all projects."
+              ? filterUser?.category === "agronomist"
+                ? "No projects assigned — they will see nothing until you select at least one."
+                : "No filter — user sees all projects."
               : `${filterSelection.length} project${filterSelection.length !== 1 ? "s" : ""} selected.`}
           </p>
           <DialogFooter>

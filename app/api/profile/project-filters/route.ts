@@ -48,6 +48,17 @@ export async function PUT(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // An Agronomist's UserProjectFilter/UserFarmFilter rows are a hard access boundary
+  // (see lib/get-user-filters.ts getEffectiveScope), admin-managed only via
+  // /api/admin/users/[id]/project-filters — not this self-service endpoint, or they
+  // could just widen their own scope back to "see everything".
+  if (session.user.category === "agronomist") {
+    return NextResponse.json(
+      { error: "Your access is managed by an admin and can't be changed here." },
+      { status: 403 }
+    );
+  }
+
   const userId = session.user.id;
   const body = await req.json();
   const project_ids: number[] = Array.isArray(body.project_ids) ? body.project_ids : [];

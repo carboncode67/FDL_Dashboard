@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -20,6 +22,9 @@ export default async function FarmExperimentsListPage({ params }: { params: Prom
   ]);
 
   if (!farm) notFound();
+  const session = await auth();
+  const scope = await getEffectiveScope(session?.user?.id ?? null, session?.user?.category);
+  if (!scopeIncludesFarm(scope, farm.id)) notFound();
 
   return (
     <div className="max-w-2xl space-y-6">

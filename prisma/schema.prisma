@@ -14,6 +14,7 @@ model User {
   email         String   @unique
   password      String
   role          String   @default("member")
+  category      String   @default("lab_member")
   bearer_token  String?  @unique @db.VarChar(64)
   position      String?
   contact_phone String?

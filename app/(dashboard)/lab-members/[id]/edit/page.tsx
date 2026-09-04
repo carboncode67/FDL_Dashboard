@@ -16,6 +16,7 @@ export default async function EditLabMemberPage({ params }: { params: Promise<{ 
         email: user.email,
         status: user.status,
         faa_part_107: user.faa_part_107,
+        category: user.category,
       }}
     />
   );

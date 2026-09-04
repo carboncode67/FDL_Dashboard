@@ -11,6 +11,7 @@ export default async function LabMembersPage() {
     id: u.id,
     name: u.name,
     email: u.email,
+    category: u.category,
     position: u.position,
     status: u.status,
     faa_part_107: u.faa_part_107,

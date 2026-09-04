@@ -20,7 +20,7 @@ const statusVariant = (status: string | null) => {
   return "outline";
 };
 
-export function ProjectsClient({ data, canCreate }: { data: ProjectRow[]; canCreate?: boolean }) {
+export function ProjectsClient({ data, canCreate, scopeNotice }: { data: ProjectRow[]; canCreate?: boolean; scopeNotice?: string | null }) {
   const router = useRouter();
 
   const columns = [
@@ -67,14 +67,21 @@ export function ProjectsClient({ data, canCreate }: { data: ProjectRow[]; canCre
   ];
 
   return (
-    <DataTable
-      title="Projects"
-      data={data as unknown as Record<string, unknown>[]}
-      columns={columns as unknown as { key: string; header: string; render?: (row: Record<string, unknown>) => React.ReactNode }[]}
-      searchKeys={["Project_Name", "Status"]}
-      onAdd={canCreate ? () => router.push("/projects/new") : undefined}
-      addLabel="New Project"
-      onRowClick={(row) => router.push(`/projects/${(row as unknown as ProjectRow).id}`)}
-    />
+    <div className="space-y-4">
+      {scopeNotice && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          {scopeNotice}
+        </div>
+      )}
+      <DataTable
+        title="Projects"
+        data={data as unknown as Record<string, unknown>[]}
+        columns={columns as unknown as { key: string; header: string; render?: (row: Record<string, unknown>) => React.ReactNode }[]}
+        searchKeys={["Project_Name", "Status"]}
+        onAdd={canCreate ? () => router.push("/projects/new") : undefined}
+        addLabel="New Project"
+        onRowClick={(row) => router.push(`/projects/${(row as unknown as ProjectRow).id}`)}
+      />
+    </div>
   );
 }

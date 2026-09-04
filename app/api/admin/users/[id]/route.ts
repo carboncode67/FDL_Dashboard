@@ -7,6 +7,9 @@ import { getEditMode } from "@/lib/edit-mode";
 const VALID_ROLES = ["admin", "member", "viewer"] as const;
 type Role = (typeof VALID_ROLES)[number];
 
+const VALID_CATEGORIES = ["lab_member", "agronomist"] as const;
+type Category = (typeof VALID_CATEGORIES)[number];
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -16,20 +19,31 @@ export async function PATCH(
   if (session.user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  const { role } = await req.json();
+  const { role, category } = await req.json();
 
-  if (!VALID_ROLES.includes(role as Role)) {
-    return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+  const data: { role?: Role; category?: Category } = {};
+
+  if (role !== undefined) {
+    if (!VALID_ROLES.includes(role as Role)) {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    }
+    if (id === session.user.id && role !== "admin") {
+      return NextResponse.json({ error: "Cannot remove your own admin role" }, { status: 400 });
+    }
+    data.role = role;
   }
 
-  if (id === session.user.id && role !== "admin") {
-    return NextResponse.json({ error: "Cannot remove your own admin role" }, { status: 400 });
+  if (category !== undefined) {
+    if (!VALID_CATEGORIES.includes(category as Category)) {
+      return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+    }
+    data.category = category;
   }
 
   const user = await prisma.user.update({
     where: { id },
-    data: { role },
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
+    data,
+    select: { id: true, name: true, email: true, role: true, category: true, createdAt: true },
   });
   return NextResponse.json(user);
 }

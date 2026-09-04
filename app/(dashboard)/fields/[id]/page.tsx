@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { canEdit, canDelete, canCreate, type Role } from "@/lib/roles";
+import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import { DeleteFieldButton } from "./delete-button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,6 +61,8 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
   ]);
 
   if (!field) notFound();
+  const scope = await getEffectiveScope(session?.user?.id ?? null, session?.user?.category);
+  if (!scopeIncludesFarm(scope, field.Farms_id)) notFound();
 
   const linkedTestIds = new Set(field.FieldTests.map((ft) => ft.Tests_id));
   const linkedCropIds = new Set(field.FieldCrops.map((fc) => fc.Crops_id));

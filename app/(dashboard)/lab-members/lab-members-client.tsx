@@ -12,6 +12,7 @@ interface LabMemberRow {
   id: string;
   name: string | null;
   email: string;
+  category: string;
   position: string | null;
   status: string | null;
   faa_part_107: boolean;
@@ -93,6 +94,18 @@ export function LabMembersClient({
     },
     { key: "name", header: "Name" },
     { key: "email", header: "Email" },
+    {
+      key: "category",
+      header: "Category",
+      render: (row: Record<string, unknown>) => {
+        const r = row as unknown as LabMemberRow;
+        return r.category === "agronomist" ? (
+          <Badge variant="secondary">Agronomist</Badge>
+        ) : (
+          <span className="text-slate-400">Lab Member</span>
+        );
+      },
+    },
     { key: "position", header: "Position" },
     {
       key: "status",
@@ -177,7 +190,7 @@ export function LabMembersClient({
         title="Lab Members"
         data={data as unknown as Record<string, unknown>[]}
         columns={columns}
-        searchKeys={["name", "email", "position", "status"]}
+        searchKeys={["name", "email", "position", "status", "category"]}
         onAdd={canCreate ? () => router.push("/lab-members/new") : undefined}
         addLabel="New Member"
         onRowClick={(row) => router.push(`/lab-members/${(row as unknown as LabMemberRow).id}`)}

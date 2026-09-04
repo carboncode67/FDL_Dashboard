@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { canCreate, canEdit, canDelete, isAdmin, type Role } from "@/lib/roles";
+import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import { DeleteFarmButton } from "./delete-button";
 import { OfeSyncToggle } from "@/components/ofe-sync-toggle";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,6 +28,7 @@ import { FieldBoundaryUpload } from "@/components/field-boundary-upload";
 import { DocumentUpload } from "@/components/document-upload";
 import { AddContactButton } from "@/components/add-contact-button";
 import { DrawFieldButton } from "@/components/draw-field-button";
+import { AddFieldsButton } from "@/components/add-fields-button";
 import { SpatialContextCard } from "@/components/spatial-context-card";
 import { serializeContextJob } from "@/lib/context-types";
 import { geodartHasKey } from "@/lib/geodart";
@@ -122,6 +124,8 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
   ]);
 
   if (!farm) notFound();
+  const scope = await getEffectiveScope(session?.user?.id ?? null, session?.user?.category);
+  if (!scopeIncludesFarm(scope, farm.id)) notFound();
 
   const expIds = farmExperiments.map((fe) => fe.id);
   const allTreatmentValues = expIds.length > 0
@@ -525,7 +529,14 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
           <FieldBoundaryUpload
             farmId={farm.id}
             fieldCount={farm.Fields.length}
-            drawButton={showCreate ? <DrawFieldButton farmId={farm.id} /> : undefined}
+            drawButton={
+              showCreate ? (
+                <div className="flex items-center gap-2">
+                  <AddFieldsButton farmId={farm.id} />
+                  <DrawFieldButton farmId={farm.id} />
+                </div>
+              ) : undefined
+            }
           />
 
           <SpatialContextCard

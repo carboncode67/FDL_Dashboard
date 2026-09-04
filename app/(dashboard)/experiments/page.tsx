@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
-import { getUserFilters } from "@/lib/get-user-filters";
+import { getEffectiveScope } from "@/lib/get-user-filters";
 import { ExperimentsClient } from "./experiments-client";
 import { format } from "date-fns";
 
@@ -10,7 +10,7 @@ export default async function ExperimentsPage() {
   const role = (session?.user?.role ?? "viewer") as Role;
   const userId = session?.user?.id ?? null;
 
-  const { projectIds, farmIds } = await getUserFilters(userId);
+  const { projectIds, farmIds } = await getEffectiveScope(userId, session?.user?.category);
 
   const experimentWhere = {
     ...(projectIds.length > 0 ? { project_id: { in: projectIds } } : {}),

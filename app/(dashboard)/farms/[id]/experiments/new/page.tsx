@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import ExperimentFormClient from "../experiment-form-client";
 
 export default async function NewExperimentPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +43,9 @@ export default async function NewExperimentPage({ params }: { params: Promise<{ 
   ]);
 
   if (!farm) notFound();
+  const session = await auth();
+  const scope = await getEffectiveScope(session?.user?.id ?? null, session?.user?.category);
+  if (!scopeIncludesFarm(scope, farm.id)) notFound();
 
   const farmUploadPins = [
     ...farmPhotos.map((p) => ({ id: p.id, lat: p.latitude!, lng: p.longitude!, type: "photo" as const })),

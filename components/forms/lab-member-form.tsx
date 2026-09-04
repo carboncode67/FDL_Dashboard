@@ -30,6 +30,11 @@ const STATUS_OPTIONS = [
   "Inactive (Unavailable)",
 ];
 
+const CATEGORY_OPTIONS: { value: string; label: string }[] = [
+  { value: "lab_member", label: "Lab Member" },
+  { value: "agronomist", label: "Agronomist" },
+];
+
 interface LabMemberFormProps {
   onSuccess?: () => void;
   memberId?: string;
@@ -40,6 +45,7 @@ interface LabMemberFormProps {
     email?: string;
     status?: string | null;
     faa_part_107?: boolean | null;
+    category?: string | null;
   };
 }
 
@@ -51,6 +57,7 @@ export function LabMemberForm({ onSuccess, initialData, memberId }: LabMemberFor
   const [phone, setPhone] = useState(initialData?.contact_phone ?? "");
   const [status, setStatus] = useState(initialData?.status ?? "");
   const [faa, setFaa] = useState(initialData?.faa_part_107 ?? false);
+  const [category, setCategory] = useState(initialData?.category ?? "lab_member");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,6 +72,7 @@ export function LabMemberForm({ onSuccess, initialData, memberId }: LabMemberFor
         phone: phone || null,
         status: status || null,
         faa_part_107: faa,
+        category,
       };
       if (!memberId) {
         body.email = email;
@@ -141,6 +149,26 @@ export function LabMemberForm({ onSuccess, initialData, memberId }: LabMemberFor
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>Category</Label>
+        <Select value={category} onValueChange={(v) => setCategory(v ?? "lab_member")}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select category..." />
+          </SelectTrigger>
+          <SelectContent>
+            {CATEGORY_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {category === "agronomist" && (
+          <p className="text-xs text-slate-500">
+            Same app access as any Lab Member, but scoped to their assigned project(s) —
+            set in Admin Panel → Project Filter. They won&apos;t see other projects&apos; data.
+          </p>
+        )}
       </div>
 
       <div className="space-y-1.5">

@@ -13,6 +13,7 @@ interface Props {
     email: string;
     status: string | null;
     faa_part_107: boolean;
+    category: string;
   };
 }
 

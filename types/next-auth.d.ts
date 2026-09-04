@@ -8,10 +8,12 @@ declare module "next-auth" {
       email: string
       name?: string | null
       role: "admin" | "member" | "viewer"
+      category: "lab_member" | "agronomist"
     }
   }
   interface User {
     role?: "admin" | "member" | "viewer"
+    category?: "lab_member" | "agronomist"
   }
 }
 
@@ -19,5 +21,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     id?: string
     role?: "admin" | "member" | "viewer"
+    category?: "lab_member" | "agronomist"
   }
 }

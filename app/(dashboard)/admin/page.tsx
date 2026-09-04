@@ -23,6 +23,7 @@ export default async function AdminPage() {
         name: true,
         email: true,
         role: true,
+        category: true,
         position: true,
         bearer_token: true,
         createdAt: true,

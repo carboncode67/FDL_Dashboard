@@ -64,6 +64,7 @@ export function Header({ title, editMode, role }: HeaderProps) {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const isAgronomist = session?.user?.category === "agronomist";
   const name = session?.user?.name || session?.user?.email || "User";
   const initials = name
     .split(" ")
@@ -171,7 +172,7 @@ export function Header({ title, editMode, role }: HeaderProps) {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={openFilters} className="cursor-pointer">
               <SlidersHorizontal className="mr-2 h-4 w-4" />
-              Dashboard Filters
+              {isAgronomist ? "My Assigned Projects" : "Dashboard Filters"}
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
@@ -203,9 +204,11 @@ export function Header({ title, editMode, role }: HeaderProps) {
       <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Dashboard Filters</DialogTitle>
+            <DialogTitle>{isAgronomist ? "My Assigned Projects" : "Dashboard Filters"}</DialogTitle>
             <DialogDescription>
-              Filter what you see across the dashboard. Leave all unchecked to see everything.
+              {isAgronomist
+                ? "As an Agronomist, your access is hard-scoped to the project(s) below — set by an admin, not editable here. You won't see farms, fields, experiments, or uploads outside them."
+                : "Filter what you see across the dashboard. Leave all unchecked to see everything."}
             </DialogDescription>
           </DialogHeader>
 
@@ -226,7 +229,8 @@ export function Header({ title, editMode, role }: HeaderProps) {
                           type="checkbox"
                           checked={projectSelection.includes(p.id)}
                           onChange={() => toggleProject(p.id)}
-                          className="h-4 w-4 rounded border-slate-300 accent-emerald-600"
+                          disabled={isAgronomist}
+                          className="h-4 w-4 rounded border-slate-300 accent-emerald-600 disabled:opacity-60"
                         />
                         {p.name}
                       </label>
@@ -253,7 +257,8 @@ export function Header({ title, editMode, role }: HeaderProps) {
                           type="checkbox"
                           checked={farmSelection.includes(f.id)}
                           onChange={() => toggleFarm(f.id)}
-                          className="h-4 w-4 rounded border-slate-300 accent-emerald-600"
+                          disabled={isAgronomist}
+                          className="h-4 w-4 rounded border-slate-300 accent-emerald-600 disabled:opacity-60"
                         />
                         {f.name}
                       </label>
@@ -263,39 +268,53 @@ export function Header({ title, editMode, role }: HeaderProps) {
               </div>
 
               {/* Show unassigned toggle */}
-              <div className="border-t border-slate-100 pt-3">
-                <label className="flex items-center gap-2 cursor-pointer text-sm">
-                  <input
-                    type="checkbox"
-                    checked={showUnassigned}
-                    onChange={(e) => setShowUnassigned(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 accent-emerald-600"
-                  />
-                  Show unassigned data
-                  <span className="text-xs text-slate-400">(uploads not yet matched to a farm)</span>
-                </label>
-              </div>
+              {!isAgronomist && (
+                <div className="border-t border-slate-100 pt-3">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
+                    <input
+                      type="checkbox"
+                      checked={showUnassigned}
+                      onChange={(e) => setShowUnassigned(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 accent-emerald-600"
+                    />
+                    Show unassigned data
+                    <span className="text-xs text-slate-400">(uploads not yet matched to a farm)</span>
+                  </label>
+                </div>
+              )}
             </div>
           )}
 
           <p className="text-xs text-slate-400">
-            {!isFiltered
-              ? "No filter active — you see all data."
-              : [
-                  projectSelection.length > 0 && `${projectSelection.length} project${projectSelection.length !== 1 ? "s" : ""}`,
-                  farmSelection.length > 0 && `${farmSelection.length} farm${farmSelection.length !== 1 ? "s" : ""}`,
-                ]
-                  .filter(Boolean)
-                  .join(", ") + " selected."}
+            {isAgronomist
+              ? projectSelection.length === 0
+                ? "No projects assigned yet — contact an admin."
+                : `Scoped to ${projectSelection.length} project${projectSelection.length !== 1 ? "s" : ""}.`
+              : !isFiltered
+                ? "No filter active — you see all data."
+                : [
+                    projectSelection.length > 0 && `${projectSelection.length} project${projectSelection.length !== 1 ? "s" : ""}`,
+                    farmSelection.length > 0 && `${farmSelection.length} farm${farmSelection.length !== 1 ? "s" : ""}`,
+                  ]
+                    .filter(Boolean)
+                    .join(", ") + " selected."}
           </p>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFilterOpen(false)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button onClick={saveFilters} disabled={saving || loading}>
-              {saving ? "Saving…" : "Save"}
-            </Button>
+            {isAgronomist ? (
+              <Button variant="outline" onClick={() => setFilterOpen(false)}>
+                Close
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setFilterOpen(false)} disabled={saving}>
+                  Cancel
+                </Button>
+                <Button onClick={saveFilters} disabled={saving || loading}>
+                  {saving ? "Saving…" : "Save"}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

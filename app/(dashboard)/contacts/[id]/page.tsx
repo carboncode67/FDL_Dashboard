@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { getOnboardingMessage } from "@/lib/onboarding-message";
 import { canEdit, canDelete, type Role } from "@/lib/roles";
+import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   });
 
   if (!contact) notFound();
+  const scope = await getEffectiveScope(session?.user?.id ?? null, session?.user?.category);
+  if (!scopeIncludesFarm(scope, contact.farms_id)) notFound();
 
   return (
     <div className="space-y-6">

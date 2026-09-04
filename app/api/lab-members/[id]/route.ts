@@ -7,10 +7,12 @@ import { getEditMode } from "@/lib/edit-mode";
 import bcrypt from "bcryptjs";
 
 const USER_SELECT = {
-  id: true, name: true, email: true, role: true, bearer_token: true,
+  id: true, name: true, email: true, role: true, category: true, bearer_token: true,
   position: true, contact_phone: true, faa_part_107: true, status: true,
   onboarded_at: true, createdAt: true, updatedAt: true,
 } as const;
+
+const VALID_CATEGORIES = ["lab_member", "agronomist"];
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -28,10 +30,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  const { name, position, phone, faa_part_107, status, password } = await req.json();
+  const { name, position, phone, faa_part_107, status, password, category } = await req.json();
 
   if (password && password.length < 8) {
     return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+  }
+  if (category && !VALID_CATEGORIES.includes(category)) {
+    return NextResponse.json({ error: "Invalid category" }, { status: 400 });
   }
 
   try {
@@ -43,6 +48,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         contact_phone: phone || null,
         faa_part_107: faa_part_107 ?? false,
         status: status || null,
+        ...(category ? { category } : {}),
         ...(password ? { password: await bcrypt.hash(password, 12) } : {}),
       },
       select: USER_SELECT,

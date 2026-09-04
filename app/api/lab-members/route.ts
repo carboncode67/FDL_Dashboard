@@ -7,10 +7,12 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
 const USER_SELECT = {
-  id: true, name: true, email: true, role: true, bearer_token: true,
+  id: true, name: true, email: true, role: true, category: true, bearer_token: true,
   position: true, contact_phone: true, faa_part_107: true, status: true,
   onboarded_at: true, createdAt: true, updatedAt: true,
 } as const;
+
+const VALID_CATEGORIES = ["lab_member", "agronomist"];
 
 export async function GET() {
   const session = await auth();
@@ -26,8 +28,11 @@ export async function POST(req: Request) {
   if (!canCreate(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { name, email, password, position, phone, faa_part_107, status } = body;
+  const { name, email, password, position, phone, faa_part_107, status, category } = body;
   if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 });
+  if (category && !VALID_CATEGORIES.includes(category)) {
+    return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+  }
 
   const hashed = password
     ? await bcrypt.hash(password, 12)
@@ -40,6 +45,7 @@ export async function POST(req: Request) {
         email,
         password: hashed,
         role: "member",
+        category: category || "lab_member",
         position: position || null,
         contact_phone: phone || null,
         faa_part_107: faa_part_107 ?? false,

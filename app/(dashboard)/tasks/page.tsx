@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { canCreate, canDelete, type Role } from "@/lib/roles";
-import { getUserFilters } from "@/lib/get-user-filters";
+import { getEffectiveScope } from "@/lib/get-user-filters";
 import { TasksClient } from "./tasks-client";
 
 export default async function TasksPage() {
@@ -10,7 +10,7 @@ export default async function TasksPage() {
   const role = (session?.user?.role ?? "viewer") as Role;
   const userId = session?.user?.id ?? null;
 
-  const { projectIds, farmIds } = await getUserFilters(userId);
+  const { projectIds, farmIds } = await getEffectiveScope(userId, session?.user?.category);
 
   const taskWhere =
     projectIds.length > 0 || farmIds.length > 0

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { canDelete as checkCanDelete, type Role } from "@/lib/roles";
+import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import ExperimentFormClient from "../experiment-form-client";
 
 export default async function EditExperimentPage({
@@ -74,6 +75,8 @@ export default async function EditExperimentPage({
   ]);
 
   if (!farm || !farmExperiment) notFound();
+  const scope = await getEffectiveScope(session?.user?.id ?? null, session?.user?.category);
+  if (!scopeIncludesFarm(scope, farm.id)) notFound();
 
   const userCanDelete = checkCanDelete(session?.user?.role as Role, editMode);
 
