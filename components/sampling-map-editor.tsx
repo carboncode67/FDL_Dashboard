@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react"
 import Link from "next/link"
-import { MapContainer, CircleMarker, useMap } from "react-leaflet"
+import { MapContainer, CircleMarker, GeoJSON, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import "@geoman-io/leaflet-geoman-free"
@@ -11,6 +11,7 @@ import { BasemapTileLayer } from "@/components/basemap-tile-layer"
 import { SatelliteToggleButton } from "@/components/satellite-toggle-button"
 import { RasterLayer, VectorLayer, type MapRaster } from "@/components/map-raster-layers"
 import { ImportBoundaryDialog, type ImportableBoundary } from "@/components/import-boundary-dialog"
+import { SamplingMapUploadDialog, type UploadedPolygon, type UploadedPoint } from "@/components/sampling-map-upload-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -19,6 +20,7 @@ import {
   pointInGeojsonString,
   generateGridPoints,
   generateRandomPoints,
+  bufferGeojsonString,
   type GeneratedPoint,
 } from "@/lib/geo"
 
@@ -277,6 +279,7 @@ export default function SamplingMapEditor({
   const [isSatellite, setIsSatellite] = useState(false)
   const [visibleRasterIds, setVisibleRasterIds] = useState<Set<number>>(new Set())
   const [importOpen, setImportOpen] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
   const layersApiRef = useRef<MapDrawLayersHandle>(null)
 
   // Grid/random point generation — a preview (client-side math only, nothing persisted
@@ -286,7 +289,12 @@ export default function SamplingMapEditor({
   const [genSpacing, setGenSpacing] = useState(30)
   const [genCount, setGenCount] = useState(10)
   const [genMinSpacing, setGenMinSpacing] = useState(0)
+  // Inward buffer applied to the polygon before generating — keeps points off the
+  // edge (e.g. of a field boundary). Negative = inward, default -10m.
+  const [genBuffer, setGenBuffer] = useState(-10)
   const [previewPoints, setPreviewPoints] = useState<GeneratedPoint[]>([])
+  const [previewBoundary, setPreviewBoundary] = useState<string | null>(null)
+  const [genError, setGenError] = useState<string | null>(null)
   const [accepting, setAccepting] = useState(false)
 
   const renderableRasters = rasters // pipeline outputs already filtered to crs_status !== "unclear" server-side (see page.tsx)
@@ -374,23 +382,49 @@ export default function SamplingMapEditor({
     layersApiRef.current?.addPolygon(created)
   }
 
+  function handleUploaded(uploadedPolygons: UploadedPolygon[], uploadedPoints: UploadedPoint[]) {
+    setPolygons((prev) => [...prev, ...uploadedPolygons])
+    uploadedPolygons.forEach((p) => layersApiRef.current?.addPolygon(p))
+    setPoints((prev) => [...prev, ...uploadedPoints])
+    uploadedPoints.forEach((p) => layersApiRef.current?.addPoint(p))
+  }
+
   function openGenerator(polygonId: number) {
     setGeneratingPolygonId(polygonId)
     setPreviewPoints([])
+    setPreviewBoundary(null)
+    setGenError(null)
   }
 
   function closeGenerator() {
     setGeneratingPolygonId(null)
     setPreviewPoints([])
+    setPreviewBoundary(null)
+    setGenError(null)
   }
 
   function runPreview() {
     const polygon = polygons.find((p) => p.id === generatingPolygonId)
     if (!polygon) return
+    setGenError(null)
+
+    const boundary = bufferGeojsonString(polygon.geometry, genBuffer)
+    if (!boundary) {
+      setPreviewPoints([])
+      setPreviewBoundary(null)
+      setGenError(
+        genBuffer < 0
+          ? "Buffer too large — it erodes the polygon away entirely. Try a smaller inward buffer."
+          : "Couldn't buffer this polygon.",
+      )
+      return
+    }
+    setPreviewBoundary(boundary)
+
     const pts =
       genMethod === "grid"
-        ? generateGridPoints(polygon.geometry, genSpacing)
-        : generateRandomPoints(polygon.geometry, genCount, genMinSpacing)
+        ? generateGridPoints(boundary, genSpacing)
+        : generateRandomPoints(boundary, genCount, genMinSpacing)
     setPreviewPoints(pts)
   }
 
@@ -510,6 +544,9 @@ export default function SamplingMapEditor({
           <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
             Import Boundary
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setUploadOpen(true)}>
+            Upload File
+          </Button>
           <SatelliteToggleButton satellite={isSatellite} onToggle={() => setIsSatellite((v) => !v)} />
         </div>
       </div>
@@ -538,6 +575,21 @@ export default function SamplingMapEditor({
               onCreatePoint={handleCreatePoint}
               onEditPoint={handleEditPointGeometry}
             />
+
+            {/* The buffered (eroded) boundary points are actually generated within —
+                shows the effect of the edge buffer before accepting. */}
+            {previewBoundary && (() => {
+              try {
+                return (
+                  <GeoJSON
+                    data={JSON.parse(previewBoundary)}
+                    style={() => ({ color: "#059669", weight: 1.5, fill: false, dashArray: "6,4" })}
+                  />
+                )
+              } catch {
+                return null
+              }
+            })()}
 
             {/* Grid/random generation preview — plain declarative markers (not
                 geoman-managed like accepted points) since nothing here is persisted
@@ -640,6 +692,16 @@ export default function SamplingMapEditor({
                       </SelectContent>
                     </Select>
 
+                    <label className="block text-xs text-slate-500">
+                      Edge buffer (meters, negative = inward)
+                      <Input
+                        type="number"
+                        value={genBuffer}
+                        onChange={(e) => setGenBuffer(Number(e.target.value) || 0)}
+                        className="h-8 text-sm mt-0.5"
+                      />
+                    </label>
+
                     {genMethod === "grid" ? (
                       <label className="block text-xs text-slate-500">
                         Spacing (meters)
@@ -680,9 +742,14 @@ export default function SamplingMapEditor({
                       Preview
                     </Button>
 
+                    {genError && <p className="text-xs text-red-500">{genError}</p>}
+
                     {previewPoints.length > 0 && (
                       <>
-                        <p className="text-xs text-slate-500">{previewPoints.length} point(s) previewed on the map.</p>
+                        <p className="text-xs text-slate-500">
+                          {previewPoints.length} point(s) previewed on the map
+                          {genBuffer !== 0 && ` (${genBuffer}m edge buffer applied)`}.
+                        </p>
                         <div className="flex gap-1">
                           <Button
                             size="sm"
@@ -692,7 +759,12 @@ export default function SamplingMapEditor({
                           >
                             {accepting ? "Saving…" : `Accept ${previewPoints.length}`}
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setPreviewPoints([])}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs"
+                            onClick={() => { setPreviewPoints([]); setPreviewBoundary(null) }}
+                          >
                             Discard
                           </Button>
                         </div>
@@ -775,6 +847,13 @@ export default function SamplingMapEditor({
         fields={importableFields}
         zones={importableZones}
         onImport={handleImport}
+      />
+
+      <SamplingMapUploadDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        samplingMapId={samplingMapId}
+        onUploaded={handleUploaded}
       />
     </div>
   )

@@ -1,3 +1,7 @@
+import turfBuffer from "@turf/buffer";
+import { feature as turfFeature } from "@turf/helpers";
+import type { Polygon, MultiPolygon } from "geojson";
+
 const METERS_PER_DEGREE_LAT = 111320;
 const SQ_METERS_PER_ACRE = 4046.856;
 
@@ -175,6 +179,35 @@ export function pointInGeojsonString(lat: number, lng: number, geojsonStr: strin
     return pointInGeometry(lat, lng, JSON.parse(geojsonStr));
   } catch {
     return false;
+  }
+}
+
+/** Inward (negative) or outward (positive) buffer of a raw GeoJSON Polygon/MultiPolygon
+ *  geometry string, in meters — e.g. a -10 buffer erodes the boundary 10m inward, which
+ *  is how point generation keeps samples away from a field/polygon edge (Planned Changes
+ *  item 4's "inverse buffer" — default -10m). Uses @turf/buffer (pure JS, no native/WASM
+ *  deps, so it runs fine in this client-side generation-preview path) rather than hand-
+ *  rolling polygon offsetting, which is not something to get right from scratch. Returns
+ *  null if the buffer erodes the shape away entirely (e.g. distance wider than the
+ *  polygon) or the input isn't a (Multi)Polygon — callers should treat null as "nothing
+ *  to generate into" rather than falling back to the un-buffered shape. */
+export function bufferGeojsonString(geojsonStr: string, distanceMeters: number): string | null {
+  if (distanceMeters === 0) return geojsonStr;
+  let geom: Polygon | MultiPolygon;
+  try {
+    const parsed = JSON.parse(geojsonStr);
+    const g = parsed?.type === "Feature" ? parsed.geometry : parsed;
+    if (g?.type !== "Polygon" && g?.type !== "MultiPolygon") return null;
+    geom = g;
+  } catch {
+    return null;
+  }
+  try {
+    const buffered = turfBuffer(turfFeature(geom), distanceMeters, { units: "meters" });
+    if (!buffered?.geometry) return null;
+    return JSON.stringify(buffered.geometry);
+  } catch {
+    return null;
   }
 }
 
