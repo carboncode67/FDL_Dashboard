@@ -1,9 +1,11 @@
 "use client"
 
-import { useEffect } from "react"
-import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet"
+import { useEffect, useState } from "react"
+import { MapContainer, GeoJSON, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
+import { BasemapTileLayer } from "@/components/basemap-tile-layer"
+import { SatelliteToggleButton } from "@/components/satellite-toggle-button"
 
 function extractLatLngs(geojsonStr: string): [number, number][] {
   try {
@@ -51,6 +53,7 @@ function BoundsAdjuster({ bounds }: { bounds: L.LatLngBoundsExpression }) {
 }
 
 export default function FieldMap({ fieldName, geometry }: { fieldName: string; geometry: string }) {
+  const [isSatellite, setIsSatellite] = useState(false)
   const latLngs = extractLatLngs(geometry)
   const bounds = latLngs.length >= 2 ? L.latLngBounds(latLngs) : null
   const center: [number, number] = latLngs.length > 0 ? latLngs[0] : [39.5, -98.35]
@@ -59,13 +62,13 @@ export default function FieldMap({ fieldName, geometry }: { fieldName: string; g
   try { parsed = JSON.parse(geometry) } catch { /* invalid json */ }
 
   return (
-    <div className="rounded-lg overflow-hidden border border-slate-200" style={{ height: 420 }}>
+    <div className="relative rounded-lg overflow-hidden border border-slate-200" style={{ height: 420 }}>
+      <div className="absolute top-2 right-2 z-[1000]">
+        <SatelliteToggleButton satellite={isSatellite} onToggle={() => setIsSatellite((v) => !v)} />
+      </div>
       <MapContainer center={center} zoom={14} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
         {bounds && <BoundsAdjuster bounds={bounds} />}
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <BasemapTileLayer satellite={isSatellite} />
         {parsed && (
           <GeoJSON
             data={parsed as any}

@@ -1,11 +1,13 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet"
+import { MapContainer, GeoJSON, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import "@geoman-io/leaflet-geoman-free"
 import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css"
+import { BasemapTileLayer } from "@/components/basemap-tile-layer"
+import { SatelliteToggleButton } from "@/components/satellite-toggle-button"
 
 interface ExistingField {
   id: number
@@ -142,15 +144,7 @@ export default function FieldDrawMap({
   const center: [number, number] =
     farmLat != null && farmLng != null ? [farmLat, farmLng] : [39.5, -98.35]
 
-  const satelliteBtn = (
-    <button
-      type="button"
-      onClick={() => setIsSatellite((v) => !v)}
-      className="text-xs font-medium bg-white border border-slate-300 rounded px-2.5 py-1 shadow-sm hover:bg-slate-50 transition-colors"
-    >
-      {isSatellite ? "Map View" : "Satellite View"}
-    </button>
-  )
+  const satelliteBtn = <SatelliteToggleButton satellite={isSatellite} onToggle={() => setIsSatellite((v) => !v)} />
 
   if (fullscreen) {
     return (
@@ -161,11 +155,7 @@ export default function FieldDrawMap({
         <div className="flex-1 min-h-0 isolate">
           <MapContainer center={center} zoom={14} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
             {combinedBounds && <BoundsAdjuster bounds={combinedBounds} />}
-            {isSatellite ? (
-              <TileLayer key="satellite" url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community" />
-            ) : (
-              <TileLayer key="osm" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' />
-            )}
+            <BasemapTileLayer satellite={isSatellite} />
             {existingFields.map((f) => {
               if (!f.geometry) return null
               try { return <GeoJSON key={`existing-${f.id}`} data={JSON.parse(f.geometry)} style={() => ({ color: "#16a34a", weight: 1.5, fillColor: "#16a34a", fillOpacity: 0.1, dashArray: "4" })} onEachFeature={(_, layer) => layer.bindPopup(`<strong>${f.name}</strong>`)} /> } catch { return null }
@@ -186,19 +176,7 @@ export default function FieldDrawMap({
         <MapContainer center={center} zoom={14} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
           {combinedBounds && <BoundsAdjuster bounds={combinedBounds} />}
 
-          {isSatellite ? (
-            <TileLayer
-              key="satellite"
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
-            />
-          ) : (
-            <TileLayer
-              key="osm"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            />
-          )}
+          <BasemapTileLayer satellite={isSatellite} />
 
           {/* Existing field boundaries — muted green for spatial context */}
           {existingFields.map((f) => {

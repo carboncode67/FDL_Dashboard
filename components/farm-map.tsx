@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, Polyline, useMap } from "react-leaflet"
+import { MapContainer, GeoJSON, CircleMarker, Popup, Polyline, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
+import { BasemapTileLayer } from "@/components/basemap-tile-layer"
+import { SatelliteToggleButton } from "@/components/satellite-toggle-button"
 
 // georaster-layer-for-leaflet is a plain Leaflet plugin, not a react-leaflet
 // component — RasterLayer below wires it in imperatively via useMap(), same pattern
@@ -187,6 +189,7 @@ function VectorLayer({ url }: { url: string }) {
 
 export default function FarmMap({ fields, zones, photos, notes, farmId, labUploads = [], rasters = [], farmLat, farmLng }: FarmMapProps) {
   const [gpsTracks, setGpsTracks] = useState<GpsTrack[]>([])
+  const [isSatellite, setIsSatellite] = useState(false)
   // Off by default — overlaying every pipeline-output raster at once (e.g. 4+ from a
   // single EM38 interpolation run) would just be visual noise; the checklist below
   // the map lets someone turn on the one(s) they actually want to look at.
@@ -236,14 +239,14 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
         </p>
       )}
 
-      <div className="rounded-lg overflow-hidden border border-slate-200 isolate" style={{ height: 520 }}>
+      <div className="relative rounded-lg overflow-hidden border border-slate-200 isolate" style={{ height: 520 }}>
+        <div className="absolute top-2 right-2 z-[1000]">
+          <SatelliteToggleButton satellite={isSatellite} onToggle={() => setIsSatellite((v) => !v)} />
+        </div>
         <MapContainer center={center} zoom={14} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
           {bounds && <BoundsAdjuster bounds={bounds} />}
 
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
+          <BasemapTileLayer satellite={isSatellite} />
 
           {/* Pipeline outputs — toggled via the checklist below the map. A "CRS
               unclear" output never renders here regardless of the checkbox (see

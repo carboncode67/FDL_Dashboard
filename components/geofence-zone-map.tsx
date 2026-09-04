@@ -1,11 +1,13 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet"
+import { MapContainer, GeoJSON, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import "@geoman-io/leaflet-geoman-free"
 import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css"
+import { BasemapTileLayer } from "@/components/basemap-tile-layer"
+import { SatelliteToggleButton } from "@/components/satellite-toggle-button"
 
 interface ZoneField {
   id: number
@@ -138,31 +140,13 @@ export default function GeofenceZoneMap({
             ? "Drag the circle to move it, or drag its edge to resize."
             : "Click one or more fields, then Add Zone."}
         </p>
-        <button
-          type="button"
-          onClick={() => setIsSatellite((v) => !v)}
-          className="text-xs font-medium bg-white border border-slate-300 rounded px-2.5 py-1 shadow-sm hover:bg-slate-50 transition-colors"
-        >
-          {isSatellite ? "Map View" : "Satellite View"}
-        </button>
+        <SatelliteToggleButton satellite={isSatellite} onToggle={() => setIsSatellite((v) => !v)} />
       </div>
       <div className="rounded-lg overflow-hidden border border-slate-200 isolate" style={{ height: 480 }}>
         <MapContainer center={center} zoom={14} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
           {combinedBounds && <BoundsAdjuster bounds={combinedBounds} />}
 
-          {isSatellite ? (
-            <TileLayer
-              key="satellite"
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
-            />
-          ) : (
-            <TileLayer
-              key="osm"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            />
-          )}
+          <BasemapTileLayer satellite={isSatellite} />
 
           {fields.map((f) => {
             if (!f.geometry) return null

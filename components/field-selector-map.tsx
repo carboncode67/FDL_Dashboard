@@ -1,9 +1,11 @@
 "use client"
 
-import { useEffect } from "react"
-import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap } from "react-leaflet"
+import { useEffect, useState } from "react"
+import { MapContainer, GeoJSON, CircleMarker, Popup, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
+import { BasemapTileLayer } from "@/components/basemap-tile-layer"
+import { SatelliteToggleButton } from "@/components/satellite-toggle-button"
 
 interface SelectableField {
   id: number
@@ -83,6 +85,7 @@ const PIN_LABELS = {
 }
 
 export default function FieldSelectorMap({ fields, selectedIds, onToggle, uploadPins = [] }: FieldSelectorMapProps) {
+  const [isSatellite, setIsSatellite] = useState(false)
   const allLatLngs: [number, number][] = [
     ...fields.flatMap((f) => f.geometry ? extractLatLngs(f.geometry) : []),
     ...uploadPins.map((p) => [p.lat, p.lng] as [number, number]),
@@ -91,14 +94,14 @@ export default function FieldSelectorMap({ fields, selectedIds, onToggle, upload
   const center: [number, number] = allLatLngs.length > 0 ? allLatLngs[0] : [39.5, -98.35]
 
   return (
-    <div className="rounded-lg overflow-hidden border border-slate-200 isolate" style={{ height: 320 }}>
+    <div className="relative rounded-lg overflow-hidden border border-slate-200 isolate" style={{ height: 320 }}>
+      <div className="absolute top-2 right-2 z-[1000]">
+        <SatelliteToggleButton satellite={isSatellite} onToggle={() => setIsSatellite((v) => !v)} />
+      </div>
       <MapContainer center={center} zoom={14} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
         {bounds && <BoundsAdjuster bounds={bounds} />}
 
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <BasemapTileLayer satellite={isSatellite} />
 
         {fields.map((f) => {
           if (!f.geometry) return null
