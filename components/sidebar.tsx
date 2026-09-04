@@ -30,6 +30,7 @@ import {
   Table2,
   Tag,
   MapPin,
+  Crosshair,
 } from "lucide-react";
 import type { Role } from "@/lib/roles";
 
@@ -52,6 +53,7 @@ const fieldOpsNav = [
   { href: "/experiments", label: "Experiments", icon: Microscope },
   { href: "/fields", label: "Fields", icon: Map },
   { href: "/experiment-zones", label: "Experiment Zones", icon: Layers },
+  { href: "/sampling-maps", label: "Sampling Maps", icon: Crosshair },
 ];
 
 const referenceNav = [
