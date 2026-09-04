@@ -41,6 +41,8 @@ model User {
   EquipmentLoansSignedOut EquipmentLoan[]
   ContextFetchJobs   ContextFetchJob[]
   CreatedSamplingMaps SamplingMap[]
+  SamplingMapAssignments SamplingMapAssignment[]
+  SamplingPointCollections SamplingPointCollection[]
 
   @@map("users")
   @@schema("public")
@@ -1548,6 +1550,7 @@ model SamplingMap {
   CreatedBy  User?           @relation(fields: [created_by_id], references: [id], onDelete: SetNull)
   Polygons   SamplingMapPolygon[]
   Points     SamplingPoint[]
+  Assignments SamplingMapAssignment[]
 
   @@index([farm_id])
   @@index([experiment_id])
@@ -1598,10 +1601,54 @@ model SamplingPoint {
   SamplingMap    SamplingMap         @relation(fields: [sampling_map_id], references: [id], onDelete: Cascade)
   Polygon        SamplingMapPolygon? @relation(fields: [polygon_id], references: [id], onDelete: SetNull)
   ExperimentTest ExperimentTest?     @relation(fields: [experiment_test_id], references: [id], onDelete: SetNull)
+  Collections    SamplingPointCollection[]
 
   @@index([sampling_map_id])
   @@index([polygon_id])
   @@index([experiment_test_id])
   @@map("Sampling_Points")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Mobile phase for Planned Changes item 4: which lab members a sampling map has been sent to.
+// Sampling maps are lab-only work (no farmer/Contact channel involved, unlike Forms/Geofences),
+// so this is a straight user_id FK rather than the exactly-one-of-N target shape those two use.
+model SamplingMapAssignment {
+  id              Int      @id @default(autoincrement())
+  sampling_map_id Int
+  user_id         String
+  created_at      DateTime @default(now())
+
+  SamplingMap SamplingMap @relation(fields: [sampling_map_id], references: [id], onDelete: Cascade)
+  User        User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([sampling_map_id])
+  @@index([user_id])
+  @@map("Sampling_Map_Assignments")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Log of "mark collected" actions from the field — written by the device, one row per action.
+// Same relationship to SamplingPoint as GeofenceEvent is to Geofence: purely additive, not a
+// mutable `collected` boolean on SamplingPoint, so re-collection history is preserved. lat/lng
+// are the device's actual fix at collection time (not copied from the point's planned
+// geometry), so staff can later compare planned vs. actual sample location.
+model SamplingPointCollection {
+  id                Int      @id @default(autoincrement())
+  sampling_point_id Int
+  user_id           String?
+  lat               Float
+  lng               Float
+  occurred_at       DateTime
+  note              String?
+  content_hash      String?
+  received_at       DateTime @default(now()) @db.Timestamptz(6)
+
+  SamplingPoint SamplingPoint @relation(fields: [sampling_point_id], references: [id], onDelete: Cascade)
+  User          User?         @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([sampling_point_id])
+  @@index([content_hash])
+  @@map("Sampling_Point_Collections")
   @@schema("pgntarg2udzj1f3")
 }

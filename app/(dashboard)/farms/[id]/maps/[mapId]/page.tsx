@@ -6,6 +6,7 @@ import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import SamplingMapEditorWrapper from "@/components/sampling-map-editor-wrapper";
 import type { ImportableBoundary } from "@/components/import-boundary-dialog";
 import type { MapRaster } from "@/components/map-raster-layers";
+import { ASSIGNMENT_INCLUDE } from "@/lib/sampling-maps";
 
 export default async function SamplingMapDetailRoute({
   params,
@@ -45,6 +46,15 @@ export default async function SamplingMapDetailRoute({
 
   const scope = await getEffectiveScope(session?.user?.id ?? null, session?.user?.category);
   if (!scopeIncludesFarm(scope, farmId)) notFound();
+
+  const [assignments, users] = await Promise.all([
+    prisma.samplingMapAssignment.findMany({
+      where: { sampling_map_id: map.id },
+      include: ASSIGNMENT_INCLUDE,
+      orderBy: { created_at: "asc" },
+    }),
+    prisma.user.findMany({ select: { id: true, name: true, email: true }, orderBy: { name: "asc" } }),
+  ]);
 
   const importableFields: ImportableBoundary[] = map.Farm.Fields.map((f) => ({
     id: f.id,
@@ -96,6 +106,12 @@ export default async function SamplingMapDetailRoute({
       importableZones={importableZones}
       experimentTests={experimentTests}
       hasExperiment={map.experiment_id != null}
+      assignments={assignments.map((a) => ({
+        id: a.id,
+        user_id: a.user_id,
+        user_label: a.User.name ?? a.User.email,
+      }))}
+      users={users}
     />
   );
 }

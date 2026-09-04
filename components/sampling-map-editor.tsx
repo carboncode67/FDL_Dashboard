@@ -12,6 +12,8 @@ import { SatelliteToggleButton } from "@/components/satellite-toggle-button"
 import { RasterLayer, VectorLayer, type MapRaster } from "@/components/map-raster-layers"
 import { ImportBoundaryDialog, type ImportableBoundary } from "@/components/import-boundary-dialog"
 import { SamplingMapUploadDialog, type UploadedPolygon, type UploadedPoint } from "@/components/sampling-map-upload-dialog"
+import { SamplingMapAssignmentPicker } from "@/components/sampling-map-assignment-picker"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -44,6 +46,12 @@ export interface SamplingPointData {
 export interface ExperimentTestOption {
   id: number
   testName: string
+}
+
+export interface SamplingMapAssignmentData {
+  id: number
+  user_id: string
+  user_label: string
 }
 
 const PURPOSES = [
@@ -257,6 +265,8 @@ export interface SamplingMapEditorProps {
   importableZones: ImportableBoundary[]
   experimentTests: ExperimentTestOption[]
   hasExperiment: boolean
+  assignments: SamplingMapAssignmentData[]
+  users: { id: string; name: string | null; email: string }[]
 }
 
 export default function SamplingMapEditor({
@@ -273,6 +283,8 @@ export default function SamplingMapEditor({
   importableZones,
   experimentTests,
   hasExperiment,
+  assignments,
+  users,
 }: SamplingMapEditorProps) {
   const [polygons, setPolygons] = useState<SamplingMapPolygonData[]>(initialPolygons)
   const [points, setPoints] = useState<SamplingPointData[]>(initialPoints)
@@ -280,6 +292,7 @@ export default function SamplingMapEditor({
   const [visibleRasterIds, setVisibleRasterIds] = useState<Set<number>>(new Set())
   const [importOpen, setImportOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [assignOpen, setAssignOpen] = useState(false)
   const layersApiRef = useRef<MapDrawLayersHandle>(null)
 
   // Grid/random point generation — a preview (client-side math only, nothing persisted
@@ -546,6 +559,9 @@ export default function SamplingMapEditor({
           </Button>
           <Button size="sm" variant="outline" onClick={() => setUploadOpen(true)}>
             Upload File
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)}>
+            Send to Phone{assignments.length > 0 ? ` (${assignments.length})` : ""}
           </Button>
           <SatelliteToggleButton satellite={isSatellite} onToggle={() => setIsSatellite((v) => !v)} />
         </div>
@@ -855,6 +871,15 @@ export default function SamplingMapEditor({
         samplingMapId={samplingMapId}
         onUploaded={handleUploaded}
       />
+
+      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send to Phone</DialogTitle>
+          </DialogHeader>
+          <SamplingMapAssignmentPicker samplingMapId={samplingMapId} initialAssignments={assignments} users={users} />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
