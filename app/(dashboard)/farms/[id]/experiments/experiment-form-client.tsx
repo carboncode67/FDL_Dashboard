@@ -22,6 +22,7 @@ import { FieldBoundaryUpload } from "@/components/field-boundary-upload";
 import { DroneFlightRecordForm, type DroneFlightRecordData } from "@/components/forms/drone-flight-record-form";
 import { DateInput } from "@/components/ui/date-input";
 import { ExperimentTasksSection, type ExperimentTaskRow } from "@/components/experiment-tasks-section";
+import { ExperimentMapsSection, type ExperimentMapRow } from "@/components/experiment-maps-section";
 
 type FieldDef      = { id: number; col_index: number; field_type: string; label: string };
 type TestTemplate  = { id: number; description: string; classification: string | null; priority: string };
@@ -93,6 +94,7 @@ interface Props {
   canDelete?:    boolean;
   initialTasks?:  ExperimentTaskRow[];
   taskTemplates?: { id: number; description: string; classification: string | null; priority: string }[];
+  initialMaps?:   ExperimentMapRow[];
 }
 
 const TEXTAREA = "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -110,7 +112,7 @@ function buildTaskOverrides(templates: TestTemplate[]): TaskOverride[] {
 
 export default function ExperimentFormClient({
   farmId, farmName, experimentId, experiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmUploadPins, allUsers,
-  canDelete, initialTasks, taskTemplates,
+  canDelete, initialTasks, taskTemplates, initialMaps,
 }: Props) {
   const router   = useRouter();
   const [saving, setSaving] = useState(false);
@@ -1033,6 +1035,14 @@ export default function ExperimentFormClient({
           users={allUsers}
           initialTasks={initialTasks ?? []}
           templates={taskTemplates ?? []}
+        />
+      )}
+
+      {experimentId && (
+        <ExperimentMapsSection
+          farmId={farmId}
+          experimentId={experimentId}
+          initialMaps={initialMaps ?? []}
         />
       )}
     </div>

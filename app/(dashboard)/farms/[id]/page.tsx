@@ -30,6 +30,7 @@ import { AddContactButton } from "@/components/add-contact-button";
 import { DrawFieldButton } from "@/components/draw-field-button";
 import { AddFieldsButton } from "@/components/add-fields-button";
 import { SpatialContextCard } from "@/components/spatial-context-card";
+import { SamplingMapsTab } from "@/components/sampling-maps-tab";
 import { serializeContextJob } from "@/lib/context-types";
 import { geodartHasKey } from "@/lib/geodart";
 
@@ -96,6 +97,10 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
         PipelineOutputRasters: {
           orderBy: { created_at: "desc" },
           include: { Run: { select: { id: true, Pipeline: { select: { name: true } } } } },
+        },
+        SamplingMaps: {
+          orderBy: { updated_at: "desc" },
+          include: { _count: { select: { Polygons: true, Points: true } } },
         },
       },
     }),
@@ -362,6 +367,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
           <TabsTrigger value="experiments">Experiments</TabsTrigger>
           <TabsTrigger value="documents">Documents ({farm.Documents.length})</TabsTrigger>
           <TabsTrigger value="uploads">Data Uploads ({totalUploads})</TabsTrigger>
+          <TabsTrigger value="maps">Maps ({farm.SamplingMaps.length})</TabsTrigger>
         </TabsList>
 
         {/* ── Overview ── */}
@@ -753,6 +759,24 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ── Sampling Maps ── */}
+        <TabsContent value="maps" className="mt-4 space-y-4">
+          <SamplingMapsTab
+            farmId={farm.id}
+            maps={farm.SamplingMaps.map((m) => ({
+              id: m.id,
+              name: m.name,
+              description: m.description,
+              experiment_id: m.experiment_id,
+              updated_at: m.updated_at.toISOString(),
+              _count: m._count,
+            }))}
+            experiments={farmExperiments.map((e) => ({ id: e.id, experiment_name: e.experiment_name }))}
+            canCreate={showCreate}
+            canDelete={showDelete}
+          />
         </TabsContent>
       </Tabs>
     </div>

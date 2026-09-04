@@ -40,6 +40,7 @@ model User {
   CreatedPipelines   Pipeline[]
   EquipmentLoansSignedOut EquipmentLoan[]
   ContextFetchJobs   ContextFetchJob[]
+  CreatedSamplingMaps SamplingMap[]
 
   @@map("users")
   @@schema("public")
@@ -150,6 +151,7 @@ model Farm {
   ContextRasters   ContextRaster[]
   PipelineRuns     PipelineRun[]
   PipelineOutputRasters PipelineOutputRaster[]
+  SamplingMaps     SamplingMap[]
 
   @@map("Farms")
   @@schema("pgntarg2udzj1f3")
@@ -173,6 +175,7 @@ model Field {
   ExperimentZones ExperimentZone[]
   ExperimentFields ExperimentField[]
   GeofenceZoneFields GeofenceZoneField[]
+  SamplingMapPolygons SamplingMapPolygon[]
 
   @@map("Fields")
   @@schema("pgntarg2udzj1f3")
@@ -257,6 +260,7 @@ model ExperimentZone {
   Farm     Farm?              @relation(fields: [farm_id], references: [id])
   Field    Field?             @relation(fields: [Fields_id], references: [id])
   Protocol TreatmentProtocol? @relation(fields: [protocol_id], references: [id])
+  SamplingMapPolygons SamplingMapPolygon[]
 
   @@map("Experiment_Zones")
   @@schema("pgntarg2udzj1f3")
@@ -647,6 +651,7 @@ model FarmExperiment {
   AssignedContacts       Contact[]
   FormAssignments        FormAssignment[]
   GeofenceAssignments    GeofenceAssignment[]
+  SamplingMaps           SamplingMap[]
 
   @@map("Farm_Experiments")
   @@schema("pgntarg2udzj1f3")
@@ -663,6 +668,7 @@ model ExperimentTest {
   Experiment FarmExperiment @relation(fields: [experiment_id], references: [id], onDelete: Cascade)
   Test       Test           @relation(fields: [test_id], references: [id], onDelete: Cascade)
   DataRows   DataTableRow[]
+  SamplingPoints SamplingPoint[]
 
   @@map("Experiment_Tests")
   @@schema("pgntarg2udzj1f3")
@@ -1520,5 +1526,82 @@ model ContextRaster {
   @@index([job_id])
   @@index([farm_id, product])
   @@map("Context_Rasters")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Planned Changes item 4 ("Create maps"): a sampling map is farm-scoped, optionally narrowed
+// to one experiment. Only an experiment-scoped map's points can link to that experiment's
+// Experiment_Tests — a Test is a global methodology, Experiment_Tests is the per-experiment
+// instance actually being sampled.
+model SamplingMap {
+  id            Int       @id @default(autoincrement())
+  farm_id       Int
+  experiment_id Int?
+  name          String
+  description   String?
+  created_by_id String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  Farm       Farm            @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  Experiment FarmExperiment? @relation(fields: [experiment_id], references: [id], onDelete: SetNull)
+  CreatedBy  User?           @relation(fields: [created_by_id], references: [id], onDelete: SetNull)
+  Polygons   SamplingMapPolygon[]
+  Points     SamplingPoint[]
+
+  @@index([farm_id])
+  @@index([experiment_id])
+  @@map("Sampling_Maps")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// A child table (not one geometry column on SamplingMap) because a map can hold multiple
+// polygons — a boundary plus, later, strata for conditioned-Latin-Hypercube or stratified
+// sampling (not built yet). Can be hand-drawn or imported from an existing Field/ExperimentZone
+// boundary (source_field_id/source_zone_id track that provenance).
+model SamplingMapPolygon {
+  id              Int      @id @default(autoincrement())
+  sampling_map_id Int
+  label           String?
+  purpose         String   @default("boundary")
+  geometry        String
+  source          String   @default("drawn")
+  source_field_id Int?
+  source_zone_id  Int?
+  created_at      DateTime @default(now())
+
+  SamplingMap SamplingMap     @relation(fields: [sampling_map_id], references: [id], onDelete: Cascade)
+  SourceField Field?          @relation(fields: [source_field_id], references: [id], onDelete: SetNull)
+  SourceZone  ExperimentZone? @relation(fields: [source_zone_id], references: [id], onDelete: SetNull)
+  Points      SamplingPoint[]
+
+  @@index([sampling_map_id])
+  @@map("Sampling_Map_Polygons")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// geometry is a GeoJSON Point in TEXT, matching the Fields.geometry/ExperimentZones.geometry
+// convention rather than plain lat/lng columns, so a point could later carry a buffer/
+// sample-area polygon without a schema change. polygon_id is nullable (which stratum a
+// generated point came from); experiment_test_id is nullable ("linked to tests").
+model SamplingPoint {
+  id                 Int      @id @default(autoincrement())
+  sampling_map_id    Int
+  polygon_id         Int?
+  experiment_test_id Int?
+  label              String?
+  geometry           String
+  placement_method   String   @default("manual")
+  sample_index       Int?
+  created_at         DateTime @default(now())
+
+  SamplingMap    SamplingMap         @relation(fields: [sampling_map_id], references: [id], onDelete: Cascade)
+  Polygon        SamplingMapPolygon? @relation(fields: [polygon_id], references: [id], onDelete: SetNull)
+  ExperimentTest ExperimentTest?     @relation(fields: [experiment_test_id], references: [id], onDelete: SetNull)
+
+  @@index([sampling_map_id])
+  @@index([polygon_id])
+  @@index([experiment_test_id])
+  @@map("Sampling_Points")
   @@schema("pgntarg2udzj1f3")
 }

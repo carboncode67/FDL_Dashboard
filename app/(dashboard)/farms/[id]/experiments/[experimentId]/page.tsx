@@ -15,7 +15,7 @@ export default async function EditExperimentPage({
   const farmId = parseInt(id);
   const expId  = parseInt(experimentId);
 
-  const [session, editMode, farm, farmExperiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmPhotos, farmNotes, farmLabUps, existingValues, allUsers, experimentTasks, taskTemplates] = await Promise.all([
+  const [session, editMode, farm, farmExperiment, allTests, allDrones, allTreatments, allProjects, farmFields, farmPhotos, farmNotes, farmLabUps, existingValues, allUsers, experimentTasks, taskTemplates, experimentMaps] = await Promise.all([
     auth(),
     getEditMode(),
     prisma.farm.findUnique({ where: { id: farmId }, select: { id: true, Farm_Name: true } }),
@@ -71,6 +71,11 @@ export default async function EditExperimentPage({
       where: { test_id: null, drone_id: null },
       select: { id: true, description: true, classification: true, priority: true },
       orderBy: { description: "asc" },
+    }),
+    prisma.samplingMap.findMany({
+      where: { experiment_id: expId },
+      include: { _count: { select: { Polygons: true, Points: true } } },
+      orderBy: { updated_at: "desc" },
     }),
   ]);
 
@@ -170,6 +175,13 @@ export default async function EditExperimentPage({
         created_at:     t.created_at.toISOString(),
       }))}
       taskTemplates={taskTemplates}
+      initialMaps={experimentMaps.map((m) => ({
+        id:           m.id,
+        name:         m.name,
+        updated_at:   m.updated_at.toISOString(),
+        polygonCount: m._count.Polygons,
+        pointCount:   m._count.Points,
+      }))}
     />
   );
 }

@@ -1,14 +1,5 @@
 import { prisma } from "@/lib/prisma"
-
-export function haversineDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371000
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLng = ((lng2 - lng1) * Math.PI) / 180
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
+import { pointInGeometry as pointInGeom, haversineDistanceMeters } from "@/lib/geo"
 
 // Returns [lng, lat] centroid as mean of outer ring vertices.
 function polygonCentroid(geom: any): [number, number] | null {
@@ -20,35 +11,6 @@ function polygonCentroid(geom: any): [number, number] | null {
   const lng = ring.reduce((s, c) => s + c[0], 0) / ring.length
   const lat = ring.reduce((s, c) => s + c[1], 0) / ring.length
   return [lng, lat]
-}
-
-// Ray-casting point-in-polygon. Ring coords are GeoJSON order: [lng, lat].
-function pointInRing(lat: number, lng: number, ring: number[][]): boolean {
-  let inside = false
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, yi] = ring[i]
-    const [xj, yj] = ring[j]
-    if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
-      inside = !inside
-    }
-  }
-  return inside
-}
-
-function pointInGeom(lat: number, lng: number, geom: any): boolean {
-  if (!geom) return false
-  switch (geom.type) {
-    case "Polygon":
-      return pointInRing(lat, lng, geom.coordinates[0])
-    case "MultiPolygon":
-      return geom.coordinates.some((poly: number[][][]) => pointInRing(lat, lng, poly[0]))
-    case "Feature":
-      return pointInGeom(lat, lng, geom.geometry)
-    case "FeatureCollection":
-      return geom.features.some((f: any) => pointInGeom(lat, lng, f))
-    default:
-      return false
-  }
 }
 
 // Returns the farm_id of the first field boundary that contains the given point, or null.

@@ -121,6 +121,63 @@ export function bboxRing(bounds: Bounds, bufferMeters = 0): [number, number][] {
   ];
 }
 
+export function haversineDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Ray-casting point-in-polygon. Ring coords are GeoJSON order: [lng, lat]. Shared by
+// lib/proximity.ts (server-side Field lookups) and the sampling-map editor (client-side,
+// checking a newly-placed point against the map's own already-loaded polygons — no DB
+// round-trip needed there).
+function pointInRing(lat: number, lng: number, ring: Coord[]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function pointInGeometry(lat: number, lng: number, geom: any): boolean {
+  if (!geom) return false;
+  switch (geom.type) {
+    case "Polygon":
+      return pointInRing(lat, lng, geom.coordinates[0]);
+    case "MultiPolygon":
+      return geom.coordinates.some((poly: Coord[][]) => pointInRing(lat, lng, poly[0]));
+    case "Feature":
+      return pointInGeometry(lat, lng, geom.geometry);
+    case "FeatureCollection":
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (geom.features ?? []).some((f: any) => pointInGeometry(lat, lng, f));
+    default:
+      return false;
+  }
+}
+
+/** Parses a raw GeoJSON geometry/Feature/FeatureCollection string (as stored on
+ *  Sampling_Map_Polygons.geometry) and tests containment. Returns false on parse failure
+ *  rather than throwing — callers are scanning several polygons and a malformed one
+ *  should just not match, not abort the scan. */
+export function pointInGeojsonString(lat: number, lng: number, geojsonStr: string | null | undefined): boolean {
+  if (!geojsonStr) return false;
+  try {
+    return pointInGeometry(lat, lng, JSON.parse(geojsonStr));
+  } catch {
+    return false;
+  }
+}
+
 export function geojsonAreaAcres(geojsonStr: string | null | undefined): number {
   if (!geojsonStr) return 0;
   try {
@@ -138,4 +195,66 @@ export function geojsonAreaAcres(geojsonStr: string | null | undefined): number 
   } catch {
     return 0;
   }
+}
+
+export interface GeneratedPoint {
+  lat: number;
+  lng: number;
+}
+
+// Planned Changes item 4 ("Create maps"): regular lattice of points at `spacingMeters`
+// across a polygon's bounding box, filtered down to the ones that actually land inside
+// the polygon. Spacing is converted from meters to degrees using the bbox's mean
+// latitude — the same approximation bboxRing's buffer conversion uses, adequate at
+// field scale. `maxPoints` is a hard stop so a tiny spacing on a large polygon can't
+// hang the browser generating an unbounded grid.
+export function generateGridPoints(geojsonStr: string, spacingMeters: number, maxPoints = 2000): GeneratedPoint[] {
+  const bounds = geojsonBounds(geojsonStr);
+  if (!bounds || spacingMeters <= 0) return [];
+  const [minLng, minLat, maxLng, maxLat] = bounds;
+  const meanLat = (minLat + maxLat) / 2;
+  const dLat = spacingMeters / METERS_PER_DEGREE_LAT;
+  const dLng = spacingMeters / (METERS_PER_DEGREE_LAT * Math.cos((meanLat * Math.PI) / 180) || METERS_PER_DEGREE_LAT);
+
+  const points: GeneratedPoint[] = [];
+  for (let lat = minLat; lat <= maxLat; lat += dLat) {
+    for (let lng = minLng; lng <= maxLng; lng += dLng) {
+      if (pointInGeojsonString(lat, lng, geojsonStr)) {
+        points.push({ lat, lng });
+        if (points.length >= maxPoints) return points;
+      }
+    }
+  }
+  return points;
+}
+
+// Rejection sampling: draw a random point in the polygon's bbox, keep it if it falls
+// inside the polygon and (when minSpacingMeters is set) isn't too close to a point
+// already accepted. Gives up after maxAttempts rather than looping forever if `count`
+// can't be reached (e.g. minSpacingMeters too large for the polygon's area).
+export function generateRandomPoints(
+  geojsonStr: string,
+  count: number,
+  minSpacingMeters = 0,
+  maxAttempts = 5000,
+): GeneratedPoint[] {
+  const bounds = geojsonBounds(geojsonStr);
+  if (!bounds || count <= 0) return [];
+  const [minLng, minLat, maxLng, maxLat] = bounds;
+
+  const points: GeneratedPoint[] = [];
+  let attempts = 0;
+  while (points.length < count && attempts < maxAttempts) {
+    attempts++;
+    const lat = minLat + Math.random() * (maxLat - minLat);
+    const lng = minLng + Math.random() * (maxLng - minLng);
+    if (!pointInGeojsonString(lat, lng, geojsonStr)) continue;
+    if (
+      minSpacingMeters > 0 &&
+      points.some((p) => haversineDistanceMeters(lat, lng, p.lat, p.lng) < minSpacingMeters)
+    )
+      continue;
+    points.push({ lat, lng });
+  }
+  return points;
 }
