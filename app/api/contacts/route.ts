@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canCreate } from "@/lib/roles";
 import crypto from "crypto";
+import { runWithTenant } from "@/lib/lab-db";
 
 function isServiceToken(req: Request): boolean {
   const svc = process.env.FDL_SERVICE_TOKEN;
@@ -12,6 +13,7 @@ function isServiceToken(req: Request): boolean {
 }
 
 export async function GET(req: Request) {
+  return runWithTenant(async () => {
   if (!isServiceToken(req)) {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -29,9 +31,11 @@ export async function GET(req: Request) {
     experiment_name: c.experiment_nickname || c.AssignedExperiment?.experiment_name || "",
   }));
   return NextResponse.json(withExperimentName);
+  });
 }
 
 export async function POST(req: Request) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canCreate(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -50,4 +54,5 @@ export async function POST(req: Request) {
     },
   });
   return NextResponse.json(contact, { status: 201 });
+  });
 }

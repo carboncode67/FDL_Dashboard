@@ -4,8 +4,10 @@ import { getEditMode } from "@/lib/edit-mode";
 import { canCreate, canDelete, type Role } from "@/lib/roles";
 import { getEffectiveScope } from "@/lib/get-user-filters";
 import { TasksClient } from "./tasks-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function TasksPage() {
+  return runWithTenant(async () => {
   const [session, editMode] = await Promise.all([auth(), getEditMode()]);
   const role = (session?.user?.role ?? "viewer") as Role;
   const userId = session?.user?.id ?? null;
@@ -70,4 +72,5 @@ export default async function TasksPage() {
       activeFilter={activeFilter}
     />
   );
+  });
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { isUploadTable } from "@/lib/data-api";
 import { prisma } from "@/lib/prisma";
 
@@ -9,6 +10,7 @@ export async function PATCH(
 ) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const { table, id } = await params;
   if (!isUploadTable(table)) return NextResponse.json({ error: "Unknown table" }, { status: 400 });
@@ -41,4 +43,5 @@ export async function PATCH(
   }
 
   return NextResponse.json(result);
+  });
 }

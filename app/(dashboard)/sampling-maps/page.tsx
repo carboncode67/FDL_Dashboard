@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { SamplingMapsListClient } from "./sampling-maps-list-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function SamplingMapsPage() {
+  return runWithTenant(async () => {
   const [maps, farms, experiments] = await Promise.all([
     prisma.samplingMap.findMany({
       orderBy: { updated_at: "desc" },
@@ -45,4 +47,5 @@ export default async function SamplingMapsPage() {
         }))}
     />
   );
+  });
 }

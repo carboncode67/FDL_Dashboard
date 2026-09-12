@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
+import { runWithTenant } from "@/lib/lab-db";
 
 export async function GET() {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -12,9 +14,11 @@ export async function GET() {
     include: { Metrics: { orderBy: { sort_order: "asc" } } },
   });
   return NextResponse.json(categories);
+  });
 }
 
 export async function POST(req: Request) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const role = (session.user.role ?? "viewer") as Role;
@@ -43,4 +47,5 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "A category with that name already exists" }, { status: 409 });
   }
+  });
 }

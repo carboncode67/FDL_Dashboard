@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { isSamplingMapVisibleToLabMember, samplingMapIdForPoint } from "@/lib/sampling-maps";
 
 type Params = { params: Promise<{ pointId: string }> };
@@ -13,6 +14,7 @@ type Params = { params: Promise<{ pointId: string }> };
 export async function POST(request: Request, { params }: Params) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
   if (auth.kind !== "labMember") return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { pointId } = await params;
@@ -69,4 +71,5 @@ export async function POST(request: Request, { params }: Params) {
   });
 
   return NextResponse.json({ ok: true, id: collection.id }, { status: 201 });
+  });
 }

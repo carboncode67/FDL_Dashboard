@@ -3,8 +3,10 @@ import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
 import { getEffectiveScope } from "@/lib/get-user-filters";
 import { ProjectsClient } from "./projects-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function ProjectsPage() {
+  return runWithTenant(async () => {
   const session = await auth();
   const role = (session?.user?.role ?? "viewer") as Role;
   const userId = session?.user?.id ?? null;
@@ -31,4 +33,5 @@ export default async function ProjectsPage() {
       scopeNotice={hardScoped ? "Your access is scoped to your assigned project(s) by an admin." : null}
     />
   );
+  });
 }

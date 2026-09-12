@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { DataTablesClient } from "./data-tables-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function DataTablesPage() {
+  return runWithTenant(async () => {
   const tables = await prisma.dataTable.findMany({
     orderBy: { name: "asc" },
     include: {
@@ -27,4 +29,5 @@ export default async function DataTablesPage() {
       }))}
     />
   );
+  });
 }

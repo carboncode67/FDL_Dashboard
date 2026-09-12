@@ -4,8 +4,10 @@ import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
 import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import { EditBoundaryPage } from "./edit-boundary-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function DrawBoundaryRoute({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const fieldId = parseInt(id);
 
@@ -30,4 +32,5 @@ export default async function DrawBoundaryRoute({ params }: { params: Promise<{ 
       initialGeometry={field.geometry ?? null}
     />
   );
+  });
 }

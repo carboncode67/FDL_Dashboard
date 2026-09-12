@@ -12,7 +12,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { runWithTenant } from "@/lib/lab-db";
 export default async function UsersPage() {
+  return runWithTenant(async () => {
   const users = await prisma.user.findMany({
     select: { id: true, name: true, email: true, createdAt: true },
     orderBy: { createdAt: "asc" },
@@ -66,4 +68,5 @@ export default async function UsersPage() {
       </Card>
     </div>
   );
+  });
 }

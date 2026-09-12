@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { resolveFarmId } from "@/lib/proximity";
 
 export const runtime = "nodejs";
@@ -8,6 +9,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   // Contact cards only come from WhatsApp farmers, not lab members
   if (auth.kind === "labMember") {
@@ -40,4 +42,5 @@ export async function POST(request: Request) {
     console.error("[upload/contact-card]", err);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
+  });
 }

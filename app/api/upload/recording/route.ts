@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { resolveFarmId, findFieldAndFarmByLocation, findFieldByLocation, firstPointFromGeoJSON } from "@/lib/proximity";
 import { advisoryLock, findClosestRecordingMatch, RECORDING_TIME_WINDOW_MIN } from "@/lib/duplicate-detection";
 import fs from "fs";
@@ -16,6 +17,7 @@ const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 export async function POST(request: Request) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   try {
     const contentType = request.headers.get("content-type") ?? "";
@@ -228,4 +230,5 @@ export async function POST(request: Request) {
     console.error("[upload/recording]", err);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
+  });
 }

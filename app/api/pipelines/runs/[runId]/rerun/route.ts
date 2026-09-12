@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { isAdmin, type Role } from "@/lib/roles";
 import { processingConfigured, triggerPipelineRun } from "@/lib/processing";
 import { farmCentroidFor } from "@/lib/pipeline-farm";
+import { runWithTenant } from "@/lib/lab-db";
 
 // Re-run a past pipeline run. Optionally carries a `prompt` — an operator
 // instruction the processor folds into its LLM wiring step for this run only
@@ -15,6 +16,7 @@ import { farmCentroidFor } from "@/lib/pipeline-farm";
 //   other upload run   -> the same upload file
 //   test run           -> the pipeline's own sample dataset
 export async function POST(req: Request, { params }: { params: Promise<{ runId: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!isAdmin(session.user.role as Role)) {
@@ -94,4 +96,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ runId: 
     });
     return NextResponse.json({ ...updated, processing_configured: true }, { status: 201 });
   }
+  });
 }

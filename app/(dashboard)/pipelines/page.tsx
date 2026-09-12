@@ -2,10 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdmin, type Role } from "@/lib/roles";
 import { PipelinesTabs } from "./pipelines-tabs";
+import { runWithTenant } from "@/lib/lab-db";
 
 export const metadata = { title: "Pipelines" };
 
 export default async function PipelinesPage() {
+  return runWithTenant(async () => {
   const session = await auth();
   const role = (session?.user?.role ?? "viewer") as Role;
 
@@ -88,4 +90,5 @@ export default async function PipelinesPage() {
       isAdmin={isAdmin(role)}
     />
   );
+  });
 }

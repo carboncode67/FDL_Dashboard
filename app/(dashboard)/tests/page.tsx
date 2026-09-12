@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { TestsClient } from "./tests-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function TestsPage() {
+  return runWithTenant(async () => {
   const tests = await prisma.test.findMany({
     include: {
       ExperimentTests: {
@@ -22,4 +24,5 @@ export default async function TestsPage() {
   }));
 
   return <TestsClient data={data} />;
+  });
 }

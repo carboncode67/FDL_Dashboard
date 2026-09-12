@@ -2,8 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getEffectiveScope } from "@/lib/get-user-filters";
 import { LabUploadsClient } from "./lab-uploads-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function LabUploadsPage() {
+  return runWithTenant(async () => {
   const session = await auth();
   const userId = session?.user?.id ?? null;
 
@@ -39,4 +41,5 @@ export default async function LabUploadsPage() {
   }));
 
   return <LabUploadsClient data={data} activeFilter={activeFilter} />;
+  });
 }

@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { canEdit, canDelete } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
 import bcrypt from "bcryptjs";
+import { runWithTenant } from "@/lib/lab-db";
 
 const USER_SELECT = {
   id: true, name: true, email: true, role: true, category: true, bearer_token: true,
@@ -15,6 +16,7 @@ const USER_SELECT = {
 const VALID_CATEGORIES = ["lab_member", "agronomist"];
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -22,9 +24,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const user = await prisma.user.findUnique({ where: { id }, select: USER_SELECT });
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(user);
+  });
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -60,9 +64,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
     throw err;
   }
+  });
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const editMode = await getEditMode();
@@ -84,4 +90,5 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     }
     throw err;
   }
+  });
 }

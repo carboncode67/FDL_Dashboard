@@ -23,8 +23,10 @@ import { format } from "date-fns";
 import { RelationPicker } from "@/components/relation-picker";
 import FieldMapWrapper from "@/components/field-map-wrapper";
 import { EditBoundaryButton } from "@/components/edit-boundary-button";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function FieldDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const fieldId = parseInt(id);
 
@@ -289,4 +291,5 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
       </Tabs>
     </div>
   );
+  });
 }

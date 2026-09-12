@@ -2,8 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canCreate, canEdit, type Role } from "@/lib/roles";
 import { LabMembersClient } from "./lab-members-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function LabMembersPage() {
+  return runWithTenant(async () => {
   const session = await auth();
   const role = (session?.user?.role ?? "viewer") as Role;
   const users = await prisma.user.findMany({ orderBy: { createdAt: "asc" } });
@@ -21,4 +23,5 @@ export default async function LabMembersPage() {
     onboarded_at: u.onboarded_at ? u.onboarded_at.toISOString() : null,
   }));
   return <LabMembersClient data={data} canCreate={canCreate(role)} canEdit={canEdit(role)} />;
+  });
 }

@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { canEdit, type Role } from "@/lib/roles";
 import { matchDocumentToTemplate } from "@/lib/document-template-match";
 import { matchAndTriggerPipelines } from "@/lib/pipeline-match";
+import { runWithTenant } from "@/lib/lab-db";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,7 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -28,12 +30,14 @@ export async function GET(
     orderBy: { uploaded_at: "desc" },
   });
   return NextResponse.json(docs);
+  });
 }
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role as Role)) {
@@ -95,4 +99,5 @@ export async function POST(
   }).catch((err) => console.error("[tests documents POST] pipeline trigger failed", err));
 
   return NextResponse.json({ ok: true, id: doc.id, matched_data_table_id: doc.data_table_id });
+  });
 }

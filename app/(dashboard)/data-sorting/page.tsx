@@ -4,8 +4,10 @@ import { getEditMode } from "@/lib/edit-mode";
 import { canDelete, type Role } from "@/lib/roles";
 import { getEffectiveScope } from "@/lib/get-user-filters";
 import { DataSortingClient, UploadItem } from "./data-sorting-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function DataSortingPage() {
+  return runWithTenant(async () => {
   const session = await auth();
   const userId = session?.user?.id ?? null;
 
@@ -331,4 +333,5 @@ export default async function DataSortingPage() {
       activeFilter={activeFilter}
     />
   );
+  });
 }

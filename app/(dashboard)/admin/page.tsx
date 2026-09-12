@@ -9,8 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EditModeToggle } from "./edit-mode-toggle";
 import { OnboardingMessageEditor } from "./onboarding-message-editor";
 import { UserRolesTable } from "./user-roles-table";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function AdminPage() {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user || session.user.role !== "admin") {
     redirect("/");
@@ -24,6 +26,7 @@ export default async function AdminPage() {
         email: true,
         role: true,
         category: true,
+        is_service_account: true,
         position: true,
         bearer_token: true,
         createdAt: true,
@@ -111,4 +114,5 @@ export default async function AdminPage() {
       </Card>
     </div>
   );
+  });
 }

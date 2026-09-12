@@ -3,8 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit, canDelete, type Role } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
+import { runWithTenant } from "@/lib/lab-db";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -15,9 +17,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   });
   if (!form) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(form);
+  });
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role as Role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -34,9 +38,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     },
   });
   return NextResponse.json(form);
+  });
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const editMode = await getEditMode();
@@ -45,4 +51,5 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   await prisma.form.delete({ where: { id: parseInt(id) } });
   return new NextResponse(null, { status: 204 });
+  });
 }

@@ -20,6 +20,7 @@ import Link from "next/link";
 import { LabMemberQrDisplay } from "./qr-display";
 import { GrantAccessButton } from "./grant-access-button";
 import { SendOnboardingEmailButton } from "./send-onboarding-email-button";
+import { runWithTenant } from "@/lib/lab-db";
 
 const STATUS_LABEL: Record<number, string> = { 1: "Unassigned", 2: "Farm Matched", 3: "Sorted" };
 const STATUS_VARIANT: Record<number, "outline" | "secondary" | "default"> = {
@@ -36,6 +37,7 @@ const MEDIA_ICON: Record<string, string> = {
 };
 
 export default async function LabMemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
 
   const [session, editMode] = await Promise.all([auth(), getEditMode()]);
@@ -208,4 +210,5 @@ export default async function LabMemberDetailPage({ params }: { params: Promise<
       </Card>
     </div>
   );
+  });
 }

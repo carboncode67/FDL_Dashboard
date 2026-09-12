@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { prisma } from "@/lib/prisma";
 
 // Bearer-token counterpart to the session-auth /api/upload-categories, for
@@ -8,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET(req: Request) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const categories = await prisma.uploadCategory.findMany({
     orderBy: { sort_order: "asc" },
@@ -28,4 +30,5 @@ export async function GET(req: Request) {
       })),
     }))
   );
+  });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { runWithTenant } from "@/lib/lab-db";
 
 // Inline Levenshtein distance for server-side fuzzy matching (no deps)
 function levenshtein(a: string, b: string): number {
@@ -29,6 +30,7 @@ const THRESHOLD = 0.85;
 type DuplicateResult = { id: number | string; name: string };
 
 export async function GET(request: Request) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -116,4 +118,5 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({ duplicates: results });
+  });
 }

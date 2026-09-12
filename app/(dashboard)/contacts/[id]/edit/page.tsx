@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import EditContactClient from "./edit-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function EditContactPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const contactId = parseInt(id);
 
@@ -28,4 +30,5 @@ export default async function EditContactPage({ params }: { params: Promise<{ id
       }}
     />
   );
+  });
 }

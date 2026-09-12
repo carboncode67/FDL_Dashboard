@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { generateOnboardingQr } from "@/lib/qr-code";
+import { runWithTenant } from "@/lib/lab-db";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -15,4 +17,5 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const serverUrl = process.env.FARMER_SERVER_URL ?? process.env.NEXTAUTH_URL ?? "";
   const { dataUrl } = await generateOnboardingQr(contact.token);
   return NextResponse.json({ dataUrl, serverUrl, contactName: contact.name });
+  });
 }

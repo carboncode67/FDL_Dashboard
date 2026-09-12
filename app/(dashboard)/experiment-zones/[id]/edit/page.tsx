@@ -5,8 +5,10 @@ import { getEditMode } from "@/lib/edit-mode";
 import { canDelete, type Role } from "@/lib/roles";
 import { DeleteZoneButton } from "../delete-button";
 import EditZoneClient from "./edit-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function EditZonePage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
 
   const [[session, editMode], zone, fields] = await Promise.all([
@@ -33,4 +35,5 @@ export default async function EditZonePage({ params }: { params: Promise<{ id: s
       />
     </div>
   );
+  });
 }

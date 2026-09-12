@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { DronesClient } from "./drones-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function DronesPage() {
+  return runWithTenant(async () => {
   const [drones, contacts] = await Promise.all([
     prisma.drone.findMany({
       orderBy: { id: "asc" },
@@ -39,4 +41,5 @@ export default async function DronesPage() {
   }));
 
   return <DronesClient data={data} contacts={contacts} />;
+  });
 }

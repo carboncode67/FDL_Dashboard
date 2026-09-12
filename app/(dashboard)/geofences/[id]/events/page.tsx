@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import EventsClient from "./events-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function GeofenceEventsPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const geofenceId = parseInt(id);
 
@@ -33,4 +35,5 @@ export default async function GeofenceEventsPage({ params }: { params: Promise<{
       }))}
     />
   );
+  });
 }

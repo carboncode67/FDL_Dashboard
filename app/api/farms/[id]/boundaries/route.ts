@@ -10,6 +10,7 @@ import {
   applyEpsgTransform,
 } from "@/lib/parse-boundaries";
 import type { Feature, Polygon, MultiPolygon } from "geojson";
+import { runWithTenant } from "@/lib/lab-db";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -118,4 +120,5 @@ export async function POST(
   );
 
   return NextResponse.json({ ok: true, count: polygonFeatures.length });
+  });
 }

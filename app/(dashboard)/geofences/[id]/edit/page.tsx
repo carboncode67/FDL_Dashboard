@@ -2,8 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { ASSIGNMENT_INCLUDE, resolveTargetLabel } from "@/lib/geofences";
 import EditGeofenceClient from "./edit-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function EditGeofencePage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const geofenceId = parseInt(id);
 
@@ -63,4 +65,5 @@ export default async function EditGeofencePage({ params }: { params: Promise<{ i
       experiments={experiments}
     />
   );
+  });
 }

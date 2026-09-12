@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { parseEntitiesParam, searchAll } from "@/lib/search";
 
 // GET /api/data/search?q=grazing+collar[&entities=farms,experiments][&limit=50]
@@ -8,6 +9,7 @@ import { parseEntitiesParam, searchAll } from "@/lib/search";
 export async function GET(req: Request) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const url = new URL(req.url);
   const q = url.searchParams.get("q") ?? "";
@@ -19,4 +21,5 @@ export async function GET(req: Request) {
     limit: url.searchParams.get("limit") ? Number(url.searchParams.get("limit")) : undefined,
   });
   return NextResponse.json({ query: q.trim(), hits });
+  });
 }

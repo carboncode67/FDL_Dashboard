@@ -26,6 +26,17 @@ PGPASSWORD=$FDL_DB_PASSWORD psql -h localhost -p 15432 -U nocodb -d nocodb -f mi
 
 All migration files use `IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` — safe to re-run.
 
+**Bootstrapping a genuinely fresh Postgres (e.g. a new TrueNAS/local instance, not local dev's or production's already-seeded one):** the `migrations/` directory only captures *incremental* changes — it assumes schema `pgntarg2udzj1f3` and its ~70 base tables already exist. They originally came from NocoDB's own bootstrap, years before this migrations folder existed, and no migration file creates them from scratch. Running the full migration set against an empty database fails immediately with `schema "pgntarg2udzj1f3" does not exist`. Fix: take a schema-only dump of that one schema from an already-migrated instance and restore it first, *then* run every migration on top (harmless no-ops, confirms nothing's missing):
+```bash
+# from a machine that can reach an already-migrated instance (e.g. local dev):
+PGPASSWORD=$FDL_DB_PASSWORD pg_dump -h localhost -p 5433 -U nocodb -d nocodb \
+  --schema="pgntarg2udzj1f3" --schema-only --no-owner --no-privileges \
+  -f pgntarg2udzj1f3_schema_only.sql
+# then, against the fresh instance:
+PGPASSWORD=$FDL_DB_PASSWORD psql -h <fresh-host> -p <port> -U nocodb -d nocodb -f pgntarg2udzj1f3_schema_only.sql
+```
+`public.users`/`public.site_config`/`public.labs` etc. have no such gap — those are fully created by migrations, no seed dump needed.
+
 ## Route Guard (`proxy.ts`)
 
 `proxy.ts` is the Next.js 16 equivalent of `middleware.ts`. Every new API route that uses Bearer-token auth (not session auth) **must** be added to the `isMobileApi` check or it will 307-redirect to `/login`. The current exemptions are `/api/upload`, `/api/files`, `/api/data`, `/api/contacts`, `/api/whatsapp`, and farm sub-routes ending in `/summary` or `/transcript`. Add new bearer-token routes here before deploying.
@@ -119,6 +130,8 @@ Server pages fetch role + edit mode with `const [session, editMode] = await Prom
 - `labMember` → `Lab_Member_Uploads` table; farm always resolved by GPS proximity via `lib/proximity.ts`
 
 `lib/proximity.ts` implements ray-casting point-in-polygon against field geometries to find the containing farm. `resolveFarmIdForLabMember(lat, lng)` is the entry point for lab member uploads; `resolveFarmId(contact, lat, lng)` handles contacts.
+
+**Bearer-token scope restriction** (`lib/route-scopes.ts`, enforced in `lib/upload-auth.ts`): every bearer token is either *restricted* (mobile-app QR code — a `Contact` token always, or a `public.users.bearer_token` whose row has `is_service_account = false`, the default) or *unrestricted* (`is_service_account = true` — the deliberately-provisioned service integrations: OFE_Dashboard's `FDL_SYNC_TOKEN` holder, the Client tools' Bearer-auth user(s), PipelineProcessor's `pipeline-processor@service.local`). A restricted token may only hit the routes in `RESTRICTED_ALLOWED_ROUTES` — uploads, plus pulling/submitting forms, sampling maps, and geofences — derived directly from what the Swift/Kotlin apps actually call, not guessed. Toggle a user's scope from the Admin Panel's User Roles table ("Token Scope" column). Gated by `BEARER_SCOPE_ENFORCEMENT` (`off` default / `log` — violations logged, request still allowed, for watching real traffic before flipping on / `enforce` — 403s a disallowed call). Migration `068_bearer_token_scope.sql`.
 
 **Duplicate-upload detection:** all four routes (photo/recording/note/location) dedup by a client-supplied `content_hash` (SHA-256, computed on-device at capture time — see the mobile app sections below) before doing any DB insert, via `findFirst` on `content_hash` — not a DB-enforced unique constraint, same pattern as the older `ticket_ref` field. Photo/recording dedup is global (identical file bytes across submitters is effectively impossible, and this also survives a device re-onboarding with a new token); note/location dedup is scoped to the same `contact_id`/`lab_member_id` (short text and GPS tracks have real cross-submitter collision risk). Falls back to `ticket_ref` (exact match, contact path only — guards against OFEDashBot firing the same Twilio webhook twice) when no hash is present. A dedup hit returns `{ ok: true, duplicate: true, id }` with a 2xx status; both mobile apps already treat any 2xx as upload success, so no client-side response-parsing changes were needed for this to work correctly.
 

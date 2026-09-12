@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit, type Role } from "@/lib/roles";
+import { runWithTenant } from "@/lib/lab-db";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role as Role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -22,9 +24,11 @@ export async function POST(req: Request, { params }: Params) {
   });
 
   return NextResponse.json({ success: true });
+  });
 }
 
 export async function DELETE(req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role as Role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -42,4 +46,5 @@ export async function DELETE(req: Request, { params }: Params) {
   });
 
   return NextResponse.json({ success: true });
+  });
 }

@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import EditDroneClient from "./edit-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function EditDronePage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const drone = await prisma.drone.findUnique({
     where: { id: parseInt(id) },
@@ -31,4 +33,5 @@ export default async function EditDronePage({ params }: { params: Promise<{ id: 
       dataTables={drone.DataTables.map((t) => ({ id: t.id, name: t.name, columnCount: t._count.FieldDefinitions }))}
     />
   );
+  });
 }

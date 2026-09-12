@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import { runWithTenant } from "@/lib/lab-db";
 
 async function getDashboardData() {
   const now = new Date();
@@ -155,6 +156,7 @@ async function getDashboardData() {
 }
 
 export default async function DashboardPage() {
+  return runWithTenant(async () => {
   const data = await getDashboardData();
   const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
@@ -455,4 +457,5 @@ export default async function DashboardPage() {
       </Card>
     </div>
   );
+  });
 }

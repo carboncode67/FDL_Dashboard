@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { serializeContextJob } from "@/lib/context-types";
+import { runWithTenant } from "@/lib/lab-db";
 
 export const runtime = "nodejs";
 
@@ -9,6 +10,7 @@ export const runtime = "nodejs";
 // in flight. The actual poll → download → ingest happens on the node-cron sweep
 // (lib/scheduler.ts → lib/context-fetch.ts), so this is a plain read.
 export async function GET(_req: Request, { params }: { params: Promise<{ jobId: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -23,4 +25,5 @@ export async function GET(_req: Request, { params }: { params: Promise<{ jobId: 
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json(serializeContextJob(job), { headers: { "Cache-Control": "no-store" } });
+  });
 }

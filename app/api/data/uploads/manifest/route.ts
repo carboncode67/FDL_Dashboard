@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { queryAllUploads, parseQueryParams } from "@/lib/data-api";
 import type { NormalizedUpload } from "@/lib/data-api";
 
@@ -20,6 +21,7 @@ interface ManifestProject {
 export async function GET(req: Request) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const { limit: _l, offset: _o, ...queryOpts } = parseQueryParams(new URL(req.url));
   const all = await queryAllUploads(queryOpts);
@@ -69,5 +71,6 @@ export async function GET(req: Request) {
     generated_at: new Date().toISOString(),
     total: all.length,
     projects,
+  });
   });
 }

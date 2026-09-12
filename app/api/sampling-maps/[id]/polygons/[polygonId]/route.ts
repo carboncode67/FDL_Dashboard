@@ -3,10 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit, canDelete } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
+import { runWithTenant } from "@/lib/lab-db";
 
 type Params = { params: Promise<{ id: string; polygonId: string }> };
 
 export async function PUT(req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -24,9 +26,11 @@ export async function PUT(req: Request, { params }: Params) {
     },
   });
   return NextResponse.json(polygon);
+  });
 }
 
 export async function DELETE(_: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const editMode = await getEditMode();
@@ -37,4 +41,5 @@ export async function DELETE(_: Request, { params }: Params) {
   // rather than cascade-deleted — deleting a stratum shouldn't silently destroy sample records.
   await prisma.samplingMapPolygon.delete({ where: { id: parseInt(polygonId) } });
   return new NextResponse(null, { status: 204 });
+  });
 }

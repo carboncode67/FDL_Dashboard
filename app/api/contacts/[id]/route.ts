@@ -3,8 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit, canDelete } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
+import { runWithTenant } from "@/lib/lab-db";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const contact = await prisma.contact.findUnique({
     where: { id: parseInt(id) },
@@ -12,9 +14,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   });
   if (!contact) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(contact);
+  });
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -36,11 +40,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     },
   });
   return NextResponse.json(contact);
+  });
 }
 
 // Partial update, used for quick inline edits (like the channel dropdown)
 // that shouldn't risk overwriting the rest of the contact's fields.
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -63,9 +69,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     data,
   });
   return NextResponse.json(contact);
+  });
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const editMode = await getEditMode();
@@ -74,4 +82,5 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   await prisma.contact.delete({ where: { id: parseInt(id) } });
   return NextResponse.json({ ok: true });
+  });
 }

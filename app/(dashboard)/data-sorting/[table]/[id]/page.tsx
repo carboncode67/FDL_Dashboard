@@ -9,6 +9,7 @@ import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { canDelete, type Role } from "@/lib/roles";
 import DetailClient from "./detail-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 
@@ -333,6 +334,7 @@ export default async function DetailPage({
   params: Promise<{ table: string; id: string }>;
   searchParams: Promise<{ tab?: string; status?: string; type?: string; farm?: string; search?: string; duplicate?: string }>;
 }) {
+  return runWithTenant(async () => {
   const { table, id } = await params;
   const sp = await searchParams;
 
@@ -456,4 +458,5 @@ export default async function DetailPage({
       metricValues={metricValues}
     />
   );
+  });
 }

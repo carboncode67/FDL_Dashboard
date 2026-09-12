@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { runWithTenant } from "@/lib/lab-db";
 
 // Read-only chronological log — repeatable forms have no pending/completed
 // state, so this is just history, optionally filtered to one recipient.
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -34,4 +36,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       recipient: r.Contact?.name ?? r.User?.name ?? r.User?.email ?? "Unknown",
     }))
   );
+  });
 }

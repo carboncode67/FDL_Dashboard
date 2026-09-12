@@ -6,6 +6,7 @@ import { getEditMode } from "@/lib/edit-mode";
 import type { Role } from "@/lib/roles";
 import { matchAndTriggerPipelines } from "@/lib/pipeline-match";
 import { propagateToGroup } from "@/lib/upload-group-sync";
+import { runWithTenant } from "@/lib/lab-db";
 
 const ALLOWED = ["photos", "notes", "recordings", "locations", "lab-member-uploads", "documents", "videos"] as const;
 type Table = (typeof ALLOWED)[number];
@@ -44,6 +45,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ table: string; id: string }> }
 ) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -133,12 +135,14 @@ export async function PATCH(
   }
 
   return NextResponse.json(result);
+  });
 }
 
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ table: string; id: string }> }
 ) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -155,4 +159,5 @@ export async function DELETE(
 
   await deleteRow(table, parseInt(id));
   return NextResponse.json({ ok: true });
+  });
 }

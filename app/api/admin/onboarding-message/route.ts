@@ -2,16 +2,20 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getOnboardingMessage, setOnboardingMessage } from "@/lib/onboarding-message";
 
+import { runWithTenant } from "@/lib/lab-db";
 export async function GET() {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (session.user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const message = await getOnboardingMessage();
   return NextResponse.json({ message });
+  });
 }
 
 export async function POST(req: Request) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (session.user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -22,4 +26,5 @@ export async function POST(req: Request) {
   }
   await setOnboardingMessage(message);
   return NextResponse.json({ message });
+  });
 }

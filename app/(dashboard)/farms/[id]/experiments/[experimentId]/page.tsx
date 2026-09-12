@@ -5,12 +5,14 @@ import { getEditMode } from "@/lib/edit-mode";
 import { canDelete as checkCanDelete, type Role } from "@/lib/roles";
 import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import ExperimentFormClient from "../experiment-form-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function EditExperimentPage({
   params,
 }: {
   params: Promise<{ id: string; experimentId: string }>;
 }) {
+  return runWithTenant(async () => {
   const { id, experimentId } = await params;
   const farmId = parseInt(id);
   const expId  = parseInt(experimentId);
@@ -184,4 +186,5 @@ export default async function EditExperimentPage({
       }))}
     />
   );
+  });
 }

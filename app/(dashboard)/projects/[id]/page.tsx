@@ -23,8 +23,10 @@ import { RelationPicker } from "@/components/relation-picker";
 import { DocumentUpload } from "@/components/document-upload";
 import { UnlinkExperimentButton } from "./unlink-experiment-button";
 import { AnnotationTab } from "./annotation-tab";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const projectId = parseInt(id);
 
@@ -322,4 +324,5 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       </Tabs>
     </div>
   );
+  });
 }

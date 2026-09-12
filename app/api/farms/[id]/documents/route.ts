@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { matchDocumentToTemplate } from "@/lib/document-template-match";
 import { matchAndTriggerPipelines } from "@/lib/pipeline-match";
+import { runWithTenant } from "@/lib/lab-db";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -67,4 +69,5 @@ export async function POST(
   }).catch((err) => console.error("[farms documents POST] pipeline trigger failed", err));
 
   return NextResponse.json({ ok: true, id: doc.id, matched_data_table_id: doc.data_table_id });
+  });
 }

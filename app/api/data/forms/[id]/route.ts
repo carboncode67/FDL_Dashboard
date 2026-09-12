@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { isFormVisibleToContact, isFormVisibleToLabMember } from "@/lib/forms";
 
 // Returns a form's schema for the authenticated identity — 404 (not 403) if
@@ -8,6 +9,7 @@ import { isFormVisibleToContact, isFormVisibleToLabMember } from "@/lib/forms";
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const { id } = await params;
   const formId = parseInt(id);
@@ -36,5 +38,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       required: f.required,
       options: f.options,
     })),
+  });
   });
 }

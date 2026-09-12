@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const { id } = await params;
   const farmId = parseInt(id);
@@ -33,5 +35,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     Farmer_Name: Contacts[0]?.name ?? null,
     Contact_Phone: Contacts[0]?.phone ?? null,
     Contact_Email: Contacts[0]?.email ?? null,
+  });
   });
 }

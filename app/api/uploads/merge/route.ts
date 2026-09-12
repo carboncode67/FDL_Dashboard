@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { runWithTenant } from "@/lib/lab-db";
 
 const ALLOWED = ["photos", "notes", "recordings", "locations", "lab-member-uploads", "documents", "videos"] as const;
 type Table = (typeof ALLOWED)[number];
@@ -22,6 +23,7 @@ async function setMergeGroup(table: Table, id: number, mergeGroupId: string | nu
 }
 
 export async function POST(req: Request) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -44,4 +46,5 @@ export async function POST(req: Request) {
   );
 
   return NextResponse.json({ merge_group_id: mergeGroupId });
+  });
 }

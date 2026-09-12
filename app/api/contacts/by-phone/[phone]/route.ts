@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { runWithTenant } from "@/lib/lab-db";
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ phone: string }> }
 ) {
+  return runWithTenant(async () => {
   const svc = process.env.FDL_SERVICE_TOKEN;
   const header = req.headers.get("authorization") ?? "";
   const hasServiceToken = svc && header === `Bearer ${svc}`;
@@ -50,5 +52,6 @@ export async function GET(
     farms_id: match.farms_id,
     is_lab_member: match.is_lab_member,
     experiment_name: match.experiment_nickname || match.AssignedExperiment?.experiment_name || "",
+  });
   });
 }

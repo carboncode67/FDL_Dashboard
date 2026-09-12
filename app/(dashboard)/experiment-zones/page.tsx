@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { ExperimentZonesClient } from "./experiment-zones-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function ExperimentZonesPage() {
+  return runWithTenant(async () => {
   const zones = await prisma.experimentZone.findMany({
     orderBy: { id: "asc" },
     include: { Project: true, Farm: true, Field: true },
@@ -18,4 +20,5 @@ export default async function ExperimentZonesPage() {
   }));
 
   return <ExperimentZonesClient data={data} />;
+  });
 }

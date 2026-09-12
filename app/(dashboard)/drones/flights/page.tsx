@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { DroneFlightsClient } from "./drone-flights-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function DroneFlightsPage() {
+  return runWithTenant(async () => {
   const records = await prisma.droneFlightRecord.findMany({
     include: {
       ExperimentDroneFlight: {
@@ -43,4 +45,5 @@ export default async function DroneFlightsPage() {
   }));
 
   return <DroneFlightsClient data={data} />;
+  });
 }

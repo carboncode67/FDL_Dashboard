@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { ActivityReportClient } from "./activity-report-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function ActivityReportPage() {
+  return runWithTenant(async () => {
   const [contacts, subscriptions, rawProjects] = await Promise.all([
     prisma.contact.findMany({
       where: { whatsapp: true },
@@ -63,4 +65,5 @@ export default async function ActivityReportPage() {
       }))}
     />
   );
+  });
 }

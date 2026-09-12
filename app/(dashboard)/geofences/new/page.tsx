@@ -3,8 +3,10 @@ import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { NewGeofencePage } from "./new-geofence-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function NewGeofenceRoute() {
+  return runWithTenant(async () => {
   const session = await auth();
   const role = (session?.user?.role ?? "viewer") as Role;
   if (!canCreate(role)) notFound();
@@ -24,4 +26,5 @@ export default async function NewGeofenceRoute() {
   });
 
   return <NewGeofencePage farms={farms} />;
+  });
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { isUploadTable, DATA_DIR } from "@/lib/data-api";
 import { prisma } from "@/lib/prisma";
 import fs from "fs";
@@ -36,6 +37,7 @@ export async function GET(
 ) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const { table, id } = await params;
   // "documents" is deliberately not one of the 5 general UPLOAD_TABLES (that's the
@@ -101,4 +103,5 @@ export async function GET(
       return serveFile(path.join(DATA_DIR, "documents", path.basename(row.filename)), row.filename);
     }
   }
+  });
 }

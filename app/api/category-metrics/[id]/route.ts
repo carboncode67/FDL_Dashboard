@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { canCreate, canDelete, type Role } from "@/lib/roles";
+import { runWithTenant } from "@/lib/lab-db";
 
 const VALID_FIELD_TYPES = ["text", "number", "select", "boolean"];
 
@@ -10,6 +11,7 @@ export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const role = (session.user.role ?? "viewer") as Role;
@@ -39,12 +41,14 @@ export async function PUT(
 
   const metric = await prisma.categoryMetric.update({ where: { id: parseInt(id) }, data });
   return NextResponse.json(metric);
+  });
 }
 
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -57,4 +61,5 @@ export async function DELETE(
   const { id } = await params;
   await prisma.categoryMetric.delete({ where: { id: parseInt(id) } });
   return NextResponse.json({ ok: true });
+  });
 }

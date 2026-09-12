@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 
 const INCLUDE = {
   ExperimentTests: {
@@ -49,6 +50,7 @@ const INCLUDE = {
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const { id } = await params;
   const farmId = parseInt(id);
@@ -60,11 +62,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   });
 
   return NextResponse.json(experiment ?? null);
+  });
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const { id } = await params;
   const farmId = parseInt(id);
@@ -92,4 +96,5 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     : await prisma.farmExperiment.create({ data: { farm_id: farmId, ...data }, include: INCLUDE });
 
   return NextResponse.json(experiment);
+  });
 }

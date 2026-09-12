@@ -3,10 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
 import { ASSIGNMENT_INCLUDE } from "@/lib/sampling-maps";
+import { runWithTenant } from "@/lib/lab-db";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -23,10 +25,12 @@ export async function GET(_req: Request, { params }: Params) {
       user_label: a.User.name ?? a.User.email,
     }))
   );
+  });
 }
 
 // Body: { user_id: string }
 export async function POST(req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canCreate(session.user.role as Role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -47,4 +51,5 @@ export async function POST(req: Request, { params }: Params) {
     { id: assignment.id, user_id: assignment.user_id, user_label: assignment.User.name ?? assignment.User.email },
     { status: 201 }
   );
+  });
 }

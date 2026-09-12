@@ -4,8 +4,10 @@ import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { canEdit, canDelete, type Role } from "@/lib/roles";
 import { TaskDetailClient } from "./task-detail-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const taskId = parseInt(id);
 
@@ -97,4 +99,5 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
       canDelete={canDelete(role, editMode)}
     />
   );
+  });
 }

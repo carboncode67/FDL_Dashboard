@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { DATA_DIR } from "@/lib/data-api";
 import { prisma } from "@/lib/prisma";
 import fs from "fs";
@@ -20,6 +21,7 @@ export async function GET(
 ) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const { table, id } = await params;
   if (!isDepthTable(table)) {
@@ -56,5 +58,6 @@ export async function GET(
       "Content-Type": "image/png",
       "Content-Disposition": `attachment; filename="${path.basename(depthFilename)}"`,
     },
+  });
   });
 }

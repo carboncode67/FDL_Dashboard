@@ -1,0 +1,23 @@
+-- Restricts mobile-app / QR-code bearer tokens (Contacts.token and most
+-- public.users.bearer_token rows) to upload + form/map pull only, instead of
+-- the full /api/data/* surface every bearer token currently gets. See
+-- lib/upload-auth.ts and lib/route-scopes.ts.
+--
+-- Contacts are never service accounts (100% mobile/WhatsApp farmer use) so
+-- they need no column. A public.users row opts out of the restriction by
+-- being marked a service account — used for the small number of
+-- deliberately-provisioned integration credentials (OFE_Dashboard's
+-- FDL_SYNC_TOKEN holder, the Client tools' Bearer-auth user(s),
+-- PipelineProcessor's pipeline-processor@service.local). Defaults to false,
+-- i.e. every existing and new bearer token is restricted unless explicitly
+-- flagged otherwise — fails toward the more restrictive behavior.
+--
+-- Additive-only, safe to re-run. This column alone changes no behavior —
+-- enforcement is gated by the BEARER_SCOPE_ENFORCEMENT env var (default
+-- "off"); see lib/upload-auth.ts.
+--
+-- IMPORTANT: before setting BEARER_SCOPE_ENFORCEMENT=enforce anywhere, mark
+-- the known service accounts, e.g.:
+--   UPDATE public.users SET is_service_account = true WHERE email = '<known service account email>';
+
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_service_account BOOLEAN NOT NULL DEFAULT false;

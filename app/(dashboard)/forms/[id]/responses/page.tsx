@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import ResponsesClient from "./responses-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function FormResponsesPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const formId = parseInt(id);
 
@@ -16,6 +18,9 @@ export default async function FormResponsesPage({ params }: { params: Promise<{ 
       include: {
         Contact: { select: { name: true } },
         User: { select: { name: true, email: true } },
+        SamplingPoint: {
+          select: { id: true, label: true, SamplingMap: { select: { id: true, name: true, farm_id: true } } },
+        },
       },
       orderBy: { submitted_at: "desc" },
     }),
@@ -64,8 +69,17 @@ export default async function FormResponsesPage({ params }: { params: Promise<{ 
           photoFilenames,
           submitted_at: r.submitted_at.toISOString(),
           recipient: r.Contact?.name ?? r.User?.name ?? r.User?.email ?? "Unknown",
+          samplingPoint: r.SamplingPoint
+            ? {
+                label: r.SamplingPoint.label ?? `Point #${r.SamplingPoint.id}`,
+                mapName: r.SamplingPoint.SamplingMap.name,
+                farmId: r.SamplingPoint.SamplingMap.farm_id,
+                mapId: r.SamplingPoint.SamplingMap.id,
+              }
+            : null,
         };
       })}
     />
   );
+  });
 }

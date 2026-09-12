@@ -6,6 +6,7 @@ import { generateOnboardingQr } from "@/lib/qr-code";
 import { sendMail } from "@/lib/mailer";
 import { messageToHtml } from "@/lib/message-to-html";
 import crypto from "crypto";
+import { runWithTenant } from "@/lib/lab-db";
 
 /**
  * POST /api/contacts/[id]/send-onboarding-email
@@ -17,6 +18,7 @@ import crypto from "crypto";
  * Body: { message: string }
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -63,4 +65,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   });
 
   return NextResponse.json({ ok: true, sent_to: email });
+  });
 }

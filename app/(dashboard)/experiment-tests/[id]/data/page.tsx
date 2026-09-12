@@ -4,12 +4,14 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function ExperimentTestDataPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const experimentTestId = parseInt(id);
   if (isNaN(experimentTestId)) notFound();
@@ -176,4 +178,5 @@ export default async function ExperimentTestDataPage({
       )}
     </div>
   );
+  });
 }

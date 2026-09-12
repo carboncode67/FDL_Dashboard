@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 
 const SELECT = {
   id: true,
@@ -22,6 +23,7 @@ export async function PUT(
 ) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const { id, experimentId } = await params;
   const farmId = parseInt(id);
@@ -75,4 +77,5 @@ export async function PUT(
   });
 
   return NextResponse.json({ ...updated, updated_fields: updatedFields });
+  });
 }

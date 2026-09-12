@@ -3,8 +3,10 @@ import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { canCreate, canDelete, type Role } from "@/lib/roles";
 import { DataCategoriesClient } from "./data-categories-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function DataCategoriesPage() {
+  return runWithTenant(async () => {
   const [session, editMode] = await Promise.all([auth(), getEditMode()]);
   const role = (session?.user?.role ?? "viewer") as Role;
 
@@ -33,4 +35,5 @@ export default async function DataCategoriesPage() {
       canDeleteCategory={canDelete(role, editMode)}
     />
   );
+  });
 }

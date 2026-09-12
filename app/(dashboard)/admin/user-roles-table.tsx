@@ -28,6 +28,7 @@ interface UserRow {
   email: string;
   role: string;
   category: string;
+  is_service_account: boolean;
   position: string | null;
   has_token: boolean;
   createdAt: Date;
@@ -151,6 +152,24 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
     }
   }
 
+  async function handleServiceAccountChange(userId: string, isService: boolean) {
+    setSavingId(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_service_account: isService }),
+      });
+      if (res.ok) {
+        setRows((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, is_service_account: isService } : u))
+        );
+      }
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   const filterUser = rows.find((u) => u.id === filterDialogUserId);
 
   return (
@@ -162,6 +181,7 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
             <TableHead>Email</TableHead>
             <TableHead>Position</TableHead>
             <TableHead>App Access</TableHead>
+            <TableHead>Token Scope</TableHead>
             <TableHead>Role</TableHead>
             <TableHead>Category</TableHead>
             <TableHead>Project Filter</TableHead>
@@ -184,6 +204,22 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
                 ) : (
                   <Badge variant="outline" className="text-slate-400">None</Badge>
                 )}
+              </TableCell>
+              <TableCell>
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer" title="Service integrations (OFE Dashboard sync, Client tools, PipelineProcessor) keep full API access. Everyone else's token — including every mobile app QR code — is restricted to uploading plus pulling assigned forms/maps/geofences.">
+                  <input
+                    type="checkbox"
+                    checked={user.is_service_account}
+                    disabled={savingId === user.id}
+                    onChange={(e) => handleServiceAccountChange(user.id, e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-slate-300 accent-emerald-600"
+                  />
+                  {user.is_service_account ? (
+                    <Badge variant="secondary">Service (full access)</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-slate-400">Restricted</Badge>
+                  )}
+                </label>
               </TableCell>
               <TableCell>
                 <select

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { assignmentWhereForLabMember } from "@/lib/sampling-maps";
 
 const INCLUDE = {
@@ -21,18 +22,22 @@ const INCLUDE = {
 export async function GET(request: Request) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
-  if (auth.kind !== "labMember") return NextResponse.json([]);
+  return runWithLab(auth.labSlug, async () => {
+    if (auth.kind !== "labMember") return NextResponse.json([]);
 
-  const maps = await prisma.samplingMap.findMany({
-    where: { Assignments: assignmentWhereForLabMember(auth.labMember.id) },
-    include: INCLUDE,
-    orderBy: { updated_at: "desc" },
+    const maps = await prisma.samplingMap.findMany({
+      where: { Assignments: assignmentWhereForLabMember(auth.labMember.id) },
+      include: INCLUDE,
+      orderBy: { updated_at: "desc" },
+    });
+
+    return NextResponse.json(maps.map(serializeMapSummary));
   });
-
-  return NextResponse.json(maps.map(serializeMapSummary));
 }
 
-function serializeMapSummary(m: Prisma.SamplingMapGetPayload<{ include: typeof INCLUDE }>) {
+function serializeMapSummary(
+  m: Prisma.SamplingMapGetPayload<{ include: typeof INCLUDE }>,
+) {
   return {
     id: m.id,
     farm_id: m.farm_id,
@@ -46,5 +51,6 @@ function serializeMapSummary(m: Prisma.SamplingMapGetPayload<{ include: typeof I
     updated_at: m.updated_at,
     polygon_count: m._count.Polygons,
     point_count: m._count.Points,
+    form_id: m.form_id,
   };
 }

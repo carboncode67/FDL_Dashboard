@@ -3,10 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit, canDelete, type Role } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
+import { runWithTenant } from "@/lib/lab-db";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -24,12 +26,14 @@ export async function GET(_req: Request, { params }: Params) {
   });
   if (!geofence) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(geofence);
+  });
 }
 
 // Zone editing is out of scope for this pass — to change a geofence's zones, delete and
 // recreate it (see components/geofence-zone-map.tsx's design note). PUT only touches the
 // geofence-level fields.
 export async function PUT(req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role as Role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -56,9 +60,11 @@ export async function PUT(req: Request, { params }: Params) {
     },
   });
   return NextResponse.json(geofence);
+  });
 }
 
 export async function DELETE(_req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const editMode = await getEditMode();
@@ -67,4 +73,5 @@ export async function DELETE(_req: Request, { params }: Params) {
   const { id } = await params;
   await prisma.geofence.delete({ where: { id: parseInt(id) } });
   return new NextResponse(null, { status: 204 });
+  });
 }

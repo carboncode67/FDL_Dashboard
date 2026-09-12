@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { TreatmentProtocolsClient } from "./treatment-protocols-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function TreatmentProtocolsPage() {
+  return runWithTenant(async () => {
   const protocols = await prisma.treatmentProtocol.findMany({
     orderBy: { id: "asc" },
     include: { Project: true, Treatment: true },
@@ -17,4 +19,5 @@ export default async function TreatmentProtocolsPage() {
   }));
 
   return <TreatmentProtocolsClient data={data} />;
+  });
 }

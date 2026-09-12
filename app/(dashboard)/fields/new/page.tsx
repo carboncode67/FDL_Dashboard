@@ -2,12 +2,14 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getEffectiveScope } from "@/lib/get-user-filters";
 import { NewFieldsClient } from "./new-fields-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function NewFieldPage({
   searchParams,
 }: {
   searchParams: Promise<{ farmId?: string }>;
 }) {
+  return runWithTenant(async () => {
   const { farmId } = await searchParams;
   const session = await auth();
   const userId = session?.user?.id ?? null;
@@ -25,4 +27,5 @@ export default async function NewFieldPage({
       defaultFarmId={farmId ? parseInt(farmId) : undefined}
     />
   );
+  });
 }

@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import { Readable } from "stream";
 import Busboy from "busboy";
+import { runWithTenant } from "@/lib/lab-db";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -25,6 +26,7 @@ const ALLOWED_MATCH_TABLES = [
 ] as const;
 
 export async function GET() {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -36,6 +38,7 @@ export async function GET() {
     orderBy: { created_at: "desc" },
   });
   return NextResponse.json(pipelines);
+  });
 }
 
 function sanitizedName(original: string) {
@@ -43,6 +46,7 @@ function sanitizedName(original: string) {
 }
 
 export async function POST(request: Request) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   // Pipelines run arbitrary uploaded code automatically against real data with no
@@ -259,4 +263,5 @@ export async function POST(request: Request) {
       warning: `Pipeline saved locally but registration with the processing machine failed: ${err instanceof Error ? err.message : String(err)}`,
     }, { status: 201 });
   }
+  });
 }

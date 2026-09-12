@@ -4,6 +4,7 @@ import path from "path";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit, type Role } from "@/lib/roles";
+import { runWithTenant } from "@/lib/lab-db";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role as Role)) {
@@ -60,12 +62,14 @@ export async function POST(
     sample_filename: updated.sample_filename,
     sample_original_name: updated.sample_original_name,
   });
+  });
 }
 
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role as Role)) {
@@ -89,4 +93,5 @@ export async function DELETE(
   });
 
   return new NextResponse(null, { status: 204 });
+  });
 }

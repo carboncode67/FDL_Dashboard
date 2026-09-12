@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { resolveFarmId, resolveFarmIdForLabMember } from "@/lib/proximity";
 import { matchDocumentToTemplate } from "@/lib/document-template-match";
 import { matchAndTriggerPipelines } from "@/lib/pipeline-match";
@@ -14,6 +15,7 @@ const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 export async function POST(request: Request) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   try {
     const formData = await request.formData();
@@ -82,4 +84,5 @@ export async function POST(request: Request) {
     console.error("[upload/document]", err);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
+  });
 }

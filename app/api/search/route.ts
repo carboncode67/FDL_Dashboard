@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { parseEntitiesParam, searchAll } from "@/lib/search";
 
+import { runWithTenant } from "@/lib/lab-db";
 // GET /api/search?q=grazing+collar[&entities=farms,experiments][&limit=50]
 // Session-auth whole-DB keyword search backing the global search dialog.
 export async function GET(req: Request) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -19,4 +21,5 @@ export async function GET(req: Request) {
     limit: url.searchParams.get("limit") ? Number(url.searchParams.get("limit")) : undefined,
   });
   return NextResponse.json({ query: q.trim(), hits });
+  });
 }

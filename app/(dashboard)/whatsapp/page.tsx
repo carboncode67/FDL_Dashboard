@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { getOnboardingMessage } from "@/lib/onboarding-message";
 import { WhatsAppClient } from "./whatsapp-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function WhatsAppPage() {
+  return runWithTenant(async () => {
   // Fetch all messaging contacts: anyone marked for WhatsApp, or anyone with
   // a channel explicitly set (covers SMS-only contacts ported from the old
   // whatsapp-integration branch's channel model).
@@ -61,4 +63,5 @@ export default async function WhatsAppPage() {
   const onboardingMessage = await getOnboardingMessage();
 
   return <WhatsAppClient data={data} onboardingMessage={onboardingMessage} />;
+  });
 }

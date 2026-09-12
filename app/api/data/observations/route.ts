@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { advisoryLock, computeImageHash, findClosestPhotoMatch } from "@/lib/duplicate-detection";
 import { buildSuggestedPath } from "@/lib/data-api";
 import fs from "fs";
@@ -59,6 +60,7 @@ async function resolveCategory(name: string | null, type: ObservationType) {
 export async function POST(request: Request) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   try {
     const formData = await request.formData();
@@ -322,4 +324,5 @@ export async function POST(request: Request) {
     console.error("[data/observations]", err);
     return NextResponse.json({ error: "Failed to create observation" }, { status: 500 });
   }
+  });
 }

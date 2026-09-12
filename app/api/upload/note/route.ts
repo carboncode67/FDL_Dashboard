@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { resolveFarmId, findFieldAndFarmByLocation, findFieldByLocation } from "@/lib/proximity";
 import { advisoryLock } from "@/lib/duplicate-detection";
 
@@ -9,6 +10,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   try {
     const body = await request.json();
@@ -108,4 +110,5 @@ export async function POST(request: Request) {
     console.error("[upload/note]", err);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
+  });
 }

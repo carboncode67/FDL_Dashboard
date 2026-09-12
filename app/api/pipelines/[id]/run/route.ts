@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { isAdmin, type Role } from "@/lib/roles";
 import { processingConfigured, triggerPipelineRun } from "@/lib/processing";
 import { resolveFarmForDroneFlight, farmCentroidFor } from "@/lib/pipeline-farm";
+import { runWithTenant } from "@/lib/lab-db";
 
 // Manual run trigger. For a normal (upload-matched) pipeline this re-tests the
 // pipeline's own sample dataset. For a target_kind = "drone_flight" pipeline, the
@@ -14,6 +15,7 @@ import { resolveFarmForDroneFlight, farmCentroidFor } from "@/lib/pipeline-farm"
 // Real triggers for normal pipelines (new matching uploads) go through
 // lib/pipeline-match.ts instead — this route is manual-only.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!isAdmin(session.user.role as Role)) {
@@ -83,4 +85,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
     return NextResponse.json({ ...updated, processing_configured: true }, { status: 201 });
   }
+  });
 }

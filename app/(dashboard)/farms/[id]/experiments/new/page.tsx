@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import ExperimentFormClient from "../experiment-form-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function NewExperimentPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const farmId = parseInt(id);
 
@@ -68,4 +70,5 @@ export default async function NewExperimentPage({ params }: { params: Promise<{ 
       allUsers={allUsers}
     />
   );
+  });
 }

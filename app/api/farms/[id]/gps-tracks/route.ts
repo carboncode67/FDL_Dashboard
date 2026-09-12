@@ -3,12 +3,14 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import fs from "fs"
 import path from "path"
+import { runWithTenant } from "@/lib/lab-db";
 
 export const runtime = "nodejs"
 
 const DATA_DIR = process.env.DATA_DIR ?? "./upload-data"
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -82,4 +84,5 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   }
 
   return NextResponse.json({ type: "FeatureCollection", features })
+  });
 }

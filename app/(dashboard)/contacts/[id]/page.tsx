@@ -23,8 +23,10 @@ import { QrDisplay } from "./qr-display";
 import { DeleteContactButton } from "./delete-button";
 import { SendOnboardingEmailButton } from "./send-onboarding-email-button";
 import { GenerateTokenButton } from "./generate-token-button";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const contactId = parseInt(id);
 
@@ -312,4 +314,5 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       </Tabs>
     </div>
   );
+  });
 }

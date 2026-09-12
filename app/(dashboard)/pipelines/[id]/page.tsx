@@ -3,8 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdmin, type Role } from "@/lib/roles";
 import { PipelineDetailClient } from "./pipeline-detail-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function PipelineDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const session = await auth();
   const role = (session?.user?.role ?? "viewer") as Role;
@@ -105,4 +107,5 @@ export default async function PipelineDetailPage({ params }: { params: Promise<{
       isAdmin={isAdmin(role)}
     />
   );
+  });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { assignmentWhereForContact, assignmentWhereForLabMember } from "@/lib/geofences";
 
 // List geofences assigned to the authenticated identity, with their zones nested. geometry on
@@ -9,6 +10,7 @@ import { assignmentWhereForContact, assignmentWhereForLabMember } from "@/lib/ge
 export async function GET(request: Request) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const where =
     auth.kind === "contact"
@@ -47,4 +49,5 @@ export async function GET(request: Request) {
       })),
     }))
   );
+  });
 }

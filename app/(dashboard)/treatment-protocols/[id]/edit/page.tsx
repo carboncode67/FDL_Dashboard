@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import EditProtocolClient from "./edit-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function EditProtocolPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const protocol = await prisma.treatmentProtocol.findUnique({ where: { id: parseInt(id) } });
   if (!protocol) notFound();
@@ -19,4 +21,5 @@ export default async function EditProtocolPage({ params }: { params: Promise<{ i
       }}
     />
   );
+  });
 }

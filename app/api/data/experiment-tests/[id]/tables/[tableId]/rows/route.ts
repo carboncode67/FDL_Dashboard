@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 import { matchAndTriggerPipelines } from "@/lib/pipeline-match";
 
 // Normalized label matching: case-, whitespace- and underscore-insensitive.
@@ -40,6 +41,7 @@ export async function GET(
 ) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const { id, tableId } = await params;
   const experimentTestId = parseInt(id);
@@ -73,6 +75,7 @@ export async function GET(
       ingested_at: r.ingested_at,
     })),
   });
+  });
 }
 
 // Bulk ingest rows for one DataTable used by an experiment test.
@@ -86,6 +89,7 @@ export async function POST(
 ) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const { id, tableId } = await params;
   const experimentTestId = parseInt(id);
@@ -189,5 +193,6 @@ export async function POST(
     mode,
     inserted: data.length,
     ignored_columns: ignored,
+  });
   });
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { canDelete, type Role } from "@/lib/roles";
+import { runWithTenant } from "@/lib/lab-db";
 
 const INCLUDE = {
   ExperimentTests:        { include: { Test:      { select: { id: true, Test_Name: true } } } },
@@ -14,6 +15,7 @@ const INCLUDE = {
 type Params = { params: Promise<{ farmId: string; experimentId: string }> };
 
 export async function GET(_: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { experimentId } = await params;
@@ -22,9 +24,11 @@ export async function GET(_: Request, { params }: Params) {
     include: INCLUDE,
   });
   return NextResponse.json(experiment);
+  });
 }
 
 export async function PUT(req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const { experimentId } = await params;
   const experimentIdInt = parseInt(experimentId);
   const body = await req.json();
@@ -190,9 +194,11 @@ export async function PUT(req: Request, { params }: Params) {
   }
 
   return NextResponse.json(experiment);
+  });
 }
 
 export async function DELETE(_: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const editMode = await getEditMode();
@@ -203,4 +209,5 @@ export async function DELETE(_: Request, { params }: Params) {
   const { experimentId } = await params;
   await prisma.farmExperiment.delete({ where: { id: parseInt(experimentId) } });
   return NextResponse.json({ success: true });
+  });
 }

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 
 export async function GET(req: Request) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const { searchParams } = new URL(req.url);
   const farmId = searchParams.get("farm_id");
@@ -27,11 +29,13 @@ export async function GET(req: Request) {
   });
 
   return NextResponse.json(zones);
+  });
 }
 
 export async function POST(req: Request) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
@@ -43,4 +47,5 @@ export async function POST(req: Request) {
   });
 
   return NextResponse.json(zone, { status: 201 });
+  });
 }

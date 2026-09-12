@@ -5,6 +5,7 @@ import { canEdit, type Role } from "@/lib/roles";
 import { geojsonBounds, unionBounds, bboxRing } from "@/lib/geo";
 import { submitJob, isProductCode, geodartHasKey, PRODUCTS, DEFAULT_PRODUCTS, type ProductCode } from "@/lib/geodart";
 import { serializeContextJob } from "@/lib/context-types";
+import { runWithTenant } from "@/lib/lab-db";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,7 @@ function prevCalendarYear(): { start: string; end: string } {
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -28,9 +30,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     take: 20,
   });
   return NextResponse.json(jobs.map(serializeContextJob), { headers: { "Cache-Control": "no-store" } });
+  });
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role as Role)) {
@@ -115,4 +119,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
     return NextResponse.json(serializeContextJob(job), { status: 201 });
   }
+  });
 }

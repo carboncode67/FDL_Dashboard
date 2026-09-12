@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit } from "@/lib/roles";
+import { runWithTenant } from "@/lib/lab-db";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -18,6 +19,7 @@ interface PointInput {
 // grid/random generation preview. Both write through prisma.$transaction so a batch either
 // lands completely or not at all.
 export async function POST(req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -48,4 +50,5 @@ export async function POST(req: Request, { params }: Params) {
     ),
   );
   return NextResponse.json(created, { status: 201 });
+  });
 }

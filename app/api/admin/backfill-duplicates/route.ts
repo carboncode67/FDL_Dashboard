@@ -5,6 +5,7 @@ import { firstPointFromGeoJSON } from "@/lib/proximity";
 import { computeImageHash, findClosestPhotoMatch, findClosestRecordingMatch, RECORDING_TIME_WINDOW_MIN } from "@/lib/duplicate-detection";
 import fs from "fs";
 import path from "path";
+import { runWithTenant } from "@/lib/lab-db";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -16,6 +17,7 @@ const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 // flagging the upload routes apply to new uploads. Safe to re-run -- only
 // touches rows still missing phash/start_latitude or possible_duplicate_of.
 export async function POST() {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (session.user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -177,4 +179,5 @@ export async function POST() {
   }
 
   return NextResponse.json(summary);
+  });
 }

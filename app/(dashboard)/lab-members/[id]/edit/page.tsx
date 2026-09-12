@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import EditLabMemberClient from "./edit-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function EditLabMemberPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) notFound();
@@ -20,4 +22,5 @@ export default async function EditLabMemberPage({ params }: { params: Promise<{ 
       }}
     />
   );
+  });
 }

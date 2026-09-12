@@ -3,10 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
 import { ASSIGNMENT_INCLUDE, resolveTargetLabel } from "@/lib/geofences";
+import { runWithTenant } from "@/lib/lab-db";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -26,10 +28,12 @@ export async function GET(_req: Request, { params }: Params) {
       target_label: resolveTargetLabel(a),
     }))
   );
+  });
 }
 
 // Body: exactly one of contact_id / user_id / farm_id / farm_experiment_id.
 export async function POST(req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canCreate(session.user.role as Role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -67,4 +71,5 @@ export async function POST(req: Request, { params }: Params) {
     { ...assignment, target_label: resolveTargetLabel(assignment) },
     { status: 201 }
   );
+  });
 }

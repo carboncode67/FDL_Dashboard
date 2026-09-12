@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import EditFieldClient from "./edit-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function EditFieldPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const field = await prisma.field.findUnique({ where: { id: parseInt(id) } });
   if (!field) notFound();
@@ -21,4 +23,5 @@ export default async function EditFieldPage({ params }: { params: Promise<{ id: 
       }}
     />
   );
+  });
 }

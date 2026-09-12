@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { runWithTenant } from "@/lib/lab-db";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -36,4 +38,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     include: { Contact: true },
   });
   return NextResponse.json(loan, { status: 201 });
+  });
 }

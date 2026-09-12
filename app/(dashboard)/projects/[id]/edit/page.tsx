@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import EditProjectClient from "./edit-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function EditProjectPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const project = await prisma.project.findUnique({ where: { id: parseInt(id) } });
   if (!project) notFound();
@@ -18,4 +20,5 @@ export default async function EditProjectPage({ params }: { params: Promise<{ id
       }}
     />
   );
+  });
 }

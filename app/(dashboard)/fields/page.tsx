@@ -3,8 +3,10 @@ import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
 import { getEffectiveScope } from "@/lib/get-user-filters";
 import { FieldsClient } from "./fields-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function FieldsPage() {
+  return runWithTenant(async () => {
   const session = await auth();
   const role = (session?.user?.role ?? "viewer") as Role;
   const userId = session?.user?.id ?? null;
@@ -30,4 +32,5 @@ export default async function FieldsPage() {
   }));
 
   return <FieldsClient data={data} canCreate={canCreate(role)} activeFilter={activeFilter} />;
+  });
 }

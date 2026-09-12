@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import EditTreatmentClient from "./edit-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function EditTreatmentPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const treatment = await prisma.treatment.findUnique({
     where: { id: parseInt(id) },
@@ -21,4 +23,5 @@ export default async function EditTreatmentPage({ params }: { params: Promise<{ 
       }}
     />
   );
+  });
 }

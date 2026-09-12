@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import { Readable } from "stream";
 import Busboy from "busboy";
+import { runWithTenant } from "@/lib/lab-db";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -39,6 +40,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!isAdmin(session.user.role as Role)) {
@@ -236,4 +238,5 @@ export async function POST(
       warning: `Saved, but re-registration with the processing machine failed: ${err instanceof Error ? err.message : String(err)}`,
     }, { status: 200 });
   }
+  });
 }

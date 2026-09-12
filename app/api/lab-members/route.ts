@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { canCreate } from "@/lib/roles";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { runWithTenant } from "@/lib/lab-db";
 
 const USER_SELECT = {
   id: true, name: true, email: true, role: true, category: true, bearer_token: true,
@@ -15,14 +16,17 @@ const USER_SELECT = {
 const VALID_CATEGORIES = ["lab_member", "agronomist"];
 
 export async function GET() {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const users = await prisma.user.findMany({ orderBy: { createdAt: "asc" }, select: USER_SELECT });
   return NextResponse.json(users);
+  });
 }
 
 export async function POST(req: Request) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canCreate(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -61,4 +65,5 @@ export async function POST(req: Request) {
     }
     throw err;
   }
+  });
 }

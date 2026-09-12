@@ -11,7 +11,9 @@ import {
   type CvatLabel,
 } from "@/lib/cvat";
 
+import { runWithTenant } from "@/lib/lab-db";
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canCreate(session.user.role as Role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -101,4 +103,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       warning: `Saved locally but CVAT sync failed: ${err instanceof Error ? err.message : String(err)}`,
     }, { status: 201 });
   }
+  });
 }

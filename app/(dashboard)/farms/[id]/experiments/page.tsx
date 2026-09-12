@@ -7,8 +7,10 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function FarmExperimentsListPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const farmId = parseInt(id);
 
@@ -87,4 +89,5 @@ export default async function FarmExperimentsListPage({ params }: { params: Prom
       )}
     </div>
   );
+  });
 }

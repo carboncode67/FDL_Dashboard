@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
+import { runWithTenant } from "@/lib/lab-db";
 
 const VALID_FIELD_TYPES = ["text", "number", "select", "boolean"];
 
@@ -9,6 +10,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const role = (session.user.role ?? "viewer") as Role;
@@ -44,4 +46,5 @@ export async function POST(
     },
   });
   return NextResponse.json(metric, { status: 201 });
+  });
 }

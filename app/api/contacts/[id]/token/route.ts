@@ -3,8 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit } from "@/lib/roles";
 import crypto from "crypto";
+import { runWithTenant } from "@/lib/lab-db";
 
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -17,4 +19,5 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   });
   if (!contact) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ ok: true });
+  });
 }

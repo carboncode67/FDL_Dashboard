@@ -4,10 +4,12 @@ import { auth } from "@/lib/auth";
 import { isAdmin, type Role } from "@/lib/roles";
 import fs from "fs";
 import path from "path";
+import { runWithTenant } from "@/lib/lab-db";
 
 const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -21,9 +23,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   });
   if (!pipeline) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(pipeline);
+  });
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!isAdmin(session.user.role as Role)) {
@@ -55,9 +59,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const pipeline = await prisma.pipeline.update({ where: { id: parseInt(id) }, data });
   return NextResponse.json(pipeline);
+  });
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!isAdmin(session.user.role as Role)) {
@@ -80,4 +86,5 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   }
 
   return NextResponse.json({ ok: true });
+  });
 }

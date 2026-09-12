@@ -1,0 +1,33 @@
+-- Template — see sql/roles/README.md. Substitute ${SLUG}, ${LAB_ID}, ${PASSWORD}
+-- (envsubst or equivalent) and pipe straight into psql; never save the filled-in
+-- version to disk.
+--
+-- One role per lab. NOSUPERUSER, not a table owner (nocodb owns everything and
+-- stays superuser — see docs/lab-data-silo-plan.md §3). The lab id is baked into
+-- the role via ALTER ROLE ... SET, so the app never has to set it per request:
+-- every connection made with this credential is permanently scoped to this lab.
+
+CREATE ROLE app_${SLUG} WITH LOGIN PASSWORD '${PASSWORD}' NOSUPERUSER NOCREATEDB NOCREATEROLE;
+ALTER ROLE app_${SLUG} SET app.current_lab_id = '${LAB_ID}';
+
+GRANT USAGE ON SCHEMA public TO app_${SLUG};
+GRANT USAGE ON SCHEMA "pgntarg2udzj1f3" TO app_${SLUG};
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_${SLUG};
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "pgntarg2udzj1f3" TO app_${SLUG};
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO app_${SLUG};
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA "pgntarg2udzj1f3" TO app_${SLUG};
+
+-- Cover tables/sequences created by future migrations (run as nocodb) without
+-- re-running this script.
+ALTER DEFAULT PRIVILEGES FOR ROLE nocodb IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_${SLUG};
+ALTER DEFAULT PRIVILEGES FOR ROLE nocodb IN SCHEMA "pgntarg2udzj1f3"
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_${SLUG};
+ALTER DEFAULT PRIVILEGES FOR ROLE nocodb IN SCHEMA public
+  GRANT USAGE ON SEQUENCES TO app_${SLUG};
+ALTER DEFAULT PRIVILEGES FOR ROLE nocodb IN SCHEMA "pgntarg2udzj1f3"
+  GRANT USAGE ON SEQUENCES TO app_${SLUG};
+
+-- Record the role name on the lab row (informational — nothing reads this yet).
+UPDATE public.labs SET db_role = 'app_${SLUG}' WHERE id = ${LAB_ID};

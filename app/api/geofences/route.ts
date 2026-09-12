@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
+import { runWithTenant } from "@/lib/lab-db";
 
 export async function GET() {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -12,6 +14,7 @@ export async function GET() {
     orderBy: { created_at: "desc" },
   });
   return NextResponse.json(geofences);
+  });
 }
 
 type ZoneInput = {
@@ -29,6 +32,7 @@ type ZoneInput = {
 // components/geofence-assignment-picker.tsx for the still-available manual/supplementary path
 // on the edit page.
 export async function POST(req: Request) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canCreate(session.user.role as Role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -88,4 +92,5 @@ export async function POST(req: Request) {
   });
 
   return NextResponse.json(geofence, { status: 201 });
+  });
 }

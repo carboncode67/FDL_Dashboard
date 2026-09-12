@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit } from "@/lib/roles";
+import { runWithTenant } from "@/lib/lab-db";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -57,4 +59,5 @@ export async function POST(req: Request, { params }: Params) {
     data: { sampling_map_id: samplingMapId, label: label ?? null, purpose, geometry, source: "drawn" },
   });
   return NextResponse.json(polygon, { status: 201 });
+  });
 }

@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import ExperimentNewClient from "./experiment-new-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function NewExperimentPage() {
+  return runWithTenant(async () => {
   const [farms, allTests, allDrones, allTreatments, allProjects] = await Promise.all([
     prisma.farm.findMany({ select: { id: true, Farm_Name: true }, orderBy: { Farm_Name: "asc" } }),
     prisma.test.findMany({ select: { id: true, Test_Name: true }, orderBy: { Test_Name: "asc" } }),
@@ -19,4 +21,5 @@ export default async function NewExperimentPage() {
       allProjects={allProjects}
     />
   );
+  });
 }

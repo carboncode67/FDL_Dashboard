@@ -33,6 +33,7 @@ import { SpatialContextCard } from "@/components/spatial-context-card";
 import { SamplingMapsTab } from "@/components/sampling-maps-tab";
 import { serializeContextJob } from "@/lib/context-types";
 import { geodartHasKey } from "@/lib/geodart";
+import { runWithTenant } from "@/lib/lab-db";
 
 const STATUS_LABELS: Record<number, { label: string; variant: "default" | "secondary" | "outline" }> = {
   1: { label: "Unassigned", variant: "outline" },
@@ -42,6 +43,7 @@ const STATUS_LABELS: Record<number, { label: string; variant: "default" | "secon
 };
 
 export default async function FarmDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const farmId = parseInt(id);
 
@@ -781,4 +783,5 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
       </Tabs>
     </div>
   );
+  });
 }

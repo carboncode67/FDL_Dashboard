@@ -11,7 +11,9 @@ import {
   type CvatLabel,
 } from "@/lib/cvat";
 
+import { runWithTenant } from "@/lib/lab-db";
 export async function GET(req: Request) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -23,9 +25,11 @@ export async function GET(req: Request) {
     orderBy: { created_at: "desc" },
   });
   return NextResponse.json(tasks);
+  });
 }
 
 export async function POST(req: Request) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canCreate(session.user.role as Role)) {
@@ -91,4 +95,5 @@ export async function POST(req: Request) {
       warning: `Task saved locally but CVAT sync failed: ${err instanceof Error ? err.message : String(err)}`,
     }, { status: 201 });
   }
+  });
 }

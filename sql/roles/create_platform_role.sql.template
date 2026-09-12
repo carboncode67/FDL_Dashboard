@@ -1,0 +1,21 @@
+-- Template — see sql/roles/README.md. Substitute ${PASSWORD} and pipe straight
+-- into psql; never save the filled-in version to disk. Run once per database
+-- instance, not per lab.
+--
+-- BYPASSRLS + SELECT-only. Used exclusively by lib/platform-stats.ts for the
+-- cross-lab platform-admin views (counts + form/pipeline structure — never row
+-- data). SELECT-only means even a bug in that code path cannot mutate anything,
+-- despite the role seeing every lab's rows.
+
+CREATE ROLE app_platform WITH LOGIN PASSWORD '${PASSWORD}' NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS;
+
+GRANT USAGE ON SCHEMA public TO app_platform;
+GRANT USAGE ON SCHEMA "pgntarg2udzj1f3" TO app_platform;
+
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO app_platform;
+GRANT SELECT ON ALL TABLES IN SCHEMA "pgntarg2udzj1f3" TO app_platform;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE nocodb IN SCHEMA public
+  GRANT SELECT ON TABLES TO app_platform;
+ALTER DEFAULT PRIVILEGES FOR ROLE nocodb IN SCHEMA "pgntarg2udzj1f3"
+  GRANT SELECT ON TABLES TO app_platform;

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { runWithTenant } from "@/lib/lab-db";
 
 export async function GET() {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -28,9 +30,11 @@ export async function GET() {
       usageCount: (t.test_id ? 1 : 0) + t._count.UsedByTests,
     }))
   );
+  });
 }
 
 export async function POST(req: Request) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -49,4 +53,5 @@ export async function POST(req: Request) {
     },
   });
   return NextResponse.json(table, { status: 201 });
+  });
 }

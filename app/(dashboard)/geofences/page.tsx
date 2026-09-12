@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { GeofencesClient } from "./geofences-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function GeofencesPage() {
+  return runWithTenant(async () => {
   const geofences = await prisma.geofence.findMany({
     include: { _count: { select: { Zones: true, Assignments: true, Events: true } } },
     orderBy: { created_at: "desc" },
@@ -17,4 +19,5 @@ export default async function GeofencesPage() {
   }));
 
   return <GeofencesClient data={data} />;
+  });
 }

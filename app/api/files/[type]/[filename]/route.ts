@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { runWithTenant } from "@/lib/lab-db";
 
 export const runtime = "nodejs";
 
@@ -43,6 +44,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ type: string; filename: string }> }
 ) {
+  return runWithTenant(async () => {
   if (!await isAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -100,5 +102,6 @@ export async function GET(
       "Content-Length": String(total),
       "Accept-Ranges": "bytes",
     },
+  });
   });
 }

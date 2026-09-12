@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { buildReportData, generateReportHtml } from "@/lib/report-generator";
+import { runWithTenant } from "@/lib/lab-db";
 
 export async function GET(req: NextRequest) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
 
@@ -35,5 +37,6 @@ export async function GET(req: NextRequest) {
 
   return new NextResponse(html, {
     headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
   });
 }

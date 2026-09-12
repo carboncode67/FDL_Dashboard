@@ -3,12 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit, type Role } from "@/lib/roles";
 import { normalizeLabel } from "@/lib/forms";
+import { runWithTenant } from "@/lib/lab-db";
 
 const FIELD_TYPES = new Set(["text", "number", "boolean", "date", "select", "photo"]);
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -18,10 +20,12 @@ export async function GET(_req: Request, { params }: Params) {
     orderBy: { col_index: "asc" },
   });
   return NextResponse.json(defs);
+  });
 }
 
 // Full-replace, same pattern as app/api/tests/[id]/schema/route.ts.
 export async function PUT(req: Request, { params }: Params) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role as Role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -77,4 +81,5 @@ export async function PUT(req: Request, { params }: Params) {
     orderBy: { col_index: "asc" },
   });
   return NextResponse.json(defs);
+  });
 }

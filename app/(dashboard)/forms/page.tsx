@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { FormsClient } from "./forms-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function FormsPage() {
+  return runWithTenant(async () => {
   const forms = await prisma.form.findMany({
     include: { _count: { select: { FieldDefinitions: true, Assignments: true, Responses: true } } },
     orderBy: { created_at: "desc" },
@@ -17,4 +19,5 @@ export default async function FormsPage() {
   }));
 
   return <FormsClient data={data} />;
+  });
 }

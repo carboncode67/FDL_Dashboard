@@ -3,8 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { buildReportData, generateReportHtml, generateEmailHtml } from "@/lib/report-generator";
 import { sendMail } from "@/lib/mailer";
+import { runWithTenant } from "@/lib/lab-db";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -20,18 +22,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     },
   });
   return NextResponse.json(sub);
+  });
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   await prisma.reportingSubscription.delete({ where: { id: Number(id) } });
   return NextResponse.json({ ok: true });
+  });
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -74,4 +80,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
+  });
 }

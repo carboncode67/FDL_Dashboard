@@ -7,12 +7,14 @@ import SamplingMapEditorWrapper from "@/components/sampling-map-editor-wrapper";
 import type { ImportableBoundary } from "@/components/import-boundary-dialog";
 import type { MapRaster } from "@/components/map-raster-layers";
 import { ASSIGNMENT_INCLUDE } from "@/lib/sampling-maps";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function SamplingMapDetailRoute({
   params,
 }: {
   params: Promise<{ id: string; mapId: string }>;
 }) {
+  return runWithTenant(async () => {
   const { id, mapId } = await params;
   const farmId = parseInt(id);
 
@@ -47,13 +49,18 @@ export default async function SamplingMapDetailRoute({
   const scope = await getEffectiveScope(session?.user?.id ?? null, session?.user?.category);
   if (!scopeIncludesFarm(scope, farmId)) notFound();
 
-  const [assignments, users] = await Promise.all([
+  const [assignments, users, forms] = await Promise.all([
     prisma.samplingMapAssignment.findMany({
       where: { sampling_map_id: map.id },
       include: ASSIGNMENT_INCLUDE,
       orderBy: { created_at: "asc" },
     }),
     prisma.user.findMany({ select: { id: true, name: true, email: true }, orderBy: { name: "asc" } }),
+    prisma.form.findMany({
+      where: { is_active: true },
+      select: { id: true, title: true },
+      orderBy: { title: "asc" },
+    }),
   ]);
 
   const importableFields: ImportableBoundary[] = map.Farm.Fields.map((f) => ({
@@ -112,6 +119,9 @@ export default async function SamplingMapDetailRoute({
         user_label: a.User.name ?? a.User.email,
       }))}
       users={users}
+      forms={forms}
+      formId={map.form_id}
     />
   );
+  });
 }

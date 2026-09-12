@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { runWithLab } from "@/lib/lab-db";
 
 export const runtime = "nodejs";
 
 export async function GET(req: Request) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
+  return runWithLab(auth.labSlug, async () => {
 
   const projects = await prisma.project.findMany({
     select: { id: true, Project_Name: true, title: true },
@@ -29,4 +31,5 @@ export async function GET(req: Request) {
   }));
 
   return NextResponse.json(results);
+  });
 }

@@ -4,8 +4,10 @@ import { canCreate, type Role } from "@/lib/roles";
 import { getEffectiveScope } from "@/lib/get-user-filters";
 import { ExperimentsClient } from "./experiments-client";
 import { format } from "date-fns";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function ExperimentsPage() {
+  return runWithTenant(async () => {
   const session = await auth();
   const role = (session?.user?.role ?? "viewer") as Role;
   const userId = session?.user?.id ?? null;
@@ -73,4 +75,5 @@ export default async function ExperimentsPage() {
       activeFilter={activeFilter}
     />
   );
+  });
 }

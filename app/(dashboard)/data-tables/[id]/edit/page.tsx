@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import EditDataTableClient from "./edit-client";
+import { runWithTenant } from "@/lib/lab-db";
 
 export default async function EditDataTablePage({ params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const { id } = await params;
   const dataTableId = parseInt(id);
   const [table, fieldDefs] = await Promise.all([
@@ -41,4 +43,5 @@ export default async function EditDataTablePage({ params }: { params: Promise<{ 
       fieldDefs={fieldDefs.map((d) => ({ col_index: d.col_index, field_type: d.field_type as "text" | "number", label: d.label }))}
     />
   );
+  });
 }

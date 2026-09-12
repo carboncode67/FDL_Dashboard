@@ -12,6 +12,7 @@ import {
 } from "@/lib/parse-boundaries";
 import { pointInGeometry } from "@/lib/geo";
 import type { Feature, Polygon, MultiPolygon, Point } from "geojson";
+import { runWithTenant } from "@/lib/lab-db";
 
 export const runtime = "nodejs";
 
@@ -23,6 +24,7 @@ export const runtime = "nodejs";
 // in this same file) to set polygon_id, the same containment check the manual/
 // generated placement flows use client-side.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -167,5 +169,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     polygons: createdPolygons,
     points: createdPoints,
     source,
+  });
   });
 }

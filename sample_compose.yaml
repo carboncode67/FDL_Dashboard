@@ -58,6 +58,23 @@ services:
       PROCESSING_URL: ${PROCESSING_URL:-}
       PROCESSING_API_KEY: ${PROCESSING_API_KEY:-}
       PROCESSING_WEBHOOK_SECRET: ${PROCESSING_WEBHOOK_SECRET:-}
+      # Optional. Lab data silo (Planned Changes #10/#13) — see
+      # docs/lab-data-silo-plan.md. Leave unset ("off") for ordinary dev; the
+      # app behaves exactly as it does today. Only set these once you're
+      # deliberately exercising Phase 2/3 of that plan.
+      TENANT_ENFORCEMENT: ${TENANT_ENFORCEMENT:-off}
+      # One DATABASE_URL__<SLUG> per lab, uppercased slug (e.g. DATABASE_URL__FDL
+      # for slug "fdl"), pointing at that lab's app_<slug> role — see
+      # sql/roles/create_lab_role.sql.template. Add more as labs are onboarded.
+      DATABASE_URL__FDL: ${DATABASE_URL__FDL:-}
+      # BYPASSRLS, SELECT-only — see sql/roles/create_platform_role.sql.template.
+      DATABASE_URL__PLATFORM: ${DATABASE_URL__PLATFORM:-}
+      # Optional. Restricts mobile-app/QR-code bearer tokens to uploads + pulling
+      # forms/maps/geofences (see lib/route-scopes.ts). "off" (default) = no
+      # restriction (today's behavior); "log" = violations logged, not blocked;
+      # "enforce" = 403s a disallowed call. Mark service integrations'
+      # is_service_account = true (Admin Panel) before using "enforce".
+      BEARER_SCOPE_ENFORCEMENT: ${BEARER_SCOPE_ENFORCEMENT:-off}
     volumes:
       - upload-data:/app/upload-data
     depends_on:

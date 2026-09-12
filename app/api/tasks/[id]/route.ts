@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { canEdit, canDelete, type Role } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
 import { vikunjaConfigured, updateVikunjaTask, deleteVikunjaTask } from "@/lib/vikunja";
+import { runWithTenant } from "@/lib/lab-db";
 
 async function getTask(id: number) {
   return prisma.task.findUnique({
@@ -22,6 +23,7 @@ async function getTaskVikunjaId(id: number): Promise<number | null> {
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -29,9 +31,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const task = await getTask(parseInt(id));
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(task);
+  });
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canEdit(session.user.role as Role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -82,9 +86,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   return NextResponse.json(task);
+  });
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const editMode = await getEditMode();
@@ -106,4 +112,5 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
 
   await prisma.task.delete({ where: { id: numId } });
   return new NextResponse(null, { status: 204 });
+  });
 }

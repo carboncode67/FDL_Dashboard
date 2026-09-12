@@ -8,21 +8,44 @@ datasource db {
   schemas  = ["public", "pgntarg2udzj1f3"]
 }
 
+// Planned Changes #10/#13 — lab-level data silo. See docs/lab-data-silo-plan.md.
+// Phase 1 only (migration 067): additive, nullable lab_id columns across the
+// codebase, backfilled to this one row. No FK/RLS/enforcement yet.
+model Lab {
+  id         Int      @id @default(autoincrement())
+  name       String
+  slug       String   @unique
+  db_role    String?  // e.g. "app_fdl" — set once the per-lab Postgres role is provisioned (Phase 3)
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+
+  @@map("labs")
+  @@schema("public")
+}
+
 model User {
-  id            String   @id @default(cuid())
-  name          String?
-  email         String   @unique
-  password      String
-  role          String   @default("member")
-  category      String   @default("lab_member")
-  bearer_token  String?  @unique @db.VarChar(64)
-  position      String?
-  contact_phone String?
-  faa_part_107  Boolean  @default(false)
-  status        String?
-  onboarded_at  DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String?
+  email          String   @unique
+  password       String
+  role           String   @default("member")
+  category       String   @default("lab_member")
+  bearer_token   String?  @unique @db.VarChar(64)
+  // A bearer_token belonging to a deliberately-provisioned integration (OFE_Dashboard's
+  // sync user, Client's Bearer-auth user(s), PipelineProcessor's service row) rather than
+  // a human's QR-onboarded phone. Gates the restricted allowlist in lib/upload-auth.ts /
+  // lib/route-scopes.ts — false (default) means the token is scope-restricted.
+  is_service_account Boolean @default(false)
+  position       String?
+  contact_phone  String?
+  faa_part_107   Boolean  @default(false)
+  status         String?
+  onboarded_at   DateTime?
+  // Tenant scope (Planned Changes #10). Nullable for now — see Lab model comment.
+  lab_id         Int?
+  platform_admin Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   ProjectLabMembers  ProjectLabMember[]
   LabMemberUploads   LabMemberUpload[]
@@ -111,6 +134,10 @@ model Project {
   ReportingSubscriptions ReportingSubscription[]
   CvatTasks              CvatTask[]
 
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
+
   @@map("Projects")
   @@schema("pgntarg2udzj1f3")
 }
@@ -155,10 +182,13 @@ model Farm {
   PipelineOutputRasters PipelineOutputRaster[]
   SamplingMaps     SamplingMap[]
 
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
+
   @@map("Farms")
   @@schema("pgntarg2udzj1f3")
 }
-
 
 model Field {
   id              Int       @id @default(autoincrement())
@@ -216,6 +246,10 @@ model Treatment {
   TreatmentProtocols        TreatmentProtocol[]
   ExperimentTreatments      ExperimentTreatment[]
   TreatmentFieldDefinitions TreatmentFieldDefinition[]
+
+  // Tenant scope (Planned Changes #10). NULL = shared/global across labs
+  // (see docs/lab-data-silo-plan.md §4/§7); non-NULL = owned by that lab.
+  lab_id      Int?
 
   @@map("Treatments")
   @@schema("pgntarg2udzj1f3")
@@ -290,6 +324,10 @@ model Test {
   DataTables         DataTable[]
   UsedDataTables     TestDataTable[]
 
+  // Tenant scope (Planned Changes #10). NULL = shared/global across labs
+  // (see docs/lab-data-silo-plan.md §4/§7); non-NULL = owned by that lab.
+  lab_id      Int?
+
   @@map("Tests")
   @@schema("pgntarg2udzj1f3")
 }
@@ -315,6 +353,10 @@ model Drone {
   DataTables             DataTable[]
   MatchedDocuments       Document[]
 
+  // Tenant scope (Planned Changes #10). NULL = shared/global across labs
+  // (see docs/lab-data-silo-plan.md §4/§7); non-NULL = owned by that lab.
+  lab_id      Int?
+
   @@map("Drones")
   @@schema("pgntarg2udzj1f3")
 }
@@ -328,6 +370,10 @@ model Methodology {
 
   Tests     Test[]
   Equipment Drone[]
+
+  // Tenant scope (Planned Changes #10). NULL = shared/global across labs
+  // (see docs/lab-data-silo-plan.md §4/§7); non-NULL = owned by that lab.
+  lab_id      Int?
 
   @@map("Methodologies")
   @@schema("pgntarg2udzj1f3")
@@ -358,6 +404,10 @@ model EquipmentLoan {
   Contact     Contact @relation(fields: [contact_id], references: [id], onDelete: Cascade)
   SignedOutBy User?   @relation(fields: [signed_out_by], references: [id], onDelete: SetNull)
 
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
+
   @@map("Equipment_Loans")
   @@schema("pgntarg2udzj1f3")
 }
@@ -371,6 +421,10 @@ model Crop {
   updated_at DateTime?
 
   FieldCrops FieldCrop[]
+
+  // Tenant scope (Planned Changes #10). NULL = shared/global across labs
+  // (see docs/lab-data-silo-plan.md §4/§7); non-NULL = owned by that lab.
+  lab_id      Int?
 
   @@map("Crops")
   @@schema("pgntarg2udzj1f3")
@@ -463,6 +517,10 @@ model Contact {
   GeofenceEvents  GeofenceEvent[]
   EquipmentLoans  EquipmentLoan[]
 
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
+
   @@map("Contacts")
   @@schema("pgntarg2udzj1f3")
 }
@@ -496,6 +554,10 @@ model Photo {
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
   Project Project? @relation(fields: [project_id], references: [id])
 
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
+
   @@map("Photos")
   @@schema("pgntarg2udzj1f3")
 }
@@ -528,6 +590,10 @@ model Recording {
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
   Project Project? @relation(fields: [project_id], references: [id])
 
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
+
   @@map("Recordings")
   @@schema("pgntarg2udzj1f3")
 }
@@ -556,6 +622,10 @@ model Note {
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
   Project Project? @relation(fields: [project_id], references: [id])
 
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
+
   @@map("Notes")
   @@schema("pgntarg2udzj1f3")
 }
@@ -583,6 +653,10 @@ model Location {
   Contact Contact? @relation(fields: [contact_id], references: [id])
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
   Project Project? @relation(fields: [project_id], references: [id])
+
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
 
   @@map("Locations")
   @@schema("pgntarg2udzj1f3")
@@ -619,6 +693,10 @@ model LabMemberUpload {
   User    User?    @relation(fields: [lab_member_id], references: [id], onDelete: SetNull)
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
   Project Project? @relation(fields: [project_id], references: [id])
+
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
 
   @@map("Lab_Member_Uploads")
   @@schema("pgntarg2udzj1f3")
@@ -748,6 +826,11 @@ model DataTable {
 
   @@index([test_id])
   @@index([drone_id])
+
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
+
   @@map("Tables")
   @@schema("pgntarg2udzj1f3")
 }
@@ -813,6 +896,10 @@ model UploadCategory {
   created_at  DateTime @default(now())
 
   Metrics CategoryMetric[]
+
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
 
   @@map("Upload_Categories")
   @@schema("pgntarg2udzj1f3")
@@ -909,6 +996,10 @@ model Video {
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
   Project Project? @relation(fields: [project_id], references: [id])
 
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
+
   @@map("Videos")
   @@schema("pgntarg2udzj1f3")
 }
@@ -957,6 +1048,11 @@ model Document {
 
   @@index([data_table_id])
   @@index([drone_id])
+
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
+
   @@map("Documents")
   @@schema("pgntarg2udzj1f3")
 }
@@ -993,6 +1089,10 @@ model ReportingSubscription {
   updated_at   DateTime  @updatedAt
 
   Project      Project?  @relation(fields: [project_id], references: [id])
+
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
 
   @@map("Reporting_Subscriptions")
   @@schema("pgntarg2udzj1f3")
@@ -1067,6 +1167,10 @@ model MessageTemplate {
   content    String
   created_at DateTime @default(now())
 
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
+
   @@map("MessageTemplates")
   @@schema("pgntarg2udzj1f3")
 }
@@ -1105,6 +1209,10 @@ model Task {
   Assignees   TaskAssignee[]
   UploadLinks TaskUploadLink[]
   CvatTasks   CvatTask[]
+
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
 
   @@map("Tasks")
   @@schema("pgntarg2udzj1f3")
@@ -1164,6 +1272,11 @@ model Form {
   FieldDefinitions FormFieldDefinition[]
   Assignments      FormAssignment[]
   Responses        FormResponse[]
+  SamplingMaps     SamplingMap[]
+
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
 
   @@map("Forms")
   @@schema("pgntarg2udzj1f3")
@@ -1227,15 +1340,22 @@ model FormResponse {
   content_hash String?  // client-supplied dedup key, same pattern as Photos/Notes/Recordings
   submitted_at DateTime @default(now()) @db.Timestamptz(6)
 
-  Form    Form     @relation(fields: [form_id], references: [id], onDelete: Cascade)
-  Contact Contact? @relation(fields: [contact_id], references: [id], onDelete: SetNull)
-  User    User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
-  Farm    Farm?    @relation(fields: [farm_id], references: [id], onDelete: SetNull)
+  // Nullable: only set for a response submitted at a Sampling Point (either an existing
+  // point, or one created ad hoc in the field) — see SamplingMap.form_id/SamplingPoint below.
+  // A response with no sampling_point_id is a normal standalone Custom Forms submission.
+  sampling_point_id Int?
+
+  Form          Form           @relation(fields: [form_id], references: [id], onDelete: Cascade)
+  Contact       Contact?       @relation(fields: [contact_id], references: [id], onDelete: SetNull)
+  User          User?          @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  Farm          Farm?          @relation(fields: [farm_id], references: [id], onDelete: SetNull)
+  SamplingPoint SamplingPoint? @relation(fields: [sampling_point_id], references: [id], onDelete: SetNull)
 
   @@index([form_id])
   @@index([contact_id])
   @@index([user_id])
   @@index([content_hash])
+  @@index([sampling_point_id])
   @@map("Form_Responses")
   @@schema("pgntarg2udzj1f3")
 }
@@ -1267,6 +1387,10 @@ model Geofence {
   Zones       GeofenceZone[]
   Assignments GeofenceAssignment[]
   Events      GeofenceEvent[]
+
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
 
   @@map("Geofences")
   @@schema("pgntarg2udzj1f3")
@@ -1398,6 +1522,11 @@ model Pipeline {
 
   @@index([status])
   @@index([match_table])
+
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
+
   @@map("Pipelines")
   @@schema("pgntarg2udzj1f3")
 }
@@ -1544,16 +1673,27 @@ model SamplingMap {
   created_by_id String?
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
+  // Optional Custom Form every point on this map is filled out against — one form per map
+  // (not per point, unlike experiment_test_id on SamplingPoint), set from the map editor's
+  // toolbar. See FormResponse.sampling_point_id for where a submission ties back to a point.
+  form_id       Int?
 
   Farm       Farm            @relation(fields: [farm_id], references: [id], onDelete: Cascade)
   Experiment FarmExperiment? @relation(fields: [experiment_id], references: [id], onDelete: SetNull)
   CreatedBy  User?           @relation(fields: [created_by_id], references: [id], onDelete: SetNull)
+  Form       Form?           @relation(fields: [form_id], references: [id], onDelete: SetNull)
   Polygons   SamplingMapPolygon[]
   Points     SamplingPoint[]
   Assignments SamplingMapAssignment[]
 
   @@index([farm_id])
   @@index([experiment_id])
+  @@index([form_id])
+
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id      Int?
+
   @@map("Sampling_Maps")
   @@schema("pgntarg2udzj1f3")
 }
@@ -1597,15 +1737,21 @@ model SamplingPoint {
   placement_method   String   @default("manual")
   sample_index       Int?
   created_at         DateTime @default(now())
+  // Client-computed dedup key, same convention as Photos/Notes/Sampling_Point_Collections —
+  // only ever set for placement_method = "field" (created on-device via the bearer API); the
+  // web editor's drawn/generated/uploaded points never send one.
+  content_hash       String?
 
   SamplingMap    SamplingMap         @relation(fields: [sampling_map_id], references: [id], onDelete: Cascade)
   Polygon        SamplingMapPolygon? @relation(fields: [polygon_id], references: [id], onDelete: SetNull)
   ExperimentTest ExperimentTest?     @relation(fields: [experiment_test_id], references: [id], onDelete: SetNull)
   Collections    SamplingPointCollection[]
+  FormResponses  FormResponse[]
 
   @@index([sampling_map_id])
   @@index([polygon_id])
   @@index([experiment_test_id])
+  @@index([content_hash])
   @@map("Sampling_Points")
   @@schema("pgntarg2udzj1f3")
 }
