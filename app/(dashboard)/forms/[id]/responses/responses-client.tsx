@@ -12,12 +12,26 @@ interface Props {
     photoFilenames: Record<string, string | null>;
     submitted_at: string;
     recipient: string;
+    samplingPoint: { label: string; mapName: string; farmId: number; mapId: number } | null;
   }[];
 }
 
 export default function ResponsesClient({ form, fields, responses }: Props) {
   const columns = [
     { key: "recipient", header: "Recipient", sortable: true },
+    {
+      key: "samplingPoint",
+      header: "Sampling Point",
+      render: (row: Record<string, unknown>) => {
+        const sp = (row as unknown as (typeof responses)[number]).samplingPoint;
+        if (!sp) return <span className="text-slate-400">—</span>;
+        return (
+          <Link href={`/farms/${sp.farmId}/maps/${sp.mapId}`} className="text-sm hover:underline">
+            {sp.label} <span className="text-slate-400">({sp.mapName})</span>
+          </Link>
+        );
+      },
+    },
     {
       key: "submitted_at",
       header: "Submitted",

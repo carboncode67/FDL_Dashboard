@@ -58,6 +58,15 @@ export function assignmentWhereForLabMember(userId: string) {
   return { some: { user_id: userId } };
 }
 
+// A form linked to a Sampling Map (Sampling_Maps.form_id) is implicitly visible to every lab
+// member that map has been sent to, with no separate Form_Assignments row needed -- the map
+// assignment already governs "who should be filling this out." Used both as a Form-level OR
+// branch (list route) and folded into isFormVisibleToLabMember below (schema/responses routes).
+// Sampling maps are lab-member-only work, so this has no Contact-side equivalent.
+export function samplingMapFormWhereForLabMember(userId: string) {
+  return { some: { Assignments: { some: { user_id: userId } } } };
+}
+
 export async function isFormVisibleToContact(formId: number, contact: { id: number; farms_id: number | null; assigned_experiment_id: number | null }): Promise<boolean> {
   const count = await prisma.formAssignment.count({
     where: {
@@ -76,5 +85,9 @@ export async function isFormVisibleToLabMember(formId: number, userId: string): 
   const count = await prisma.formAssignment.count({
     where: { form_id: formId, user_id: userId },
   });
-  return count > 0;
+  if (count > 0) return true;
+  const viaSamplingMap = await prisma.samplingMap.count({
+    where: { form_id: formId, Assignments: { some: { user_id: userId } } },
+  });
+  return viaSamplingMap > 0;
 }

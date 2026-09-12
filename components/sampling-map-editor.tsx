@@ -267,6 +267,8 @@ export interface SamplingMapEditorProps {
   hasExperiment: boolean
   assignments: SamplingMapAssignmentData[]
   users: { id: string; name: string | null; email: string }[]
+  forms: { id: number; title: string }[]
+  formId: number | null
 }
 
 export default function SamplingMapEditor({
@@ -285,6 +287,8 @@ export default function SamplingMapEditor({
   hasExperiment,
   assignments,
   users,
+  forms,
+  formId,
 }: SamplingMapEditorProps) {
   const [polygons, setPolygons] = useState<SamplingMapPolygonData[]>(initialPolygons)
   const [points, setPoints] = useState<SamplingPointData[]>(initialPoints)
@@ -293,7 +297,31 @@ export default function SamplingMapEditor({
   const [importOpen, setImportOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
+  const [linkedFormId, setLinkedFormId] = useState<number | null>(formId)
+  const [savingForm, setSavingForm] = useState(false)
   const layersApiRef = useRef<MapDrawLayersHandle>(null)
+
+  // Every point on the map (existing, or created ad hoc in the field) is filled out against
+  // this one form — see Sampling_Maps.form_id. Submitting it there also marks the point
+  // Collected, so this is the one control that turns the map into a data-collection workflow.
+  async function handleFormChange(value: string) {
+    const newFormId = value === "none" ? null : parseInt(value)
+    const previous = linkedFormId
+    setLinkedFormId(newFormId)
+    setSavingForm(true)
+    try {
+      const res = await fetch(`/api/sampling-maps/${samplingMapId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ form_id: newFormId }),
+      })
+      if (!res.ok) setLinkedFormId(previous)
+    } catch {
+      setLinkedFormId(previous)
+    } finally {
+      setSavingForm(false)
+    }
+  }
 
   // Grid/random point generation — a preview (client-side math only, nothing persisted
   // yet) tied to one polygon at a time, accepted as a single batch POST or discarded.
@@ -554,6 +582,25 @@ export default function SamplingMapEditor({
         <span className="text-slate-300 shrink-0">/</span>
         <span className="text-sm font-medium truncate">{mapName}</span>
         <div className="ml-auto flex items-center gap-2 shrink-0">
+          <Select
+            value={linkedFormId ? String(linkedFormId) : "none"}
+            onValueChange={(v) => v && handleFormChange(v)}
+            disabled={savingForm}
+          >
+            <SelectTrigger className="h-8 w-[180px] text-sm" title="Form every point on this map is filled out against">
+              <SelectValue placeholder="Linked Form: None" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none" label="Linked Form: None">
+                Linked Form: None
+              </SelectItem>
+              {forms.map((f) => (
+                <SelectItem key={f.id} value={String(f.id)} label={f.title}>
+                  {f.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
             Import Boundary
           </Button>
