@@ -97,3 +97,27 @@ export async function deletePipeline(externalPipelineId: string) {
     method: "DELETE",
   });
 }
+
+export interface TriggerBasemapTilingPayload {
+  basemap_id: number;
+  download_url: string;
+  callback_url: string;
+  min_zoom?: number;
+  max_zoom?: number;
+  // Ground truth for the processor's geo_sanity CRS verification (same field
+  // shape as TriggerRunPayload.farm_centroid above) — required here, unlike
+  // pipeline runs, since every Basemap has a farm_id by construction.
+  farm_centroid: { lat: number; lng: number } | null;
+}
+
+// Planned Changes items 6+7 (docs/raster-tiling-plan.md). First-party
+// operation on the processing machine — not routed through the LLM-wiring /
+// sandbox pipeline machinery, since this is our own code, not a user script.
+// Same fire-and-forget shape as triggerPipelineRun: the processor accepts the
+// job and reports back to callback_url when tiling finishes.
+export async function triggerBasemapTiling(payload: TriggerBasemapTilingPayload): Promise<void> {
+  await processingFetch("/basemaps/tile", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

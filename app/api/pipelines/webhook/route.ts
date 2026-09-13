@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import fs from "fs";
 import path from "path";
 import { createHash } from "crypto";
+import { verifyWebhookSignature } from "@/lib/webhook-auth";
 
 export const runtime = "nodejs";
 
@@ -110,11 +111,7 @@ export async function POST(req: Request) {
 
   const sig = req.headers.get("x-signature-256") ?? "";
   const body = await req.text();
-  const { createHmac, timingSafeEqual } = await import("crypto");
-  const expected = "sha256=" + createHmac("sha256", secret).update(body).digest("hex");
-  const sigBuf = Buffer.from(sig);
-  const expectedBuf = Buffer.from(expected);
-  if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) {
+  if (!verifyWebhookSignature(body, sig, secret)) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 

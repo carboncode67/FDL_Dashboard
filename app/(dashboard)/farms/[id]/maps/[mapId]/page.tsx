@@ -5,7 +5,7 @@ import { canCreate, type Role } from "@/lib/roles";
 import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import SamplingMapEditorWrapper from "@/components/sampling-map-editor-wrapper";
 import type { ImportableBoundary } from "@/components/import-boundary-dialog";
-import type { MapRaster } from "@/components/map-raster-layers";
+import { pipelineOutputToMapRaster, basemapToMapRaster } from "@/lib/map-rasters";
 import { ASSIGNMENT_INCLUDE } from "@/lib/sampling-maps";
 import { runWithTenant } from "@/lib/lab-db";
 
@@ -40,6 +40,10 @@ export default async function SamplingMapDetailRoute({
             where: { crs_status: { not: "unclear" } },
             include: { Run: { select: { Pipeline: { select: { name: true } } } } },
           },
+          Basemaps: {
+            where: { tiling_status: "ready", crs_status: { not: "unclear" } },
+            orderBy: { created_at: "desc" },
+          },
         },
       },
     },
@@ -73,13 +77,13 @@ export default async function SamplingMapDetailRoute({
     name: z.Zone_Label ?? `Zone #${z.id}`,
     kind: "zone",
   }));
-  const rasters: MapRaster[] = map.Farm.PipelineOutputRasters.map((r) => ({
-    id: r.id,
-    url: `/api/files/pipeline-outputs/${r.filename}`,
-    label: `${r.Run.Pipeline.name} — ${r.original_filename}`,
-    kind: r.kind === "vector" ? "vector" : "raster",
-    crsStatus: r.crs_status === "ok" ? "ok" : null,
-  }));
+  const rasters = [
+    ...map.Farm.PipelineOutputRasters.map(pipelineOutputToMapRaster),
+    ...map.Farm.Basemaps.map(basemapToMapRaster),
+  ];
+  // Options for the raster-basemap toolset's picker (item 6.2) — same source
+  // list as the checklist above, just id+label instead of a full MapRaster.
+  const availableBasemaps = map.Farm.Basemaps.map((b) => ({ id: b.id, label: b.original_filename }));
   const experimentTests = (map.Experiment?.ExperimentTests ?? []).map((et) => ({
     id: et.id,
     testName: et.Test.Test_Name ?? `Test #${et.Test.id}`,
@@ -121,6 +125,10 @@ export default async function SamplingMapDetailRoute({
       users={users}
       forms={forms}
       formId={map.form_id}
+      availableBasemaps={availableBasemaps}
+      basemapId={map.basemap_id}
+      basemapBufferM={map.basemap_buffer_m}
+      basemapMaxZoom={map.basemap_max_zoom}
     />
   );
   });

@@ -6,7 +6,7 @@ import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import { BasemapTileLayer } from "@/components/basemap-tile-layer"
 import { SatelliteToggleButton } from "@/components/satellite-toggle-button"
-import { RasterLayer, VectorLayer, type MapRaster } from "@/components/map-raster-layers"
+import { RasterLayer, VectorLayer, TiledBasemapLayer, type MapRaster } from "@/components/map-raster-layers"
 
 export type { MapRaster }
 
@@ -121,7 +121,9 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
   // Off by default — overlaying every pipeline-output raster at once (e.g. 4+ from a
   // single EM38 interpolation run) would just be visual noise; the checklist below
   // the map lets someone turn on the one(s) they actually want to look at.
-  const [visibleRasterIds, setVisibleRasterIds] = useState<Set<number>>(new Set())
+  // Keyed by rasterKey() (`${source}-${id}`), not the bare id — Basemap.id and
+  // PipelineOutputRaster.id are separate, colliding ID spaces (items 6+7).
+  const [visibleRasterIds, setVisibleRasterIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetch(`/api/farms/${farmId}/gps-tracks`)
@@ -134,6 +136,9 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
   // renderable so old data keeps behaving the way it always did.
   const renderableRasters = rasters.filter((r) => r.crsStatus !== "unclear")
   const unclearRasters = rasters.filter((r) => r.crsStatus === "unclear")
+  const rasterKey = (r: MapRaster) => `${r.source ?? "pipeline"}-${r.id}`
+  const pipelineOutputRasters = renderableRasters.filter((r) => (r.source ?? "pipeline") === "pipeline")
+  const basemapRasters = renderableRasters.filter((r) => r.source === "basemap")
 
   const allLatLngs: [number, number][] = [
     ...fields.flatMap((f) => (f.geometry ? extractLatLngs(f.geometry) : [])),
@@ -180,10 +185,18 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
               unclear" output never renders here regardless of the checkbox (see
               renderableRasters below) — geo_sanity couldn't confidently place it, so
               plotting it would risk showing data in the wrong spot with no warning. */}
-          {renderableRasters.filter((r) => visibleRasterIds.has(r.id)).map((r) =>
+          {pipelineOutputRasters.filter((r) => visibleRasterIds.has(rasterKey(r))).map((r) =>
             r.kind === "vector"
-              ? <VectorLayer key={`raster-${r.id}`} url={r.url} />
-              : <RasterLayer key={`raster-${r.id}`} url={r.url} />
+              ? <VectorLayer key={rasterKey(r)} url={r.url} />
+              : <RasterLayer key={rasterKey(r)} url={r.url} />
+          )}
+
+          {/* Basemaps (items 6+7) — a lab member's directly-uploaded large raster,
+              pre-tiled by PipelineProcessor. Same checkbox/CRS-unclear mechanism as
+              pipeline outputs, rendered as a real tile layer instead of a whole-file
+              fetch since these can be multi-GB sources. */}
+          {basemapRasters.filter((r) => visibleRasterIds.has(rasterKey(r))).map((r) =>
+            <TiledBasemapLayer key={rasterKey(r)} urlTemplate={r.url} footprint={r.footprint ?? null} />
           )}
 
           {/* Field boundaries — green */}
@@ -359,19 +372,42 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
         </MapContainer>
       </div>
 
-      {renderableRasters.length > 0 && (
+      {pipelineOutputRasters.length > 0 && (
         <div className="flex flex-wrap gap-3 px-1 text-sm">
           <span className="text-slate-500">Pipeline outputs:</span>
-          {renderableRasters.map((r) => (
-            <label key={r.id} className="flex items-center gap-1.5 text-slate-700">
+          {pipelineOutputRasters.map((r) => (
+            <label key={rasterKey(r)} className="flex items-center gap-1.5 text-slate-700">
               <input
                 type="checkbox"
-                checked={visibleRasterIds.has(r.id)}
+                checked={visibleRasterIds.has(rasterKey(r))}
                 onChange={(e) =>
                   setVisibleRasterIds((prev) => {
                     const next = new Set(prev)
-                    if (e.target.checked) next.add(r.id)
-                    else next.delete(r.id)
+                    if (e.target.checked) next.add(rasterKey(r))
+                    else next.delete(rasterKey(r))
+                    return next
+                  })
+                }
+              />
+              {r.label}
+            </label>
+          ))}
+        </div>
+      )}
+
+      {basemapRasters.length > 0 && (
+        <div className="flex flex-wrap gap-3 px-1 text-sm">
+          <span className="text-slate-500">Basemaps:</span>
+          {basemapRasters.map((r) => (
+            <label key={rasterKey(r)} className="flex items-center gap-1.5 text-slate-700">
+              <input
+                type="checkbox"
+                checked={visibleRasterIds.has(rasterKey(r))}
+                onChange={(e) =>
+                  setVisibleRasterIds((prev) => {
+                    const next = new Set(prev)
+                    if (e.target.checked) next.add(rasterKey(r))
+                    else next.delete(rasterKey(r))
                     return next
                   })
                 }
@@ -387,8 +423,8 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
           <span className="text-amber-600">⚠ CRS unclear — not shown on map:</span>
           {unclearRasters.map((r) => (
             <a
-              key={r.id}
-              href={r.url}
+              key={rasterKey(r)}
+              href={r.downloadUrl ?? r.url}
               className="text-slate-700 underline decoration-dotted hover:text-slate-900"
               title="Location couldn't be verified against this farm — download and check manually"
             >

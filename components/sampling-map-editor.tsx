@@ -9,7 +9,7 @@ import "@geoman-io/leaflet-geoman-free"
 import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css"
 import { BasemapTileLayer } from "@/components/basemap-tile-layer"
 import { SatelliteToggleButton } from "@/components/satellite-toggle-button"
-import { RasterLayer, VectorLayer, type MapRaster } from "@/components/map-raster-layers"
+import { RasterLayer, VectorLayer, TiledBasemapLayer, type MapRaster } from "@/components/map-raster-layers"
 import { ImportBoundaryDialog, type ImportableBoundary } from "@/components/import-boundary-dialog"
 import { SamplingMapUploadDialog, type UploadedPolygon, type UploadedPoint } from "@/components/sampling-map-upload-dialog"
 import { SamplingMapAssignmentPicker } from "@/components/sampling-map-assignment-picker"
@@ -269,6 +269,11 @@ export interface SamplingMapEditorProps {
   users: { id: string; name: string | null; email: string }[]
   forms: { id: number; title: string }[]
   formId: number | null
+  // Planned Changes item 6.2 (raster-basemap toolset).
+  availableBasemaps: { id: number; label: string }[]
+  basemapId: number | null
+  basemapBufferM: number | null
+  basemapMaxZoom: number | null
 }
 
 export default function SamplingMapEditor({
@@ -289,16 +294,35 @@ export default function SamplingMapEditor({
   users,
   forms,
   formId,
+  availableBasemaps,
+  basemapId,
+  basemapBufferM,
+  basemapMaxZoom,
 }: SamplingMapEditorProps) {
   const [polygons, setPolygons] = useState<SamplingMapPolygonData[]>(initialPolygons)
   const [points, setPoints] = useState<SamplingPointData[]>(initialPoints)
   const [isSatellite, setIsSatellite] = useState(false)
-  const [visibleRasterIds, setVisibleRasterIds] = useState<Set<number>>(new Set())
+  // Keyed by rasterKey() (`${source}-${id}`), not the bare id — Basemap.id and
+  // PipelineOutputRaster.id are separate, colliding ID spaces (items 6+7),
+  // same reasoning as farm-map.tsx's identically-named state.
+  const [visibleRasterIds, setVisibleRasterIds] = useState<Set<string>>(new Set())
   const [importOpen, setImportOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [linkedFormId, setLinkedFormId] = useState<number | null>(formId)
   const [savingForm, setSavingForm] = useState(false)
+
+  // Planned Changes item 6.2 (raster-basemap toolset) — same "one setting per
+  // map, saved from this toolbar" pattern as linkedFormId/radiusText above.
+  const [linkedBasemapId, setLinkedBasemapId] = useState<number | null>(basemapId)
+  const [savingBasemap, setSavingBasemap] = useState(false)
+  const [bufferText, setBufferText] = useState(basemapBufferM != null ? String(basemapBufferM) : "")
+  const [savedBufferM, setSavedBufferM] = useState(basemapBufferM)
+  const [savingBuffer, setSavingBuffer] = useState(false)
+  const [maxZoomText, setMaxZoomText] = useState(basemapMaxZoom != null ? String(basemapMaxZoom) : "")
+  const [savedMaxZoom, setSavedMaxZoom] = useState(basemapMaxZoom)
+  const [savingMaxZoom, setSavingMaxZoom] = useState(false)
+
   const layersApiRef = useRef<MapDrawLayersHandle>(null)
 
   // Every point on the map (existing, or created ad hoc in the field) is filled out against
@@ -323,6 +347,72 @@ export default function SamplingMapEditor({
     }
   }
 
+  // Planned Changes item 6.2: which uploaded Basemap (see Basemaps table,
+  // docs/raster-tiling-plan.md) is offered to the phone app for this map,
+  // plus how far beyond the field boundary to extend it (positive buffer —
+  // opposite sign convention from the point-generation edge buffer below,
+  // which erodes inward) and the max tiling level to send. Same instant-save
+  // pattern as handleFormChange.
+  async function handleBasemapChange(value: string) {
+    const newBasemapId = value === "none" ? null : parseInt(value)
+    const previous = linkedBasemapId
+    setLinkedBasemapId(newBasemapId)
+    setSavingBasemap(true)
+    try {
+      const res = await fetch(`/api/sampling-maps/${samplingMapId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ basemap_id: newBasemapId }),
+      })
+      if (!res.ok) setLinkedBasemapId(previous)
+    } catch {
+      setLinkedBasemapId(previous)
+    } finally {
+      setSavingBasemap(false)
+    }
+  }
+
+  // Save-on-blur numeric field, same shape as handleRadiusBlur — factored
+  // into one helper since basemap buffer and max zoom are otherwise identical.
+  async function saveBasemapNumberField(
+    raw: string,
+    savedValue: number | null,
+    field: "basemap_buffer_m" | "basemap_max_zoom",
+    setText: (v: string) => void,
+    setSaved: (v: number | null) => void,
+    setSaving: (v: boolean) => void,
+    validate?: (n: number) => boolean,
+  ) {
+    const trimmed = raw.trim()
+    const parsed = trimmed === "" ? null : Number(trimmed)
+    if (parsed !== null && (isNaN(parsed) || (validate && !validate(parsed)))) {
+      setText(savedValue != null ? String(savedValue) : "")
+      return
+    }
+    if (parsed === savedValue) {
+      setText(parsed != null ? String(parsed) : "")
+      return
+    }
+    setText(parsed != null ? String(parsed) : "")
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/sampling-maps/${samplingMapId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: parsed }),
+      })
+      if (res.ok) {
+        setSaved(parsed)
+      } else {
+        setText(savedValue != null ? String(savedValue) : "")
+      }
+    } catch {
+      setText(savedValue != null ? String(savedValue) : "")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Grid/random point generation — a preview (client-side math only, nothing persisted
   // yet) tied to one polygon at a time, accepted as a single batch POST or discarded.
   const [generatingPolygonId, setGeneratingPolygonId] = useState<number | null>(null)
@@ -338,13 +428,14 @@ export default function SamplingMapEditor({
   const [genError, setGenError] = useState<string | null>(null)
   const [accepting, setAccepting] = useState(false)
 
-  const renderableRasters = rasters // pipeline outputs already filtered to crs_status !== "unclear" server-side (see page.tsx)
+  const renderableRasters = rasters // pipeline outputs + basemaps already filtered to crs_status !== "unclear" server-side (see page.tsx)
+  const rasterKey = (r: MapRaster) => `${r.source ?? "pipeline"}-${r.id}`
 
-  function toggleRaster(id: number) {
+  function toggleRaster(key: string) {
     setVisibleRasterIds((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
   }
@@ -601,6 +692,79 @@ export default function SamplingMapEditor({
               ))}
             </SelectContent>
           </Select>
+          <Select
+            value={linkedBasemapId ? String(linkedBasemapId) : "none"}
+            onValueChange={(v) => v && handleBasemapChange(v)}
+            disabled={savingBasemap}
+          >
+            <SelectTrigger className="h-8 w-[170px] text-sm" title="Raster basemap sent to the phone app for this map">
+              <SelectValue placeholder="Basemap: None" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none" label="Basemap: None">
+                Basemap: None
+              </SelectItem>
+              {availableBasemaps.map((b) => (
+                <SelectItem key={b.id} value={String(b.id)} label={b.label}>
+                  {b.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {linkedBasemapId != null && (
+            <>
+              <div className="flex items-center gap-1.5" title="Extend the basemap this far beyond the field boundary before sending to the phone">
+                <label htmlFor="basemap-buffer" className="text-xs text-slate-500 whitespace-nowrap">
+                  Buffer
+                </label>
+                <input
+                  id="basemap-buffer"
+                  type="number"
+                  min={0}
+                  step="any"
+                  inputMode="decimal"
+                  value={bufferText}
+                  onChange={(e) => setBufferText(e.target.value)}
+                  onBlur={() =>
+                    saveBasemapNumberField(
+                      bufferText, savedBufferM, "basemap_buffer_m",
+                      setBufferText, setSavedBufferM, setSavingBuffer,
+                      (n) => n >= 0,
+                    )
+                  }
+                  disabled={savingBuffer}
+                  placeholder="0"
+                  className="h-8 w-16 rounded-md border border-slate-200 px-2 text-sm"
+                />
+                <span className="text-xs text-slate-500">m</span>
+              </div>
+              <div className="flex items-center gap-1.5" title="Maximum tiling level sent to the phone app">
+                <label htmlFor="basemap-max-zoom" className="text-xs text-slate-500 whitespace-nowrap">
+                  Max zoom
+                </label>
+                <input
+                  id="basemap-max-zoom"
+                  type="number"
+                  min={0}
+                  max={24}
+                  step={1}
+                  inputMode="numeric"
+                  value={maxZoomText}
+                  onChange={(e) => setMaxZoomText(e.target.value)}
+                  onBlur={() =>
+                    saveBasemapNumberField(
+                      maxZoomText, savedMaxZoom, "basemap_max_zoom",
+                      setMaxZoomText, setSavedMaxZoom, setSavingMaxZoom,
+                      (n) => n >= 0 && n <= 24 && Number.isInteger(n),
+                    )
+                  }
+                  disabled={savingMaxZoom}
+                  placeholder="Auto"
+                  className="h-8 w-16 rounded-md border border-slate-200 px-2 text-sm"
+                />
+              </div>
+            </>
+          )}
           <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
             Import Boundary
           </Button>
@@ -620,12 +784,14 @@ export default function SamplingMapEditor({
             <BasemapTileLayer satellite={isSatellite} />
 
             {renderableRasters
-              .filter((r) => visibleRasterIds.has(r.id))
+              .filter((r) => visibleRasterIds.has(rasterKey(r)))
               .map((r) =>
-                r.kind === "vector" ? (
-                  <VectorLayer key={`raster-${r.id}`} url={r.url} />
+                r.source === "basemap" ? (
+                  <TiledBasemapLayer key={rasterKey(r)} urlTemplate={r.url} footprint={r.footprint ?? null} />
+                ) : r.kind === "vector" ? (
+                  <VectorLayer key={rasterKey(r)} url={r.url} />
                 ) : (
-                  <RasterLayer key={`raster-${r.id}`} url={r.url} />
+                  <RasterLayer key={rasterKey(r)} url={r.url} />
                 ),
               )}
 
@@ -681,11 +847,11 @@ export default function SamplingMapEditor({
               <h4 className="text-xs font-semibold uppercase text-slate-500 mb-1.5">Overlays</h4>
               <div className="space-y-1">
                 {rasters.map((r) => (
-                  <label key={r.id} className="flex items-center gap-2 text-sm">
+                  <label key={rasterKey(r)} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
-                      checked={visibleRasterIds.has(r.id)}
-                      onChange={() => toggleRaster(r.id)}
+                      checked={visibleRasterIds.has(rasterKey(r))}
+                      onChange={() => toggleRaster(rasterKey(r))}
                     />
                     {r.label}
                   </label>

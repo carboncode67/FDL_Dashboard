@@ -22,9 +22,11 @@ import {
 import Link from "next/link";
 import { RelationPicker } from "@/components/relation-picker";
 import FarmMap from "@/components/farm-map-wrapper";
+import { pipelineOutputToMapRaster, basemapToMapRaster } from "@/lib/map-rasters";
 import ReactMarkdown from "react-markdown";
 import { FarmExperimentsTab } from "@/components/farm-experiments-tab";
 import { FieldBoundaryUpload } from "@/components/field-boundary-upload";
+import { BasemapUpload } from "@/components/basemap-upload";
 import { DocumentUpload } from "@/components/document-upload";
 import { AddContactButton } from "@/components/add-contact-button";
 import { DrawFieldButton } from "@/components/draw-field-button";
@@ -99,6 +101,10 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
         PipelineOutputRasters: {
           orderBy: { created_at: "desc" },
           include: { Run: { select: { id: true, Pipeline: { select: { name: true } } } } },
+        },
+        Basemaps: {
+          where: { tiling_status: "ready" },
+          orderBy: { created_at: "desc" },
         },
         SamplingMaps: {
           orderBy: { updated_at: "desc" },
@@ -211,20 +217,12 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
     })),
   ].sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
 
-  // Pipeline output rasters for the map — label pairs the pipeline name with the
-  // original output filename (e.g. "EM 38 — CV-1.0m.tif") since one run can produce
-  // several (one GeoTIFF per interpolated column).
-  const pipelineRasters = farm.PipelineOutputRasters.map((r) => {
-    const crsStatus: "ok" | "unclear" | null =
-      r.crs_status === "ok" ? "ok" : r.crs_status === "unclear" ? "unclear" : null;
-    return {
-      id: r.id,
-      url: `/api/files/pipeline-outputs/${r.filename}`,
-      label: `${r.Run.Pipeline.name} — ${r.original_filename}`,
-      kind: r.kind === "vector" ? ("vector" as const) : ("raster" as const),
-      crsStatus,
-    };
-  });
+  // Rasters for the map — pipeline outputs (item 90) and directly-uploaded
+  // basemaps (items 6+7) merged into one list; see lib/map-rasters.ts.
+  const mapRasters = [
+    ...farm.PipelineOutputRasters.map(pipelineOutputToMapRaster),
+    ...farm.Basemaps.map(basemapToMapRaster),
+  ];
 
   // Lab upload map pins (GPS-tagged only)
   const labUploadPins = farm.LabMemberUploads.filter(
@@ -528,7 +526,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             }))}
             photos={[]}
             notes={[]}
-            rasters={pipelineRasters}
+            rasters={mapRasters}
             farmId={farm.id}
             farmLat={farm.latitude ?? undefined}
             farmLng={farm.longitude ?? undefined}
@@ -546,6 +544,8 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
               ) : undefined
             }
           />
+
+          {showCreate && <BasemapUpload farmId={farm.id} />}
 
           <SpatialContextCard
             farmId={farm.id}
@@ -719,7 +719,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             photos={contactPhotosPins}
             notes={contactNotesPins}
             labUploads={labUploadPins}
-            rasters={pipelineRasters}
+            rasters={mapRasters}
             farmId={farm.id}
             farmLat={farm.latitude ?? undefined}
             farmLng={farm.longitude ?? undefined}

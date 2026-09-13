@@ -63,6 +63,7 @@ model User {
   CreatedPipelines   Pipeline[]
   EquipmentLoansSignedOut EquipmentLoan[]
   ContextFetchJobs   ContextFetchJob[]
+  UploadedBasemaps   Basemap[]
   CreatedSamplingMaps SamplingMap[]
   SamplingMapAssignments SamplingMapAssignment[]
   SamplingPointCollections SamplingPointCollection[]
@@ -180,6 +181,7 @@ model Farm {
   ContextRasters   ContextRaster[]
   PipelineRuns     PipelineRun[]
   PipelineOutputRasters PipelineOutputRaster[]
+  Basemaps         Basemap[]
   SamplingMaps     SamplingMap[]
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
@@ -1119,6 +1121,7 @@ model DroneFlightRecord {
   ExperimentDroneFlight ExperimentDroneFlight @relation(fields: [experiment_drone_flight_id], references: [id], onDelete: Cascade)
   Polygons              DroneFlightPolygon[]
   PipelineRuns          PipelineRun[]
+  Basemaps              Basemap[]
 
   @@map("Drone_Flight_Records")
   @@schema("pgntarg2udzj1f3")
@@ -1602,6 +1605,49 @@ model PipelineOutputRaster {
   @@schema("pgntarg2udzj1f3")
 }
 
+// Planned Changes items 6+7 (see docs/raster-tiling-plan.md): a lab member's
+// directly-uploaded large raster (typically a drone orthomosaic, 1-5 GB,
+// projected/UTM CRS) plus the state of its tiling job on PipelineProcessor.
+// Same shape/precedent as PipelineOutputRaster and ContextRaster, but for a
+// raster that didn't come from a pipeline run — footprint/crs_status/crs_epsg
+// are only populated once tiling.py has actually opened the file. No lab_id
+// here, same as its two siblings above — this is a derived per-farm artifact
+// table, not one of the "owned/root" tables migration 067 backfilled; lab
+// scope is inherited via farm_id -> Farm.lab_id.
+model Basemap {
+  id                     Int      @id @default(autoincrement())
+  farm_id                Int
+  drone_flight_record_id Int?
+  uploaded_by_id         String?
+  original_filename      String   // name as uploaded
+  source_filename        String   // flat basename under DATA_DIR/basemap-sources/
+  bytes                  BigInt
+  sha256                 String
+  // Set by PipelineProcessor's tiling job reusing geo_sanity.py's
+  // candidate-CRS check (same convention as PipelineOutputRaster.crs_status).
+  // "unclear" = not safe to plot; NULL = tiling hasn't finished yet.
+  crs_status             String?
+  crs_epsg               Int?
+  footprint              Json?    // GeoJSON Polygon, filled in once tiling reads the file
+  tiling_status          String   @default("pending") // pending | tiling | ready | failed
+  tile_dir               String?  // e.g. "<id>" under DATA_DIR/basemap-tiles/
+  min_zoom               Int?
+  max_zoom               Int?
+  error_message          String?
+  created_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
+
+  Farm              Farm               @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  DroneFlightRecord DroneFlightRecord? @relation(fields: [drone_flight_record_id], references: [id], onDelete: SetNull)
+  UploadedBy        User?              @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
+  SamplingMaps      SamplingMap[]
+
+  @@index([farm_id])
+  @@index([tiling_status])
+  @@map("Basemaps")
+  @@schema("pgntarg2udzj1f3")
+}
+
 model ContextFetchJob {
   id                 Int       @id @default(autoincrement())
   farm_id            Int
@@ -1677,11 +1723,21 @@ model SamplingMap {
   // (not per point, unlike experiment_test_id on SamplingPoint), set from the map editor's
   // toolbar. See FormResponse.sampling_point_id for where a submission ties back to a point.
   form_id       Int?
+  // Planned Changes item 6.2 (raster-basemap toolset), set from the same editor
+  // toolbar — same "one setting per map" precedent as form_id/proximity_radius_m
+  // above. basemap_buffer_m is POSITIVE (extend beyond the field boundary), the
+  // opposite sign convention from the point-generation toolset's inward edge
+  // buffer. basemap_max_zoom is the max tiling level sent to the phone app
+  // (consumed by the Phase 2 MBTiles export — see raster-tiling-plan.md).
+  basemap_id         Int?
+  basemap_buffer_m   Float?
+  basemap_max_zoom   Int?
 
   Farm       Farm            @relation(fields: [farm_id], references: [id], onDelete: Cascade)
   Experiment FarmExperiment? @relation(fields: [experiment_id], references: [id], onDelete: SetNull)
   CreatedBy  User?           @relation(fields: [created_by_id], references: [id], onDelete: SetNull)
   Form       Form?           @relation(fields: [form_id], references: [id], onDelete: SetNull)
+  Basemap    Basemap?        @relation(fields: [basemap_id], references: [id], onDelete: SetNull)
   Polygons   SamplingMapPolygon[]
   Points     SamplingPoint[]
   Assignments SamplingMapAssignment[]
@@ -1689,6 +1745,7 @@ model SamplingMap {
   @@index([farm_id])
   @@index([experiment_id])
   @@index([form_id])
+  @@index([basemap_id])
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).

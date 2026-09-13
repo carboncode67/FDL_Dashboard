@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { Readable } from "stream";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { runWithTenant } from "@/lib/lab-db";
@@ -11,7 +12,7 @@ const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 const ALLOWED_TYPES = [
   "photos", "recordings", "locations", "documents", "videos", "depth_maps",
   "pipeline-datasets", "pipeline-scripts", "pipeline-models", "pipeline-outputs",
-  "context", "data-table-samples",
+  "context", "data-table-samples", "basemap-sources",
 ] as const;
 
 const MIME_TYPES: Record<string, string> = {
@@ -94,8 +95,13 @@ export async function GET(
     }
   }
 
-  const buffer = fs.readFileSync(filePath);
-  return new NextResponse(buffer, {
+  // Streamed, not fs.readFileSync — basemap-sources (item 6) uploads can be
+  // multi-GB GeoTIFFs; buffering one fully into the Node heap here would be
+  // fine for the KB-to-low-MB files every other ALLOWED_TYPES entry actually
+  // is, but not for those.
+  const nodeStream = fs.createReadStream(filePath);
+  const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
+  return new NextResponse(webStream, {
     headers: {
       "Content-Type": contentType,
       "Content-Disposition": "inline",
