@@ -125,6 +125,7 @@ export default async function SamplingMapDetailRoute({
       users={users}
       forms={forms}
       formId={map.form_id}
+      proximityRadiusM={map.proximity_radius_m}
       availableBasemaps={availableBasemaps}
       basemapId={map.basemap_id}
       basemapBufferM={map.basemap_buffer_m}

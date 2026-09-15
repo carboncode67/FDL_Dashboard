@@ -1348,6 +1348,23 @@ model FormResponse {
   // A response with no sampling_point_id is a normal standalone Custom Forms submission.
   sampling_point_id Int?
 
+  // Planned Changes #13 (map survey CSV export): the device's fix at submission time, sent
+  // by both mobile apps today only to resolve farm_id (see lib/proximity.ts) and previously
+  // discarded. altitude has no client source yet on either app — stays NULL until one sends
+  // it. fix_quality is freeform text matching the client's GNSSFixQuality.storageKey values
+  // ("autonomous" | "dgps" | "rtk_fixed" | "rtk_float" | ... | null), not a DB enum — iOS-only
+  // for now, always NULL from Android submissions until that side adds precision capture.
+  // external_gps is deliberately its own boolean, not derived from fix_quality: a CoreLocation
+  // fix and an external receiver with no RTK correction yet both report fix_quality =
+  // "autonomous" — the only real signal is the client's LocationManager.usingExternalReceiver
+  // (fix.source == .external), which is what this column expects to be sent.
+  lat          Float?
+  lng          Float?
+  altitude     Float?
+  h_accuracy   Float?
+  fix_quality  String?
+  external_gps Boolean?
+
   Form          Form           @relation(fields: [form_id], references: [id], onDelete: Cascade)
   Contact       Contact?       @relation(fields: [contact_id], references: [id], onDelete: SetNull)
   User          User?          @relation(fields: [user_id], references: [id], onDelete: SetNull)
@@ -1723,6 +1740,11 @@ model SamplingMap {
   // (not per point, unlike experiment_test_id on SamplingPoint), set from the map editor's
   // toolbar. See FormResponse.sampling_point_id for where a submission ties back to a point.
   form_id       Int?
+  // Planned Changes #13 (proximity auto-popup): radius in meters around every point on this
+  // map, set from the map editor's toolbar. NULL/0 = feature off for this map. One setting per
+  // map rather than per point, matching form_id above — mobile apps read it off the map
+  // download and prompt "Fill Form" when a fresh GPS fix lands inside it.
+  proximity_radius_m Float?
   // Planned Changes item 6.2 (raster-basemap toolset), set from the same editor
   // toolbar — same "one setting per map" precedent as form_id/proximity_radius_m
   // above. basemap_buffer_m is POSITIVE (extend beyond the field boundary), the

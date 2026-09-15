@@ -269,6 +269,7 @@ export interface SamplingMapEditorProps {
   users: { id: string; name: string | null; email: string }[]
   forms: { id: number; title: string }[]
   formId: number | null
+  proximityRadiusM: number | null
   // Planned Changes item 6.2 (raster-basemap toolset).
   availableBasemaps: { id: number; label: string }[]
   basemapId: number | null
@@ -294,6 +295,7 @@ export default function SamplingMapEditor({
   users,
   forms,
   formId,
+  proximityRadiusM,
   availableBasemaps,
   basemapId,
   basemapBufferM,
@@ -311,6 +313,15 @@ export default function SamplingMapEditor({
   const [assignOpen, setAssignOpen] = useState(false)
   const [linkedFormId, setLinkedFormId] = useState<number | null>(formId)
   const [savingForm, setSavingForm] = useState(false)
+  // Text, not number, while editing — same reasoning as the comma-separated-options input in
+  // form-schema-builder.tsx: keeps a half-typed value ("12." while typing "12.5") from being
+  // silently coerced/rejected on every keystroke. Parsed to a number only in handleRadiusBlur.
+  const [radiusText, setRadiusText] = useState(proximityRadiusM != null ? String(proximityRadiusM) : "")
+  // Last-known-saved value, separate from the prop (which never updates without a full page
+  // refresh) — handleRadiusBlur reverts to this on a failed save, not the original prop, so
+  // two edits in a row can't revert past the first one's successful save.
+  const [savedRadiusM, setSavedRadiusM] = useState(proximityRadiusM)
+  const [savingRadius, setSavingRadius] = useState(false)
 
   // Planned Changes item 6.2 (raster-basemap toolset) — same "one setting per
   // map, saved from this toolbar" pattern as linkedFormId/radiusText above.
@@ -344,6 +355,41 @@ export default function SamplingMapEditor({
       setLinkedFormId(previous)
     } finally {
       setSavingForm(false)
+    }
+  }
+
+  // Planned Changes #13.2: radius (meters) around every point on this map — mobile apps prompt
+  // "Fill Form" when a fresh GPS fix lands inside it. Saved on blur, not per keystroke, same as
+  // the farm-address geocode field. Empty/0 turns the feature off for this map (null on the wire).
+  async function handleRadiusBlur() {
+    const trimmed = radiusText.trim()
+    const parsed = trimmed === "" ? null : Number(trimmed)
+    if (parsed !== null && (isNaN(parsed) || parsed < 0)) {
+      setRadiusText(savedRadiusM != null ? String(savedRadiusM) : "")
+      return
+    }
+    const newValue = parsed === 0 ? null : parsed
+    if (newValue === savedRadiusM) {
+      setRadiusText(newValue != null ? String(newValue) : "")
+      return
+    }
+    setRadiusText(newValue != null ? String(newValue) : "")
+    setSavingRadius(true)
+    try {
+      const res = await fetch(`/api/sampling-maps/${samplingMapId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proximity_radius_m: newValue }),
+      })
+      if (res.ok) {
+        setSavedRadiusM(newValue)
+      } else {
+        setRadiusText(savedRadiusM != null ? String(savedRadiusM) : "")
+      }
+    } catch {
+      setRadiusText(savedRadiusM != null ? String(savedRadiusM) : "")
+    } finally {
+      setSavingRadius(false)
     }
   }
 
@@ -692,6 +738,25 @@ export default function SamplingMapEditor({
               ))}
             </SelectContent>
           </Select>
+          <div className="flex items-center gap-1.5" title="Radius around every point that auto-prompts &quot;Fill Form&quot; on the phone when entered">
+            <label htmlFor="proximity-radius" className="text-xs text-slate-500 whitespace-nowrap">
+              Auto-prompt radius
+            </label>
+            <input
+              id="proximity-radius"
+              type="number"
+              min={0}
+              step="any"
+              inputMode="decimal"
+              value={radiusText}
+              onChange={(e) => setRadiusText(e.target.value)}
+              onBlur={handleRadiusBlur}
+              disabled={savingRadius}
+              placeholder="Off"
+              className="h-8 w-16 rounded-md border border-slate-200 px-2 text-sm"
+            />
+            <span className="text-xs text-slate-500">m</span>
+          </div>
           <Select
             value={linkedBasemapId ? String(linkedBasemapId) : "none"}
             onValueChange={(v) => v && handleBasemapChange(v)}
@@ -774,6 +839,15 @@ export default function SamplingMapEditor({
           <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)}>
             Send to Phone{assignments.length > 0 ? ` (${assignments.length})` : ""}
           </Button>
+          {linkedFormId != null && (
+            <Button
+              size="sm"
+              variant="outline"
+              render={<a href={`/api/sampling-maps/${samplingMapId}/responses/export`} />}
+            >
+              Download Responses
+            </Button>
+          )}
           <SatelliteToggleButton satellite={isSatellite} onToggle={() => setIsSatellite((v) => !v)} />
         </div>
       </div>

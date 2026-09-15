@@ -33,10 +33,11 @@ export const RESTRICTED_ALLOWED_ROUTES: RouteScope[] = [
   { method: "POST", pattern: "/api/upload/document" },
   { method: "POST", pattern: "/api/upload/contact-card" },
 
-  // Forms — pull assigned forms, submit responses.
+  // Forms — pull assigned forms, submit responses, view own submission history.
   { method: "GET", pattern: "/api/data/forms" },
   { method: "GET", pattern: "/api/data/forms/:id" },
   { method: "POST", pattern: "/api/data/forms/:id/responses" },
+  { method: "GET", pattern: "/api/data/forms/:id/responses" },
 
   // Sampling maps — pull assigned maps, submit field points/collections.
   { method: "GET", pattern: "/api/data/sampling-maps" },

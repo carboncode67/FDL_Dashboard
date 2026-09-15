@@ -47,7 +47,8 @@ export async function GET(request: Request, { params }: Params) {
   });
 }
 
-// Submit a response. Body: { values: Record<label, string|number|boolean|null>, lat?, lng?, content_hash? }
+// Submit a response. Body: { values: Record<label, string|number|boolean|null>, lat?, lng?,
+// altitude?, h_accuracy?, fix_quality?, external_gps?, content_hash? }
 // Submitted keys are matched to Form_Field_Definitions by normalized label —
 // same validation approach as app/api/data/experiment-tests/[id]/rows.
 export async function POST(request: Request, { params }: Params) {
@@ -70,6 +71,10 @@ export async function POST(request: Request, { params }: Params) {
       values?: unknown;
       lat?: unknown;
       lng?: unknown;
+      altitude?: unknown;
+      h_accuracy?: unknown;
+      fix_quality?: unknown;
+      external_gps?: unknown;
       content_hash?: unknown;
       sampling_point_id?: unknown;
     };
@@ -92,6 +97,13 @@ export async function POST(request: Request, { params }: Params) {
     }
     const lat = typeof body.lat === "number" ? body.lat : null;
     const lng = typeof body.lng === "number" ? body.lng : null;
+    // Planned Changes #13 (map survey CSV export) — persisted alongside the values that
+    // already drove farm_id resolution below. altitude has no client sender yet (stays null);
+    // fix_quality/h_accuracy are iOS-only today (see swift/CLAUDE.md's precise-GNSS section).
+    const altitude = typeof body.altitude === "number" ? body.altitude : null;
+    const hAccuracy = typeof body.h_accuracy === "number" ? body.h_accuracy : null;
+    const fixQuality = typeof body.fix_quality === "string" ? body.fix_quality : null;
+    const externalGps = typeof body.external_gps === "boolean" ? body.external_gps : null;
     const contentHash =
       typeof body.content_hash === "string" ? body.content_hash : null;
 
@@ -204,6 +216,12 @@ export async function POST(request: Request, { params }: Params) {
         data,
         content_hash: contentHash,
         sampling_point_id: samplingPointId,
+        lat,
+        lng,
+        altitude,
+        h_accuracy: hAccuracy,
+        fix_quality: fixQuality,
+        external_gps: externalGps,
       },
     });
 
