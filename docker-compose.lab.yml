@@ -24,6 +24,11 @@ services:
         condition: service_healthy
     volumes:
       - /mnt/tank/backups/fdl_dashboard:/app/upload-data
+      # Optional — only present on TrueNAS dev as of 2026-09-15, not the lab
+      # server. Basemap sideload intake share (see BASEMAP_INTAKE_DIR in
+      # sample_compose.yaml and docs/raster-tiling-plan.md); read-only, the
+      # app only ever reads + symlinks from here.
+      - /mnt/Inground/Pictures/Drone_Photos/Orthos:/app/basemap-intake:ro
     env_file: .env.lab
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/auth/session"]
