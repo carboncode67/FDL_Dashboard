@@ -304,4 +304,56 @@ a successful upload:**
      scoping item, not a quick patch.
   2. UI polish: "Upload Field Boundaries" and "Upload Basemap" should merge
      into one control that distinguishes by file format, rather than two
-     separate upload boxes on the farm page.
+     separate upload boxes on the farm page. **Still not built** as of the
+     entry below.
+
+**2026-09-15 (cont.) — maxDuration bump didn't fix it; built the sideload
+path (option A) instead of chasing the timeout further:**
+
+- Retried the same 6.3 GB file against the redeployed `truenas-dev` image
+  (`maxDuration = 3600`): **still `ECONNRESET`**. Confirms the bottleneck is
+  not Next.js's own request timeout — it's somewhere further down the chain
+  (Caddy, OPNsense, or a router-level NAT/connection-tracking timeout).
+  **Root cause still not actually identified** — don't assume it's fixed or
+  well-understood, just routed around.
+- User weighed two options: (A) a sideload path — drop the file directly on
+  a share the server already mounts, register it without re-sending its
+  bytes over HTTP — vs. (B) real S3-compatible object storage with presigned
+  direct-to-storage uploads. Went with **A**, on the reasoning that basemap
+  upload is a low-frequency, lab-member-only action, so standing up new
+  storage infrastructure (Garage, bucket/key provisioning, a presigned-URL
+  flow, changing how PipelineProcessor fetches the source file) isn't
+  proportionate yet. B remains the architecturally "correct" fix if large
+  uploads become a recurring pattern across the platform — revisit then,
+  don't build it preemptively.
+- **Built**: `GET/POST /api/basemaps/intake` + a "Register" list in
+  `components/basemap-upload.tsx`. Lists `.tif`/`.tiff` files sitting in
+  `BASEMAP_INTAKE_DIR` (new optional env var) not yet registered, and on
+  registration: hashes the file where it already sits (streamed, not
+  buffered), **symlinks** it into `DATA_DIR/basemap-sources/` (never
+  copies — not worth duplicating a multi-GB file), creates the `Basemaps`
+  row, and triggers tiling exactly like the existing upload path. No
+  migration needed — reuses the same `Basemaps` columns.
+- **Important unresolved risk, flagged in the code, not yet tested**: tiling
+  still hands PipelineProcessor a `download_url` it fetches over HTTP — the
+  *same* Caddy/OPNsense path that just failed for the browser upload.
+  Sideloading only fixes the upload half. Deliberately did **not** also add
+  a filesystem-path option to `PipelineProcessor`'s tiling endpoint (that's
+  a cross-component change, and item-90's `LANDING_DIR`-based pipeline is
+  the existing precedent for how that would look) — reasoning: a
+  server-to-server fetch between Datamachine and TrueNAS might behave
+  completely differently than a browser-initiated upload (different
+  network path, no browser-side quirks), so it's worth finding out
+  empirically on the next real tiling run before assuming it needs the same
+  fix. **If it does hit the same wall, the next step is a filesystem-path
+  option on PipelineProcessor's side, not another workaround here.**
+- **Not yet done:** actually registering the 6.3 GB test file through the
+  new route and confirming a tiling run completes end-to-end. The intake
+  directory itself (`/mnt/Inground/Pictures/Drone_Photos/Orthos` on the
+  user's NAS) also still needs to be mounted into the TrueNAS app's storage
+  config and `BASEMAP_INTAKE_DIR` set to wherever it lands in the
+  container — neither done as of this entry, since the SCALE app wasn't
+  redeployed with this code yet.
+- Committed but **not deployed** anywhere (TrueNAS or production) — per the
+  user's standing rule, no production changes until things are proven
+  smooth on dev first.

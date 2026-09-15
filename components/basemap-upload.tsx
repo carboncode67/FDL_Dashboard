@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,94 @@ interface Props {
 type Status = "idle" | "uploading" | "success" | "error";
 
 const ALLOWED_EXTENSIONS = [".tif", ".tiff"];
+
+interface IntakeFile {
+  filename: string;
+  bytes: number;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
+  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(0)} MB`;
+  return `${bytes} B`;
+}
+
+// Sideload alternative to the drag-and-drop uploader below — for a raster too
+// large to reliably push through an HTTP upload (see docs/raster-tiling-plan.md's
+// 2026-09-15 log). Lists .tif/.tiff files already sitting in BASEMAP_INTAKE_DIR
+// (a share dropped there directly, e.g. over SMB) and registers one with a click
+// instead of re-uploading its bytes. Renders nothing if the server has no
+// BASEMAP_INTAKE_DIR configured or the intake dir is empty — not meant to be a
+// visible feature for the common case, just an escape hatch.
+function IntakeRegister({ farmId, onRegistered }: { farmId: number; onRegistered: () => void }) {
+  const [files, setFiles] = useState<IntakeFile[] | null>(null);
+  const [registeringFile, setRegisteringFile] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/basemaps/intake")
+      .then((r) => r.json())
+      .then((json) => setFiles(json.configured ? json.files : []))
+      .catch(() => setFiles([]));
+  }, []);
+
+  async function register(filename: string) {
+    setRegisteringFile(filename);
+    setError("");
+    try {
+      const res = await fetch("/api/basemaps/intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename, farm_id: farmId }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error ?? "Registration failed");
+        setRegisteringFile(null);
+        return;
+      }
+      setFiles((prev) => prev?.filter((f) => f.filename !== filename) ?? null);
+      setRegisteringFile(null);
+      onRegistered();
+    } catch {
+      setError("Network error — try again");
+      setRegisteringFile(null);
+    }
+  }
+
+  if (!files || files.length === 0) return null;
+
+  return (
+    <div className="border-t border-slate-100 pt-4 space-y-2">
+      <p className="text-xs text-slate-500">
+        Or register a file already dropped on the server&apos;s intake share:
+      </p>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <ul className="space-y-1.5">
+        {files.map((f) => (
+          <li key={f.filename} className="flex items-center justify-between gap-2 text-sm">
+            <span className="truncate text-slate-700" title={f.filename}>
+              {f.filename} <span className="text-slate-400">({formatBytes(f.bytes)})</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => register(f.filename)}
+              disabled={registeringFile !== null}
+              className={cn(
+                "shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                registeringFile === f.filename
+                  ? "bg-slate-100 text-slate-400"
+                  : "bg-slate-900 text-white hover:bg-slate-700",
+              )}
+            >
+              {registeringFile === f.filename ? "Registering…" : "Register"}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export function BasemapUpload({ farmId }: Props) {
   const router = useRouter();
@@ -137,6 +225,8 @@ export function BasemapUpload({ farmId }: Props) {
             {status === "uploading" ? "Uploading…" : "Upload Basemap"}
           </button>
         </form>
+
+        <IntakeRegister farmId={farmId} onRegistered={() => router.refresh()} />
       </CardContent>
     </Card>
   );
