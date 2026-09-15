@@ -6,9 +6,15 @@ FDL app") in `FarmersDatabase/Planned Changes.md`, including item 6's two
 sub-bullets (drone-raster checkbox on Farm maps; raster basemap toolset in the
 Create-maps/sampling-map editor).
 
-> **Status:** scoping only. No code written, no migrations drafted. This
-> document exists to nail down the architecture and surface the decisions that
-> need the user's sign-off before implementation starts.
+> **Status:** Phase 1 (Dashboard-UI + PipelineProcessor upload/tiling/display,
+> not yet the mobile apps) implemented as of commit `487e664` (2026-09-13) —
+> `Basemaps` table (migration 074), `POST /api/basemaps`, tiling webhook,
+> farm-map + sampling-map-editor display. Being tested live against TrueNAS
+> dev as of 2026-09-15 — see the session log at the bottom for what's been
+> found and fixed so far, and what's still open. This header is stale
+> relative to the rest of the doc below (§§2-5 predate implementation and
+> haven't been reconciled with what actually got built) — treat the log as
+> the current source of truth, the rest as historical scoping context.
 
 ---
 
@@ -238,3 +244,64 @@ verified in this pass:
 4. Any existing drone orthomosaics/rasters sitting around already (from
    Agisoft runs on Datamachine) that should inform real-world size/format
    assumptions before the upload endpoint's limits are set?
+
+---
+
+## 6. Session log — live testing against TrueNAS dev
+
+**2026-09-15 — first real end-to-end test, found and fixed two bugs before
+a successful upload:**
+
+- Test file: a real 6.3 GB drone orthomosaic (`orthomosaic_rgb.tif`),
+  farm 7 ("Rich Nan Farms", `lab_id=1`/`fdl`).
+- **Bug 1 (security): `Basemaps` had no RLS policy.** Migration 074 landed
+  the table in `pgntarg2udzj1f3` after migrations 070/071 already ran, so it
+  never got the `tenant_isolation` policy every other table there has — and
+  `sql/roles/create_lab_role.sql.template`'s `ALTER DEFAULT PRIVILEGES`
+  already grants every `app_<slug>` role full CRUD on any new table in that
+  schema regardless. Under TrueNAS's live `TENANT_ENFORCEMENT=hard`, that
+  meant every lab could read/write every other lab's uploaded basemaps.
+  Fixed by `migrations/075_basemaps_rls.sql` (same child-table-via-`farm_id`
+  pattern as every other farm-scoped table in 071) — applied and verified on
+  local dev and TrueNAS both before proceeding.
+- TrueNAS's running app image predated the whole raster-tiling feature
+  (last rebuilt 2026-09-11/12, this feature landed 2026-09-13) — rebuilt and
+  pushed a fresh image. **Deliberately not pushed to `:latest`** — TrueNAS
+  and production share that tag, and per the user's standing rule (no
+  production changes until things are proven smooth on dev), a separate
+  `ghcr.io/carboncode67/fdl-server:truenas-dev` tag was used instead so
+  TrueNAS can keep iterating without any risk of production picking up
+  in-flight work on its next pull. Worth deciding at some point whether this
+  becomes the permanent convention (TrueNAS always on a distinct tag) or
+  stays a one-off for this test — currently the latter.
+- **Bug 2: upload failed with a client-side "network error" on the real 6.3
+  GB file.** Diagnosed via TrueNAS app container logs (DevTools' Network tab
+  couldn't render the huge request), not guessing from the client side:
+  `Error: aborted { code: 'ECONNRESET' }`, confirming the request *did*
+  reach the app (ruling out a reverse-proxy rejection) and was aborted
+  server-side after some real elapsed time. Root cause: `POST /api/basemaps`
+  had `export const maxDuration = 300` — Next.js enforces `maxDuration` as a
+  real request timeout on self-hosted deployments too, not just Vercel, and
+  300s isn't enough for a multi-GB transfer. Bumped to 3600s, confirmed via
+  the same rebuild/push/pull/redeploy cycle.
+- Also discovered while debugging: TrueNAS dev's actual reverse-proxy stack
+  is **Caddy + Unbound on an OPNsense router**, not the Nginx Proxy
+  Manager / Cloudflare setup `CLAUDE.md`'s login-rate-limit section
+  describes — that doc note has been corrected; what fronts *production* is
+  still unverified, don't assume it's the same as what the doc said either.
+- **Not yet confirmed: a full successful upload + tiling run.** The
+  `maxDuration` fix is pushed and pulled but not yet re-tested end-to-end as
+  of this log entry — next step is retrying the same 6.3 GB file and
+  confirming `tiling_status` actually reaches `ready` (requires
+  `PROCESSING_URL`/`PROCESSING_API_KEY` to be configured on this Dashboard-UI
+  instance and PipelineProcessor reachable from it — neither has been
+  confirmed live on TrueNAS yet, separately from the upload bug itself).
+- Real user feedback captured for follow-up, not yet built:
+  1. The real, durable fix for "large upload dies somewhere in the request
+     path" is a presigned direct-to-storage upload (S3-compatible, e.g.
+     Garage) that bypasses this request's lifecycle entirely rather than
+     raising timeouts/limits piecemeal — flagged as a proper follow-up
+     scoping item, not a quick patch.
+  2. UI polish: "Upload Field Boundaries" and "Upload Basemap" should merge
+     into one control that distinguishes by file format, rather than two
+     separate upload boxes on the farm page.
