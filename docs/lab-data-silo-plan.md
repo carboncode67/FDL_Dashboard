@@ -889,3 +889,48 @@ in Phase 0–1 changed any running behavior or touched TrueNAS/production.
 - Still true throughout: **no production migration, role, or deploy of any
   kind** - everything above is local dev and the TrueNAS sandbox only.
 
+**2026-09-15 - Migration 072 (public.users RLS) + 073 (map survey columns)
+applied and verified on local dev:**
+
+- Confirmed baseline first: `relrowsecurity = f` on `public.users` and zero
+  `public` schema policies before applying anything.
+- `073_map_survey_responses.sql` (unrelated additive columns for Planned
+  Changes #13 - `Form_Responses.lat/lng/altitude/h_accuracy/fix_quality/
+  external_gps`, `Sampling_Maps.proximity_radius_m`) applied clean, no
+  dependencies on 072.
+- `072_public_users_rls.sql` applied clean via `docker exec ... psql -U
+  nocodb`. Verified directly: `relrowsecurity = t` / `relforcerowsecurity = f`
+  on all 4 tables (`users` + the 3 per-user filter tables), `tenant_isolation`
+  policy present on each, and `nocodb` (table owner) still sees all 6 rows in
+  `public.users` unfiltered - matches the ENABLE-not-FORCE design exactly.
+- **Closed the two specific risk paths this migration could have hit, by
+  reading the code rather than assuming:**
+  1. `lib/auth.ts`'s credential lookup imports `basePrisma` directly (never
+     the tenant-scoped `prisma` proxy) - by design, per its own comment,
+     since you don't know a user's lab until you've found their row. Login
+     is fully unaffected by RLS on `public.users` regardless of
+     `TENANT_ENFORCEMENT` mode.
+  2. This session's still-open worry item - whether OFEDashBot/
+     PipelineProcessor/OFE_Dashboard's service bearer tokens would be
+     affected - is resolved: `lib/upload-auth.ts`'s token lookup also uses
+     `basePrisma` (see its own comment: `runWithLab(auth.labSlug, ...)` only
+     happens *after* this returns), and every bearer-token route already
+     wraps its handler in `runWithLab()` post-auth (confirmed by grep across
+     all of `app/api/data/*` and `app/api/upload/*`). So a service token's
+     initial lookup is always unscoped, and everything it does afterward is
+     correctly scoped to *that token's own* `lab_id` - for OFE_Dashboard's
+     `FDL_SYNC_TOKEN` (`lab_id = 1`, the `fdl` lab), this changes nothing
+     about what it can already see.
+- Local dev app container (`dashboard-ui-app-1`) is currently still on a
+  plain `nocodb` `DATABASE_URL` (not `app_fdl`) - confirmed via
+  `docker exec ... printenv` - so this change has zero effect on it either
+  way; the verification above was done directly against the DB, not through
+  a running app session.
+- **Not yet done: applying either migration to TrueNAS.** Given the app
+  there genuinely connects as `app_fdl`/`app_goebel`/`app_cbg` under
+  `TENANT_ENFORCEMENT=hard` with 3 real onboarded labs, 072 will have an
+  immediate, real effect there (that's the point) - same `docker exec`
+  runbook as 067/068, but recommend a quick post-apply smoke check (one
+  login per lab, one cross-lab query) given real admins depend on that
+  instance, even though the mechanism itself is now verified safe.
+
