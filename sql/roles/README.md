@@ -44,3 +44,30 @@ urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$PASSWORD"`.
 Run against **local and dev only** until Phase 3 of the plan says otherwise —
 production role creation is its own checklist item, done deliberately, not as
 a side effect of running this template.
+
+## Remediation: narrowing an already-provisioned role's `public` grant
+
+`create_lab_role.sql.template` used to `GRANT ... ON ALL TABLES IN SCHEMA public`
+to every `app_<slug>` role, before migration `072_public_users_rls.sql` added
+RLS to `public.users` and friends. Any role created before that fix (on
+TrueNAS dev, that's every lab role provisioned so far) still holds the old
+blanket grant and needs it revoked explicitly — a fresh run of the updated
+template only affects roles created after the fix, it doesn't retroactively
+narrow existing ones. Run this once per already-provisioned lab role, **after**
+`072_public_users_rls.sql` has been applied (so RLS is in place before the
+grant is anyway redundant, not as a substitute for it):
+
+```sql
+-- Repeat for each existing app_<slug> role.
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM app_<slug>;
+REVOKE ALL ON SCHEMA public FROM app_<slug>; -- re-granted narrowly below
+GRANT USAGE ON SCHEMA public TO app_<slug>;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.users TO app_<slug>;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public."User_Project_Filters" TO app_<slug>;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public."User_Farm_Filters" TO app_<slug>;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public."User_Filter_Settings" TO app_<slug>;
+GRANT SELECT ON public.labs TO app_<slug>;
+GRANT SELECT, INSERT, UPDATE ON public.site_config TO app_<slug>;
+ALTER DEFAULT PRIVILEGES FOR ROLE nocodb IN SCHEMA public REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM app_<slug>;
+ALTER DEFAULT PRIVILEGES FOR ROLE nocodb IN SCHEMA public REVOKE USAGE ON SEQUENCES FROM app_<slug>;
+```

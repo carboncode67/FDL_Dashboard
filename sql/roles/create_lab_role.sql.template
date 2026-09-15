@@ -13,19 +13,32 @@ ALTER ROLE app_${SLUG} SET app.current_lab_id = '${LAB_ID}';
 GRANT USAGE ON SCHEMA public TO app_${SLUG};
 GRANT USAGE ON SCHEMA "pgntarg2udzj1f3" TO app_${SLUG};
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_${SLUG};
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "pgntarg2udzj1f3" TO app_${SLUG};
+-- public is NOT blanket-granted: it holds legacy NocoDB metadata tables with
+-- no Prisma model and no app code path, which app_${SLUG} has no legitimate
+-- reason to touch. Grant only the six tables Prisma actually models there
+-- (see prisma/schema.prisma's @@schema("public") models) -- users/labs/
+-- site_config plus the three per-user filter tables, all RLS-protected as of
+-- migration 072 except labs/site_config (see that migration's trailing note
+-- for why those two are intentionally left shared, not RLS'd).
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.users TO app_${SLUG};
+GRANT SELECT, INSERT, UPDATE, DELETE ON public."User_Project_Filters" TO app_${SLUG};
+GRANT SELECT, INSERT, UPDATE, DELETE ON public."User_Farm_Filters" TO app_${SLUG};
+GRANT SELECT, INSERT, UPDATE, DELETE ON public."User_Filter_Settings" TO app_${SLUG};
+GRANT SELECT ON public.labs TO app_${SLUG};
+GRANT SELECT, INSERT, UPDATE ON public.site_config TO app_${SLUG};
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO app_${SLUG};
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "pgntarg2udzj1f3" TO app_${SLUG};
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA "pgntarg2udzj1f3" TO app_${SLUG};
 
 -- Cover tables/sequences created by future migrations (run as nocodb) without
--- re-running this script.
-ALTER DEFAULT PRIVILEGES FOR ROLE nocodb IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_${SLUG};
+-- re-running this script. Deliberately scoped to pgntarg2udzj1f3 only -- a new
+-- table landing in public is rare enough (the last one was years ago) that it
+-- deserves an explicit, reviewed GRANT added above rather than an automatic
+-- blanket one; add it here (and give it an RLS policy in a migration) when
+-- that actually happens.
 ALTER DEFAULT PRIVILEGES FOR ROLE nocodb IN SCHEMA "pgntarg2udzj1f3"
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_${SLUG};
-ALTER DEFAULT PRIVILEGES FOR ROLE nocodb IN SCHEMA public
-  GRANT USAGE ON SEQUENCES TO app_${SLUG};
 ALTER DEFAULT PRIVILEGES FOR ROLE nocodb IN SCHEMA "pgntarg2udzj1f3"
   GRANT USAGE ON SEQUENCES TO app_${SLUG};
 
