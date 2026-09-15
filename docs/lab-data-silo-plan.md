@@ -926,11 +926,28 @@ applied and verified on local dev:**
   `docker exec ... printenv` - so this change has zero effect on it either
   way; the verification above was done directly against the DB, not through
   a running app session.
-- **Not yet done: applying either migration to TrueNAS.** Given the app
-  there genuinely connects as `app_fdl`/`app_goebel`/`app_cbg` under
-  `TENANT_ENFORCEMENT=hard` with 3 real onboarded labs, 072 will have an
-  immediate, real effect there (that's the point) - same `docker exec`
-  runbook as 067/068, but recommend a quick post-apply smoke check (one
-  login per lab, one cross-lab query) given real admins depend on that
-  instance, even though the mechanism itself is now verified safe.
+- **2026-09-15 (cont.) - 072/073 applied to TrueNAS and verified for real,
+  against the 3 real onboarded labs:**
+  - Same `docker exec ... psql -U nocodb` runbook as 067/068, run by the user
+    (password-auth box, no SSH key access for me). 073 first, then 072.
+  - Sanity check matched local dev exactly: `relrowsecurity = t` /
+    `relforcerowsecurity = f` on all 4 tables, one `tenant_isolation` policy
+    each, `nocodb` (bypass) sees all users across all 3 labs unfiltered
+    (`lab_id` 1/2/3 -> 2/1/1 rows).
+  - **The real per-role isolation test** - connected as `app_fdl`,
+    `app_goebel`, and `app_cbg` in turn and queried `public.users`: each
+    returned **exactly its own `lab_id`, count matching the nocodb baseline,
+    zero rows from either other lab**. This is the actual guarantee 072
+    exists for, confirmed live against real onboarded lab data, not just a
+    schema check.
+  - `lab_id = 1`'s count of 2 includes `ofe-sync@service.local` (this
+    session's other task, the OFE_Dashboard sync service account) alongside
+    the original `fdl` admin - expected, not a leak.
+  - **Not yet done:** step 3 of the runbook (log into each of the 3 labs'
+    real admin accounts through the actual UI to confirm end-to-end) - the
+    DB-level guarantee is now proven directly, so this is now just a
+    convenience/UX smoke check rather than a safety-critical one. `/tmp/*.sql`
+    on the TrueNAS box should also be cleaned up.
+  - Still true: **no production migration, role, or deploy of any kind**
+    anywhere in 072/073's rollout either.
 
