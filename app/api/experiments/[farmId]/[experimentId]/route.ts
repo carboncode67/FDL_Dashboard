@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
-import { canDelete, type Role } from "@/lib/roles";
+import { canEdit, canDelete, type Role } from "@/lib/roles";
 import { runWithTenant } from "@/lib/lab-db";
+import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 
 const INCLUDE = {
   ExperimentTests:        { include: { Test:      { select: { id: true, Test_Name: true } } } },
@@ -23,14 +24,26 @@ export async function GET(_: Request, { params }: Params) {
     where: { id: parseInt(experimentId) },
     include: INCLUDE,
   });
+  const scope = await getEffectiveScope(session.user.id, session.user.category);
+  if (!scopeIncludesFarm(scope, experiment.farm_id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(experiment);
   });
 }
 
 export async function PUT(req: Request, { params }: Params) {
   return runWithTenant(async () => {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
   const { experimentId } = await params;
   const experimentIdInt = parseInt(experimentId);
+
+  const target = await prisma.farmExperiment.findUnique({ where: { id: experimentIdInt }, select: { farm_id: true } });
+  if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const scope = await getEffectiveScope(session.user.id, session.user.category);
+  if (!scopeIncludesFarm(scope, target.farm_id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const body = await req.json();
 
   const {
@@ -207,7 +220,13 @@ export async function DELETE(_: Request, { params }: Params) {
   }
 
   const { experimentId } = await params;
-  await prisma.farmExperiment.delete({ where: { id: parseInt(experimentId) } });
+  const experimentIdInt = parseInt(experimentId);
+  const target = await prisma.farmExperiment.findUnique({ where: { id: experimentIdInt }, select: { farm_id: true } });
+  if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const scope = await getEffectiveScope(session.user.id, session.user.category);
+  if (!scopeIncludesFarm(scope, target.farm_id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await prisma.farmExperiment.delete({ where: { id: experimentIdInt } });
   return NextResponse.json({ success: true });
   });
 }
