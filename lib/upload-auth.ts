@@ -11,9 +11,16 @@ export type AuthResult =
 
 export type BearerScopeEnforcement = "off" | "log" | "enforce";
 
+// Defaults to "log" rather than "off": a restricted (mobile/QR-code) token is
+// meant to be confined to RESTRICTED_ALLOWED_ROUTES, but until this shipped,
+// nothing enforced that anywhere. "log" is non-breaking (every request still
+// succeeds) and starts surfacing real violations immediately instead of
+// silently doing nothing until someone remembers to set the env var — set
+// BEARER_SCOPE_ENFORCEMENT=off explicitly to opt back out, or =enforce once
+// the logs look clean.
 export function bearerScopeEnforcement(): BearerScopeEnforcement {
   const v = process.env.BEARER_SCOPE_ENFORCEMENT;
-  return v === "log" || v === "enforce" ? v : "off";
+  return v === "off" || v === "enforce" ? v : "log";
 }
 
 // The token lookup itself deliberately uses `basePrisma`, never the ambient

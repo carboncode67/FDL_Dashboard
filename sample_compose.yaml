@@ -70,11 +70,12 @@ services:
       # BYPASSRLS, SELECT-only — see sql/roles/create_platform_role.sql.template.
       DATABASE_URL__PLATFORM: ${DATABASE_URL__PLATFORM:-}
       # Optional. Restricts mobile-app/QR-code bearer tokens to uploads + pulling
-      # forms/maps/geofences (see lib/route-scopes.ts). "off" (default) = no
-      # restriction (today's behavior); "log" = violations logged, not blocked;
-      # "enforce" = 403s a disallowed call. Mark service integrations'
+      # forms/maps/geofences (see lib/route-scopes.ts). "log" (default) = violations
+      # logged, not blocked, so you can watch real traffic before tightening this;
+      # "enforce" = 403s a disallowed call; "off" = no restriction at all (opt back
+      # into the old behavior — not recommended). Mark service integrations'
       # is_service_account = true (Admin Panel) before using "enforce".
-      BEARER_SCOPE_ENFORCEMENT: ${BEARER_SCOPE_ENFORCEMENT:-off}
+      BEARER_SCOPE_ENFORCEMENT: ${BEARER_SCOPE_ENFORCEMENT:-log}
     volumes:
       - upload-data:/app/upload-data
     depends_on:
