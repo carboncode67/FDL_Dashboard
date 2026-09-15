@@ -17,7 +17,14 @@ import Busboy from "busboy";
 // mobile bearer route — no proxy.ts change needed here, same as any other
 // app/api/[entity]/route.ts.
 export const runtime = "nodejs";
-export const maxDuration = 300;
+// 300s was too short for a real multi-GB upload and caused a hard
+// ECONNRESET mid-transfer (Next.js enforces maxDuration as a real request
+// timeout on self-hosted deployments too, not just Vercel) - confirmed live
+// against a 6.3 GB test file on TrueNAS dev, 2026-09-15. 3600s comfortably
+// covers a multi-GB transfer; the real fix (presigned direct-to-storage
+// upload, bypassing this request's lifecycle entirely) is tracked as a
+// follow-up in docs/raster-tiling-plan.md rather than raising this forever.
+export const maxDuration = 3600;
 
 const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 const ALLOWED_EXTS = new Set([".tif", ".tiff"]);
