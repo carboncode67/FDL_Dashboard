@@ -225,9 +225,16 @@ BEGIN
     EXECUTE $sql$CREATE POLICY tenant_isolation ON "pgntarg2udzj1f3"."_nc_m2m_Fields_Tests" USING ("Fields_id" IN (SELECT id FROM "pgntarg2udzj1f3"."Fields")) WITH CHECK ("Fields_id" IN (SELECT id FROM "pgntarg2udzj1f3"."Fields"))$sql$;
   END IF;
 
-  EXECUTE $sql$ALTER TABLE "pgntarg2udzj1f3"."_nc_m2m_Fields_Treatments" ENABLE ROW LEVEL SECURITY$sql$;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'pgntarg2udzj1f3' AND tablename = '_nc_m2m_Fields_Treatments' AND policyname = 'tenant_isolation') THEN
-    EXECUTE $sql$CREATE POLICY tenant_isolation ON "pgntarg2udzj1f3"."_nc_m2m_Fields_Treatments" USING ("Fields_id" IN (SELECT id FROM "pgntarg2udzj1f3"."Fields")) WITH CHECK ("Fields_id" IN (SELECT id FROM "pgntarg2udzj1f3"."Fields"))$sql$;
+  -- Unlike its siblings above, this junction table isn't created by any
+  -- tracked migration -- it's a base-schema artifact present on local dev's
+  -- original NocoDB bootstrap dump but absent from production's (discovered
+  -- 2026-09-17 diffing prod's live schema before the production cutover).
+  -- Guarded so this migration stays a no-op there instead of hard-failing.
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'pgntarg2udzj1f3' AND tablename = '_nc_m2m_Fields_Treatments') THEN
+    EXECUTE $sql$ALTER TABLE "pgntarg2udzj1f3"."_nc_m2m_Fields_Treatments" ENABLE ROW LEVEL SECURITY$sql$;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'pgntarg2udzj1f3' AND tablename = '_nc_m2m_Fields_Treatments' AND policyname = 'tenant_isolation') THEN
+      EXECUTE $sql$CREATE POLICY tenant_isolation ON "pgntarg2udzj1f3"."_nc_m2m_Fields_Treatments" USING ("Fields_id" IN (SELECT id FROM "pgntarg2udzj1f3"."Fields")) WITH CHECK ("Fields_id" IN (SELECT id FROM "pgntarg2udzj1f3"."Fields"))$sql$;
+    END IF;
   END IF;
 
   EXECUTE $sql$ALTER TABLE "pgntarg2udzj1f3"."_nc_m2m_Projects_Farms" ENABLE ROW LEVEL SECURITY$sql$;
