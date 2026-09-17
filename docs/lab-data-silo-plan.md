@@ -1153,12 +1153,40 @@ any point in this exercise.
   `local_schema_only.sql`, `prod_users_data*.sql`) deleted from every machine
   they touched (Mac, lab server, TrueNAS) once each step was verified — they
   carry real production PII and credentials-adjacent data.
-- **Still open**: re-populate Goebel/cbg with fresh test data and re-run the
-  actual two-lab isolation check now that real production-scale data lives
-  in lab `fdl` (the real point of this whole exercise — not yet done, since
-  Goebel/cbg are currently empty from the wipe); a few uploads still show
+- **Isolation re-verified with real production-scale data present, in both
+  directions — the actual pass/fail gate for this whole rehearsal:**
+  created a real farm in Goebel (id 34), confirmed it's invisible from an
+  `fdl` session via the platform-admin lab switcher (page loads, no data —
+  RLS blocks it). Then, independently, tested the *other* isolation
+  path — bearer-token/API access, which resolves its lab from the token
+  itself (`lib/upload-auth.ts`), not any session switcher — using a real
+  Goebel lab-member token against the live Data Access API:
+  `GET /api/data/farms` returned only Goebel's own farm; direct
+  `GET /api/data/farms/<id>` for several of `fdl`'s real restored production
+  farm IDs all `404`'d (not `403` — correctly matches the existing
+  don't-leak-existence pattern elsewhere in this API); `GET /api/data/uploads`
+  returned zero results, none of `fdl`'s real 7 restored photos leaking
+  through. Both the session/RLS-connection path and the independent
+  bearer-token path hold under real production-scale data across two
+  concurrently-live labs. This is the strongest evidence yet that the
+  migration is production-ready.
+- **Still open**: repeat a similar small smoke test in `cbg` (Botanic
+  Gardens) for a third data point; a few restored uploads still show
   "Unknown user" (real accounts already gone from production itself, judged
   acceptable by the maintainer); the basemap-intake mount in
   `docker-compose.lab.yml` wasn't re-verified against the live container
-  the way the upload-data mount was.
+  the way the upload-data mount was; spot-checking the other upload types
+  (recordings/notes/locations/videos/documents) and file+DB-joined features
+  (CVAT, pipelines, basemaps, a form with a photo answer) hasn't been done
+  yet. The `ix-farmersdatabase` TrueNAS deployment turned out to be a
+  TrueNAS SCALE "Custom App" (compose rendered to
+  `/mnt/.ix-apps/app_configs/farmersdatabase/versions/1.0.0/templates/rendered/docker-compose.yaml`,
+  project name `ix-farmersdatabase`) — **not** driven by this repo's
+  `docker-compose.lab.yml` directly; a `docker compose -f <that path>`
+  invocation without `-p ix-farmersdatabase` creates a colliding second
+  project (learned by briefly doing exactly that — cleaned up with `down`
+  before it caused any real disruption; the actual app container was
+  never affected). Future image updates on that box need `-p
+  ix-farmersdatabase` explicit, or should go through TrueNAS's own Apps UI
+  instead.
 
