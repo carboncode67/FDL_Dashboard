@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -62,22 +63,24 @@ export function LabSwitcher({ labs, activeLabSlug, homeLabSlug, activeLabName }:
         <ChevronDown className="h-3 w-3" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel className="text-xs text-slate-500">
-          Platform admin — view as lab
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {labs.map((lab) => (
-          <DropdownMenuItem
-            key={lab.id}
-            className="cursor-pointer justify-between"
-            onClick={() => selectLab(lab.slug === homeLabSlug ? null : lab.slug)}
-          >
-            {lab.name}
-            {(activeLabSlug ?? homeLabSlug) === lab.slug && (
-              <span className="text-xs text-emerald-600">Active</span>
-            )}
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-xs text-slate-500">
+            Platform admin — view as lab
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {labs.map((lab) => (
+            <DropdownMenuItem
+              key={lab.id}
+              className="cursor-pointer justify-between"
+              onClick={() => selectLab(lab.slug === homeLabSlug ? null : lab.slug)}
+            >
+              {lab.name}
+              {(activeLabSlug ?? homeLabSlug) === lab.slug && (
+                <span className="text-xs text-emerald-600">Active</span>
+              )}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
