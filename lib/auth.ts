@@ -86,7 +86,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               where: { id: user.id as string },
               select: { role: true, category: true, lab_id: true, platform_admin: true },
             });
-            token.role = (dbUser?.role ?? "member") as "admin" | "member" | "viewer";
+            // A platform admin's own `role` column only reflects permissions
+            // in their home lab — but the lab switcher lets them view *any*
+            // lab, and the whole point of choosing "full access" for this
+            // tier (docs/lab-data-silo-plan.md §6) is that they act as an
+            // admin everywhere they look, not just their home lab. Force it
+            // here rather than requiring role='admin' to be hand-set per
+            // account on top of platform_admin=true.
+            token.role = dbUser?.platform_admin
+              ? "admin"
+              : ((dbUser?.role ?? "member") as "admin" | "member" | "viewer");
             token.category = (dbUser?.category ?? "lab_member") as "lab_member" | "agronomist";
             token.lab_id = dbUser?.lab_id ?? null;
             token.platform_admin = dbUser?.platform_admin ?? false;
