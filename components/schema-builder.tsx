@@ -160,7 +160,7 @@ export function SchemaBuilder({ endpoint, initialColumns }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-stone-500">
           Define the columns for this data template. Rows ingested for it must match these columns.
         </p>
         <input
@@ -181,10 +181,10 @@ export function SchemaBuilder({ endpoint, initialColumns }: Props) {
           <Upload className="h-3.5 w-3.5 mr-1" /> Import from CSV
         </Button>
       </div>
-      {importNote && <p className="text-xs text-emerald-700">{importNote}</p>}
+      {importNote && <p className="text-xs text-green-700">{importNote}</p>}
 
       {columns.length === 0 ? (
-        <p className="text-sm text-slate-400 italic">No columns defined — add one below.</p>
+        <p className="text-sm text-stone-400 italic">No columns defined — add one below.</p>
       ) : (
         <div className="space-y-2">
           {columns.map((col, i) => (

@@ -166,13 +166,13 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
   return (
     <div className="space-y-3">
       {!hasData && (
-        <p className="text-sm text-slate-500 italic">
+        <p className="text-sm text-stone-500 italic">
           No spatial data available for this farm yet. Field and zone boundaries appear once geometry is ingested;
           photos and notes appear once uploaded from the mobile app.
         </p>
       )}
 
-      <div className="relative rounded-lg overflow-hidden border border-slate-200 isolate" style={{ height: 520 }}>
+      <div className="relative rounded-lg overflow-hidden border border-stone-200 isolate" style={{ height: 520 }}>
         <div className="absolute top-2 right-2 z-[1000]">
           <SatelliteToggleButton satellite={isSatellite} onToggle={() => setIsSatellite((v) => !v)} />
         </div>
@@ -374,9 +374,9 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
 
       {pipelineOutputRasters.length > 0 && (
         <div className="flex flex-wrap gap-3 px-1 text-sm">
-          <span className="text-slate-500">Pipeline outputs:</span>
+          <span className="text-stone-500">Pipeline outputs:</span>
           {pipelineOutputRasters.map((r) => (
-            <label key={rasterKey(r)} className="flex items-center gap-1.5 text-slate-700">
+            <label key={rasterKey(r)} className="flex items-center gap-1.5 text-stone-700">
               <input
                 type="checkbox"
                 checked={visibleRasterIds.has(rasterKey(r))}
@@ -397,9 +397,9 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
 
       {basemapRasters.length > 0 && (
         <div className="flex flex-wrap gap-3 px-1 text-sm">
-          <span className="text-slate-500">Basemaps:</span>
+          <span className="text-stone-500">Basemaps:</span>
           {basemapRasters.map((r) => (
-            <label key={rasterKey(r)} className="flex items-center gap-1.5 text-slate-700">
+            <label key={rasterKey(r)} className="flex items-center gap-1.5 text-stone-700">
               <input
                 type="checkbox"
                 checked={visibleRasterIds.has(rasterKey(r))}
@@ -425,7 +425,7 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
             <a
               key={rasterKey(r)}
               href={r.downloadUrl ?? r.url}
-              className="text-slate-700 underline decoration-dotted hover:text-slate-900"
+              className="text-stone-700 underline decoration-dotted hover:text-stone-900"
               title="Location couldn't be verified against this farm — download and check manually"
             >
               {r.label}
@@ -435,7 +435,7 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
       )}
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-600 px-1">
+      <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-stone-600 px-1">
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-4 h-3 rounded" style={{ backgroundColor: "#16a34a", opacity: 0.7 }} />
           Fields

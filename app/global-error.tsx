@@ -19,22 +19,22 @@ export default function GlobalError({
 
   return (
     <html lang="en">
-      <body className="min-h-screen flex items-center justify-center bg-slate-50 text-center px-4">
+      <body className="min-h-screen flex items-center justify-center bg-stone-50 text-center px-4">
         <div>
-          <h1 className="text-lg font-semibold text-slate-900 mb-2">Something went wrong</h1>
-          <p className="text-sm text-slate-500 mb-4">
+          <h1 className="text-lg font-semibold text-stone-900 mb-2">Something went wrong</h1>
+          <p className="text-sm text-stone-500 mb-4">
             Try reloading. If it keeps happening, sign out and back in.
           </p>
           <div className="flex gap-2 justify-center">
             <button
               onClick={() => reset()}
-              className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700"
+              className="rounded border border-stone-300 px-3 py-1.5 text-sm text-stone-700"
             >
               Try again
             </button>
             <a
               href="/login"
-              className="rounded bg-emerald-600 px-3 py-1.5 text-sm text-white"
+              className="rounded bg-green-600 px-3 py-1.5 text-sm text-white"
             >
               Go to sign in
             </a>

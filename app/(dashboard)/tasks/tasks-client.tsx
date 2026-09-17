@@ -143,7 +143,7 @@ export function TasksClient({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">Tasks</h2>
+        <h2 className="text-2xl font-bold text-stone-900">Tasks</h2>
         {canCreate && (
           <Button size="sm" onClick={() => setShowForm((v) => !v)}>
             {showForm ? <><X className="h-4 w-4 mr-1" />Cancel</> : <><Plus className="h-4 w-4 mr-1" />New Task</>}
@@ -170,7 +170,7 @@ export function TasksClient({
           <CardContent className="pt-4">
             <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="sm:col-span-2 space-y-1">
-                <label className="text-sm font-medium text-slate-700">Description</label>
+                <label className="text-sm font-medium text-stone-700">Description</label>
                 <textarea
                   className="w-full rounded-md border border-input bg-white px-3 py-2 text-sm min-h-[72px] resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                   value={desc} onChange={(e) => setDesc(e.target.value)} required
@@ -178,7 +178,7 @@ export function TasksClient({
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Classification</label>
+                <label className="text-sm font-medium text-stone-700">Classification</label>
                 <select value={cls} onChange={(e) => setCls(e.target.value)}
                   className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                   <option value="">— none —</option>
@@ -186,7 +186,7 @@ export function TasksClient({
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Experiment</label>
+                <label className="text-sm font-medium text-stone-700">Experiment</label>
                 <select value={expId} onChange={(e) => setExpId(e.target.value)}
                   className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                   <option value="">— none —</option>
@@ -194,33 +194,33 @@ export function TasksClient({
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Status</label>
+                <label className="text-sm font-medium text-stone-700">Status</label>
                 <select value={status} onChange={(e) => setStatus(e.target.value)}
                   className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                   {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Priority</label>
+                <label className="text-sm font-medium text-stone-700">Priority</label>
                 <select value={priority} onChange={(e) => setPriority(e.target.value)}
                   className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                   {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Due date</label>
+                <label className="text-sm font-medium text-stone-700">Due date</label>
                 <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="h-8" />
               </div>
               <div className="sm:col-span-2 space-y-1">
-                <label className="text-sm font-medium text-slate-700">Assign to</label>
+                <label className="text-sm font-medium text-stone-700">Assign to</label>
                 <div className="flex flex-wrap gap-2">
                   {users.map((u) => (
                     <button key={u.id} type="button"
                       onClick={() => toggleAssignee(u.id)}
                       className={`px-2 py-0.5 rounded-full text-xs border transition-colors ${
                         assigneeIds.includes(u.id)
-                          ? "bg-emerald-600 text-white border-emerald-600"
-                          : "bg-white text-slate-600 border-slate-300 hover:border-slate-500"
+                          ? "bg-green-600 text-white border-green-600"
+                          : "bg-white text-stone-600 border-stone-300 hover:border-stone-500"
                       }`}>
                       {u.name}
                     </button>
@@ -240,7 +240,7 @@ export function TasksClient({
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-stone-400" />
           <Input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 w-52" />
         </div>
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
@@ -258,7 +258,7 @@ export function TasksClient({
           <option value="all">All Types</option>
           {CLASSIFICATIONS.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <span className="ml-auto text-sm text-slate-500">{filtered.length} of {tasks.length}</span>
+        <span className="ml-auto text-sm text-stone-500">{filtered.length} of {tasks.length}</span>
       </div>
 
       <div className="rounded-md border bg-white">
@@ -279,12 +279,12 @@ export function TasksClient({
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={canDelete ? 9 : 8} className="text-center text-slate-500 py-8">
+                <TableCell colSpan={canDelete ? 9 : 8} className="text-center text-stone-500 py-8">
                   No tasks found
                 </TableCell>
               </TableRow>
             ) : filtered.map((t) => (
-              <TableRow key={t.id} className="cursor-pointer hover:bg-slate-50"
+              <TableRow key={t.id} className="cursor-pointer hover:bg-stone-50"
                 onClick={() => router.push(`/tasks/${t.id}`)}>
                 <TableCell className="font-medium max-w-xs">
                   <span className="line-clamp-2">{t.description}</span>
@@ -292,12 +292,12 @@ export function TasksClient({
                 <TableCell>
                   {t.classification
                     ? <Badge variant="outline" className="text-xs">{t.classification}</Badge>
-                    : <span className="text-slate-400">—</span>}
+                    : <span className="text-stone-400">—</span>}
                 </TableCell>
                 <TableCell className="text-sm">
                   {t.experiment_name
-                    ? <span>{t.experiment_name}{t.farm_name ? <span className="text-slate-400"> / {t.farm_name}</span> : null}</span>
-                    : <span className="text-slate-400">—</span>}
+                    ? <span>{t.experiment_name}{t.farm_name ? <span className="text-stone-400"> / {t.farm_name}</span> : null}</span>
+                    : <span className="text-stone-400">—</span>}
                 </TableCell>
                 <TableCell>
                   <Badge variant={PRIORITY_VARIANT[t.priority] ?? "outline"}>{t.priority}</Badge>
@@ -305,15 +305,15 @@ export function TasksClient({
                 <TableCell>
                   <Badge variant={STATUS_VARIANT[t.status] ?? "outline"}>{t.status}</Badge>
                 </TableCell>
-                <TableCell className={`text-sm ${overdue(t) ? "text-red-600 font-medium" : "text-slate-500"}`}>
+                <TableCell className={`text-sm ${overdue(t) ? "text-red-600 font-medium" : "text-stone-500"}`}>
                   {t.due_date ? new Date(t.due_date + "T00:00:00").toLocaleDateString() : "—"}
                 </TableCell>
                 <TableCell className="text-sm">
                   {t.assignees.length === 0
-                    ? <span className="text-slate-400">—</span>
+                    ? <span className="text-stone-400">—</span>
                     : <span>{t.assignees.map((a) => a.name ?? a.email).join(", ")}</span>}
                 </TableCell>
-                <TableCell className="text-sm text-slate-500">{t.upload_count || "—"}</TableCell>
+                <TableCell className="text-sm text-stone-500">{t.upload_count || "—"}</TableCell>
                 {canDelete && (
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-red-500 hover:text-red-700"

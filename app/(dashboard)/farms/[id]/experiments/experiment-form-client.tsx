@@ -318,18 +318,18 @@ export default function ExperimentFormClient({
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-          <Link href="/farms" className="hover:text-slate-900">Farms</Link>
+        <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+          <Link href="/farms" className="hover:text-stone-900">Farms</Link>
           <span>/</span>
-          <Link href={`/farms/${farmId}`} className="hover:text-slate-900">
+          <Link href={`/farms/${farmId}`} className="hover:text-stone-900">
             {farmName ?? `Farm #${farmId}`}
           </Link>
           <span>/</span>
-          <Link href={`/farms/${farmId}/experiments`} className="hover:text-slate-900">Experiments</Link>
+          <Link href={`/farms/${farmId}/experiments`} className="hover:text-stone-900">Experiments</Link>
           <span>/</span>
           <span>{experiment ? "Edit" : "New"}</span>
         </div>
-        <h2 className="text-2xl font-bold text-slate-900">
+        <h2 className="text-2xl font-bold text-stone-900">
           {experiment ? "Edit Experiment" : "Add Experiment"}
         </h2>
       </div>
@@ -337,7 +337,7 @@ export default function ExperimentFormClient({
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* ── Experiment Card ── */}
         <div className="bg-white border rounded-lg p-6 space-y-4">
-          <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Experiment Card</h3>
+          <h3 className="text-sm font-semibold text-stone-900 pb-2 border-b">Experiment Card</h3>
 
           <div className="space-y-1.5">
             <Label>Experiment Name</Label>
@@ -386,7 +386,7 @@ export default function ExperimentFormClient({
 
         {/* ── Lab Design ── */}
         <div className="bg-white border rounded-lg p-6 space-y-4">
-          <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Lab Design</h3>
+          <h3 className="text-sm font-semibold text-stone-900 pb-2 border-b">Lab Design</h3>
 
           <div className="space-y-1.5">
             <Label>Description</Label>
@@ -397,7 +397,7 @@ export default function ExperimentFormClient({
           <div className="space-y-2">
             <Label>Tests</Label>
             {testRows.map((row, i) => (
-              <div key={i} className={row.taskOverrides.length > 0 ? "border rounded-md p-2 space-y-2 bg-slate-50/50" : ""}>
+              <div key={i} className={row.taskOverrides.length > 0 ? "border rounded-md p-2 space-y-2 bg-stone-50/50" : ""}>
                 <div className="flex gap-2 items-center flex-wrap">
                   <select
                     className={`flex-1 min-w-32 ${SELECT}`}
@@ -467,18 +467,18 @@ export default function ExperimentFormClient({
                 {/* Task template overrides for this test */}
                 {row.taskOverrides.length > 0 && (
                   <div className="rounded-md border border-blue-100 bg-blue-50/40 p-3 space-y-3">
-                    <p className="text-xs font-semibold text-slate-600">Task Templates — set due dates &amp; assignees</p>
+                    <p className="text-xs font-semibold text-stone-600">Task Templates — set due dates &amp; assignees</p>
                     {row.taskOverrides.map((ovr, oi) => (
                       <div key={oi} className="space-y-2 pb-2 border-b border-blue-100 last:border-0 last:pb-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium text-slate-800">{ovr.description}</span>
+                          <span className="text-sm font-medium text-stone-800">{ovr.description}</span>
                           {ovr.classification && (
                             <Badge variant="outline" className="text-xs">{ovr.classification}</Badge>
                           )}
                         </div>
                         <div className="flex gap-4 flex-wrap items-start">
                           <div className="space-y-1">
-                            <p className="text-xs text-slate-500">Due Date</p>
+                            <p className="text-xs text-stone-500">Due Date</p>
                             <DateInput
                               value={ovr.due_date}
                               onChange={(v) => {
@@ -492,7 +492,7 @@ export default function ExperimentFormClient({
                           </div>
                           {allUsers.length > 0 && (
                             <div className="space-y-1">
-                              <p className="text-xs text-slate-500">Assignees</p>
+                              <p className="text-xs text-stone-500">Assignees</p>
                               <div className="space-y-1 max-h-28 overflow-y-auto">
                                 {allUsers.map((u) => (
                                   <label key={u.id} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
@@ -555,7 +555,7 @@ export default function ExperimentFormClient({
               const isExpanded    = assignmentId != null && expandedDrones.has(assignmentId);
 
               return (
-                <div key={i} className="border rounded-md p-2 space-y-2 bg-slate-50/50">
+                <div key={i} className="border rounded-md p-2 space-y-2 bg-stone-50/50">
                   <div className="flex gap-2 items-center flex-wrap">
                     <select
                       className={`flex-1 min-w-32 ${SELECT}`}
@@ -617,18 +617,18 @@ export default function ExperimentFormClient({
                   {/* Task template overrides for this drone */}
                   {row.taskOverrides.length > 0 && (
                     <div className="rounded-md border border-blue-100 bg-blue-50/40 p-3 space-y-3">
-                      <p className="text-xs font-semibold text-slate-600">Task Templates — set due dates &amp; assignees</p>
+                      <p className="text-xs font-semibold text-stone-600">Task Templates — set due dates &amp; assignees</p>
                       {row.taskOverrides.map((ovr, oi) => (
                         <div key={oi} className="space-y-2 pb-2 border-b border-blue-100 last:border-0 last:pb-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium text-slate-800">{ovr.description}</span>
+                            <span className="text-sm font-medium text-stone-800">{ovr.description}</span>
                             {ovr.classification && (
                               <Badge variant="outline" className="text-xs">{ovr.classification}</Badge>
                             )}
                           </div>
                           <div className="flex gap-4 flex-wrap items-start">
                             <div className="space-y-1">
-                              <p className="text-xs text-slate-500">Due Date</p>
+                              <p className="text-xs text-stone-500">Due Date</p>
                               <DateInput
                                 value={ovr.due_date}
                                 onChange={(v) => {
@@ -642,7 +642,7 @@ export default function ExperimentFormClient({
                             </div>
                             {allUsers.length > 0 && (
                               <div className="space-y-1">
-                                <p className="text-xs text-slate-500">Assignees</p>
+                                <p className="text-xs text-stone-500">Assignees</p>
                                 <div className="space-y-1 max-h-28 overflow-y-auto">
                                   {allUsers.map((u) => (
                                     <label key={u.id} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
@@ -678,7 +678,7 @@ export default function ExperimentFormClient({
                     <div className="pl-1">
                       <button
                         type="button"
-                        className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+                        className="flex items-center gap-1 text-xs text-stone-500 hover:text-stone-700"
                         onClick={() =>
                           setExpandedDrones((prev) => {
                             const next = new Set(prev);
@@ -694,26 +694,26 @@ export default function ExperimentFormClient({
                       {isExpanded && (
                         <div className="mt-2 space-y-1">
                           {flightRecords.length === 0 && (
-                            <p className="text-xs text-slate-400 italic pl-1">No individual flight records yet.</p>
+                            <p className="text-xs text-stone-400 italic pl-1">No individual flight records yet.</p>
                           )}
                           {flightRecords.map((fr) => (
                             <button
                               key={fr.id}
                               type="button"
-                              className="w-full flex items-center gap-3 text-xs text-left border rounded p-1.5 bg-white hover:bg-slate-50"
+                              className="w-full flex items-center gap-3 text-xs text-left border rounded p-1.5 bg-white hover:bg-stone-50"
                               onClick={() => {
                                 setEditingFlightRecord(fr);
                                 setFlightFormAssignmentId(assignmentId);
                               }}
                             >
-                              <span className="text-slate-500 w-24 shrink-0">
+                              <span className="text-stone-500 w-24 shrink-0">
                                 {fr.flight_date ? new Date(fr.flight_date + "T00:00:00").toLocaleDateString() : "No date"}
                               </span>
                               {fr.flight_status && (
                                 <Badge variant="outline" className="text-xs shrink-0">{fr.flight_status}</Badge>
                               )}
                               {fr.total_acres != null && (
-                                <span className="text-slate-500">{fr.total_acres} ac</span>
+                                <span className="text-stone-500">{fr.total_acres} ac</span>
                               )}
                               {fr.needs_3d    && <Badge variant="outline" className="text-xs">3D</Badge>}
                               {fr.needs_ortho && <Badge variant="outline" className="text-xs">Ortho</Badge>}
@@ -781,7 +781,7 @@ export default function ExperimentFormClient({
               const rowIndices     = [...new Set(rowValues.map((v) => v.row_index))].sort((a, b) => a - b);
 
               return (
-                <div key={i} className="border rounded-md p-3 bg-slate-50 space-y-2">
+                <div key={i} className="border rounded-md p-3 bg-stone-50 space-y-2">
                   <div className="flex gap-2 items-center flex-wrap">
                     <select
                       className={`flex-1 min-w-36 ${SELECT}`}
@@ -878,7 +878,7 @@ export default function ExperimentFormClient({
                   {fieldDefs.length > 0 && (
                     <div className="ml-2 space-y-1">
                       {/* Column headers */}
-                      <div className="flex gap-2 text-xs font-medium text-slate-500 pb-0.5">
+                      <div className="flex gap-2 text-xs font-medium text-stone-500 pb-0.5">
                         {fieldDefs.map((def) => (
                           <span key={def.id} className="flex-1 min-w-20">{def.label}</span>
                         ))}
@@ -949,7 +949,7 @@ export default function ExperimentFormClient({
           {/* Upload Field Boundaries */}
           <div className="space-y-1.5">
             <Label>Upload Field Boundaries</Label>
-            <p className="text-xs text-slate-500">Upload a GeoJSON, shapefile, or GeoPackage to add new fields to this farm. After upload, select the new fields on the map below.</p>
+            <p className="text-xs text-stone-500">Upload a GeoJSON, shapefile, or GeoPackage to add new fields to this farm. After upload, select the new fields on the map below.</p>
             <FieldBoundaryUpload farmId={farmId} fieldCount={farmFields.length} />
           </div>
 
@@ -957,10 +957,10 @@ export default function ExperimentFormClient({
           <div className="space-y-2">
             <Label>Linked Fields</Label>
             {farmFields.length === 0 ? (
-              <p className="text-sm text-slate-400 italic">No fields have been added to this farm yet.</p>
+              <p className="text-sm text-stone-400 italic">No fields have been added to this farm yet.</p>
             ) : fieldsWithGeometry.length > 0 ? (
               <>
-                <p className="text-xs text-slate-500">Click a field polygon to select or deselect it.</p>
+                <p className="text-xs text-stone-500">Click a field polygon to select or deselect it.</p>
                 <FieldSelectorMapWrapper
                   fields={fieldsWithGeometry.map((f) => ({ id: f.id, name: f.Name, geometry: f.geometry }))}
                   selectedIds={Array.from(selectedFieldIds)}
@@ -968,7 +968,7 @@ export default function ExperimentFormClient({
                   uploadPins={farmUploadPins}
                 />
                 {selectedFieldIds.size > 0 && (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-stone-500">
                     Selected:{" "}
                     {farmFields
                       .filter((f) => selectedFieldIds.has(f.id))

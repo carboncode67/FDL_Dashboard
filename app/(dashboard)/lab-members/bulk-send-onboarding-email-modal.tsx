@@ -91,31 +91,31 @@ export function BulkSendOnboardingEmailModal({
         </DialogHeader>
 
         <textarea
-          className="w-full border border-slate-200 rounded-lg p-3 text-sm text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="w-full border border-stone-200 rounded-lg p-3 text-sm text-stone-800 resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
           rows={8}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           disabled={sending || doneCount > 0}
         />
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-stone-400">
           Tip: <code>[link text](https://example.com)</code> becomes a clickable link.
         </p>
 
         {Object.keys(statuses).length > 0 && (
-          <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-48 overflow-y-auto">
+          <div className="border border-stone-200 rounded-lg divide-y divide-stone-100 max-h-48 overflow-y-auto">
             {recipients.map((r) => {
               const s = statuses[r.id];
               return (
                 <div key={r.id} className="flex items-center justify-between px-3 py-1.5 text-sm">
                   <span className="truncate">{r.name}</span>
-                  {s?.status === "sending" && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
-                  {s?.status === "sent" && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />}
+                  {s?.status === "sending" && <Loader2 className="h-3.5 w-3.5 animate-spin text-stone-400" />}
+                  {s?.status === "sent" && <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />}
                   {s?.status === "error" && (
                     <span className="flex items-center gap-1 text-red-500 text-xs">
                       <XCircle className="h-3.5 w-3.5" /> {s.error}
                     </span>
                   )}
-                  {!s && <span className="text-slate-300 text-xs">Waiting…</span>}
+                  {!s && <span className="text-stone-300 text-xs">Waiting…</span>}
                 </div>
               );
             })}
@@ -123,7 +123,7 @@ export function BulkSendOnboardingEmailModal({
         )}
 
         {allDone && (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-stone-500">
             Sent to {sentCount} of {recipients.length}.
           </p>
         )}

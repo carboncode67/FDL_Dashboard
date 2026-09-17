@@ -78,7 +78,7 @@ export function DataTableForm({
 
       <div className="space-y-1.5">
         <Label>Home</Label>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-stone-500">
           A table can be dedicated to one Test or one piece of Equipment, or float free as a shared
           library entry other tests can attach.
         </p>

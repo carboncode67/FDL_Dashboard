@@ -96,7 +96,7 @@ export function SamplingMapsTab({ farmId, maps, experiments, canCreate, canDelet
       </CardHeader>
       <CardContent>
         {maps.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-stone-500">
             No sampling maps yet. Create one to draw polygons and place sampling points on this farm.
           </p>
         ) : (
@@ -119,10 +119,10 @@ export function SamplingMapsTab({ farmId, maps, experiments, canCreate, canDelet
                       {m.name}
                     </Link>
                   </TableCell>
-                  <TableCell className="text-slate-500">{experimentName(m.experiment_id) ?? "—"}</TableCell>
+                  <TableCell className="text-stone-500">{experimentName(m.experiment_id) ?? "—"}</TableCell>
                   <TableCell>{m._count.Polygons}</TableCell>
                   <TableCell>{m._count.Points}</TableCell>
-                  <TableCell className="text-slate-500 text-sm">{new Date(m.updated_at).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-stone-500 text-sm">{new Date(m.updated_at).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
                     {canDelete && (
                       <Button
@@ -167,7 +167,7 @@ export function SamplingMapsTab({ farmId, maps, experiments, canCreate, canDelet
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-stone-500">
               Link to an experiment to be able to connect sampling points to its tests.
             </p>
             {error && <p className="text-sm text-red-500">{error}</p>}

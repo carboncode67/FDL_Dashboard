@@ -43,9 +43,9 @@ export function ImportBoundaryDialog({ open, onOpenChange, fields, zones, onImpo
         </DialogHeader>
         <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase mb-1.5">Fields</p>
+            <p className="text-xs font-semibold text-stone-500 uppercase mb-1.5">Fields</p>
             {fields.length === 0 ? (
-              <p className="text-sm text-slate-400 italic">No fields with a drawn boundary</p>
+              <p className="text-sm text-stone-400 italic">No fields with a drawn boundary</p>
             ) : (
               <div className="space-y-1">
                 {fields.map((f) => (
@@ -60,9 +60,9 @@ export function ImportBoundaryDialog({ open, onOpenChange, fields, zones, onImpo
             )}
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase mb-1.5">Experiment Zones</p>
+            <p className="text-xs font-semibold text-stone-500 uppercase mb-1.5">Experiment Zones</p>
             {zones.length === 0 ? (
-              <p className="text-sm text-slate-400 italic">No zones with a boundary</p>
+              <p className="text-sm text-stone-400 italic">No zones with a boundary</p>
             ) : (
               <div className="space-y-1">
                 {zones.map((z) => (
@@ -92,7 +92,7 @@ function BoundaryRow({
   onImport: (b: ImportableBoundary) => void
 }) {
   return (
-    <div className="flex items-center justify-between rounded border border-slate-200 px-2.5 py-1.5">
+    <div className="flex items-center justify-between rounded border border-stone-200 px-2.5 py-1.5">
       <span className="text-sm">{boundary.name}</span>
       <Button size="sm" variant="outline" disabled={importing} onClick={() => onImport(boundary)}>
         {importing ? "Importing…" : "Import"}

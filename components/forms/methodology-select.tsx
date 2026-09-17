@@ -85,14 +85,14 @@ export function MethodologySelect({
         <button
           type="button"
           onClick={() => { setCreating((c) => !c); setError(null); }}
-          className="text-xs text-emerald-700 hover:text-emerald-900 font-medium whitespace-nowrap"
+          className="text-xs text-green-700 hover:text-green-900 font-medium whitespace-nowrap"
         >
           {creating ? "Cancel" : "+ New"}
         </button>
       </div>
 
       {creating && (
-        <div className="mt-2 border rounded-lg p-3 bg-slate-50 space-y-2">
+        <div className="mt-2 border rounded-lg p-3 bg-stone-50 space-y-2">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -110,7 +110,7 @@ export function MethodologySelect({
             type="button"
             onClick={createNew}
             disabled={saving}
-            className="text-xs bg-emerald-600 text-white px-3 py-1 rounded-md disabled:opacity-40 hover:bg-emerald-700"
+            className="text-xs bg-green-600 text-white px-3 py-1 rounded-md disabled:opacity-40 hover:bg-green-700"
           >
             {saving ? "Creating…" : "Create & link"}
           </button>

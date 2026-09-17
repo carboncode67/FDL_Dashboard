@@ -164,12 +164,12 @@ export function NewGeofencePage({ farms }: { farms: Farm[] }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
-      <div className="flex flex-wrap items-center gap-3 px-4 h-auto min-h-14 py-2 border-b border-slate-200 bg-white shrink-0">
-        <Link href="/geofences" className="text-sm text-slate-500 hover:text-slate-900 shrink-0 flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-3 px-4 h-auto min-h-14 py-2 border-b border-stone-200 bg-white shrink-0">
+        <Link href="/geofences" className="text-sm text-stone-500 hover:text-stone-900 shrink-0 flex items-center gap-1">
           ← Geofences
         </Link>
-        <span className="text-slate-300 shrink-0">/</span>
-        <span className="text-sm font-medium text-slate-700 shrink-0">New Geofence</span>
+        <span className="text-stone-300 shrink-0">/</span>
+        <span className="text-sm font-medium text-stone-700 shrink-0">New Geofence</span>
         {error && <span className="text-sm text-red-500 shrink-0">{error}</span>}
         <div className="ml-auto flex items-center gap-2 shrink-0">
           <Button variant="outline" size="sm" render={<Link href="/geofences" />}>
@@ -198,7 +198,7 @@ export function NewGeofencePage({ farms }: { farms: Farm[] }) {
 
           {step === "farm" && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-slate-900">Select a Farm</h3>
+              <h3 className="text-lg font-semibold text-stone-900">Select a Farm</h3>
               <Input
                 placeholder="Search farms…"
                 value={farmQuery}
@@ -210,7 +210,7 @@ export function NewGeofencePage({ farms }: { farms: Farm[] }) {
                   <li key={f.id}>
                     <button
                       type="button"
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-stone-50"
                       onClick={() => {
                         setSelectedFarmId(f.id)
                         setSelectedFieldIds(new Set())
@@ -219,12 +219,12 @@ export function NewGeofencePage({ farms }: { farms: Farm[] }) {
                       }}
                     >
                       {f.Farm_Name ?? `Farm #${f.id}`}
-                      <span className="text-slate-400 ml-2">({f.Fields.length} fields)</span>
+                      <span className="text-stone-400 ml-2">({f.Fields.length} fields)</span>
                     </button>
                   </li>
                 ))}
                 {filteredFarms.length === 0 && (
-                  <li className="px-3 py-4 text-sm text-slate-400 italic">No farms match.</li>
+                  <li className="px-3 py-4 text-sm text-stone-400 italic">No farms match.</li>
                 )}
               </ul>
               {zones.length > 0 && (
@@ -238,8 +238,8 @@ export function NewGeofencePage({ farms }: { farms: Farm[] }) {
           {step === "zone-map" && selectedFarm && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-900">{selectedFarm.Farm_Name ?? `Farm #${selectedFarm.id}`}</h3>
-                <button type="button" onClick={goToFarmStep} className="text-sm text-emerald-700 hover:text-emerald-900">
+                <h3 className="text-lg font-semibold text-stone-900">{selectedFarm.Farm_Name ?? `Farm #${selectedFarm.id}`}</h3>
+                <button type="button" onClick={goToFarmStep} className="text-sm text-green-700 hover:text-green-900">
                   Switch Farm
                 </button>
               </div>
@@ -269,12 +269,12 @@ export function NewGeofencePage({ farms }: { farms: Farm[] }) {
 
               {zones.length > 0 && (
                 <div className="border rounded-lg p-3 space-y-2">
-                  <p className="text-xs font-medium text-slate-500">Zones added so far</p>
+                  <p className="text-xs font-medium text-stone-500">Zones added so far</p>
                   <ul className="space-y-1">
                     {zones.map((z) => (
                       <li key={z.tempId} className="flex items-center justify-between text-sm">
                         <span>{z.farm_name} — {z.field_names.join(", ")}</span>
-                        <button type="button" onClick={() => removeZone(z.tempId)} className="text-slate-400 hover:text-red-500 text-xs">
+                        <button type="button" onClick={() => removeZone(z.tempId)} className="text-stone-400 hover:text-red-500 text-xs">
                           Remove
                         </button>
                       </li>
@@ -290,10 +290,10 @@ export function NewGeofencePage({ farms }: { farms: Farm[] }) {
 
           {step === "notify" && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-slate-900">Notifications</h3>
+              <h3 className="text-lg font-semibold text-stone-900">Notifications</h3>
 
               <div className="border rounded-lg p-3 space-y-2">
-                <p className="text-xs font-medium text-slate-500">
+                <p className="text-xs font-medium text-stone-500">
                   {zones.length} zone{zones.length === 1 ? "" : "s"} across{" "}
                   {new Set(zones.map((z) => z.farm_id)).size} farm{new Set(zones.map((z) => z.farm_id)).size === 1 ? "" : "s"}
                 </p>
@@ -320,7 +320,7 @@ export function NewGeofencePage({ farms }: { farms: Farm[] }) {
               </div>
 
               {!showMessageOverride ? (
-                <button type="button" onClick={() => setShowMessageOverride(true)} className="text-xs text-emerald-700 hover:text-emerald-900">
+                <button type="button" onClick={() => setShowMessageOverride(true)} className="text-xs text-green-700 hover:text-green-900">
                   Customize notification text →
                 </button>
               ) : (

@@ -55,7 +55,7 @@ export function LabSwitcher({ labs, activeLabSlug, homeLabSlug, activeLabName }:
           "flex items-center gap-1.5 rounded px-2 py-1 text-xs font-semibold outline-none border",
           isViewingOtherLab
             ? "bg-amber-100 text-amber-800 border-amber-200"
-            : "bg-emerald-100 text-emerald-800 border-emerald-200"
+            : "bg-green-100 text-green-800 border-green-200"
         )}
       >
         <Building2 className="h-3.5 w-3.5" />
@@ -64,7 +64,7 @@ export function LabSwitcher({ labs, activeLabSlug, homeLabSlug, activeLabName }:
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-xs text-slate-500">
+          <DropdownMenuLabel className="text-xs text-stone-500">
             Platform admin — view as lab
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -76,7 +76,7 @@ export function LabSwitcher({ labs, activeLabSlug, homeLabSlug, activeLabName }:
             >
               {lab.name}
               {(activeLabSlug ?? homeLabSlug) === lab.slug && (
-                <span className="text-xs text-emerald-600">Active</span>
+                <span className="text-xs text-green-600">Active</span>
               )}
             </DropdownMenuItem>
           ))}

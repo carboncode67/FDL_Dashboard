@@ -70,7 +70,7 @@ export function PipelineRunsClient({ runs, isAdmin }: { runs: PipelineRunRow[]; 
   }
 
   if (runs.length === 0) {
-    return <p className="text-sm text-slate-500 py-8 text-center">No pipeline runs yet.</p>;
+    return <p className="text-sm text-stone-500 py-8 text-center">No pipeline runs yet.</p>;
   }
 
   return (
@@ -91,7 +91,7 @@ export function PipelineRunsClient({ runs, isAdmin }: { runs: PipelineRunRow[]; 
           <TableBody>
             {runs.map((r) => (
               <Fragment key={r.id}>
-                <TableRow className="cursor-pointer hover:bg-slate-50" onClick={() => setExpanded(expanded === r.id ? null : r.id)}>
+                <TableRow className="cursor-pointer hover:bg-stone-50" onClick={() => setExpanded(expanded === r.id ? null : r.id)}>
                   <TableCell className="font-medium">{r.pipeline_name}</TableCell>
                   <TableCell className="text-sm">
                     {r.farm_name ? (
@@ -99,15 +99,15 @@ export function PipelineRunsClient({ runs, isAdmin }: { runs: PipelineRunRow[]; 
                         {r.farm_name}
                       </a>
                     ) : (
-                      <span className="text-slate-400 italic">No Farm Associated</span>
+                      <span className="text-stone-400 italic">No Farm Associated</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm text-slate-600">
+                  <TableCell className="text-sm text-stone-600">
                     {triggerLabel(r)}
                     {r.prompt && <Badge variant="outline" className="ml-2 text-xs">prompted</Badge>}
                   </TableCell>
                   <TableCell><Badge variant={STATUS_VARIANT[r.status] ?? "outline"}>{r.status}</Badge></TableCell>
-                  <TableCell className="text-sm text-slate-500">
+                  <TableCell className="text-sm text-stone-500">
                     {new Date(r.finished_at ?? r.started_at ?? r.created_at).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
@@ -127,9 +127,9 @@ export function PipelineRunsClient({ runs, isAdmin }: { runs: PipelineRunRow[]; 
 
                 {promptForId === r.id && (
                   <TableRow>
-                    <TableCell colSpan={6} className="bg-slate-50">
+                    <TableCell colSpan={6} className="bg-stone-50">
                       <div className="space-y-2 py-1">
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-stone-500">
                           Re-run with an instruction for the processing model — it re-wires the script for this run only.
                         </p>
                         <textarea
@@ -152,17 +152,17 @@ export function PipelineRunsClient({ runs, isAdmin }: { runs: PipelineRunRow[]; 
 
                 {expanded === r.id && (
                   <TableRow>
-                    <TableCell colSpan={6} className="bg-slate-50">
+                    <TableCell colSpan={6} className="bg-stone-50">
                       <div className="space-y-3 py-2 text-sm">
                         {r.prompt && (
                           <div>
-                            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Prompt</p>
+                            <p className="text-xs font-medium text-stone-500 uppercase tracking-wide">Prompt</p>
                             <p className="whitespace-pre-wrap">{r.prompt}</p>
                           </div>
                         )}
                         <div>
-                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Processor Note</p>
-                          <p className={r.processor_note ? "whitespace-pre-wrap" : "text-slate-400 italic"}>
+                          <p className="text-xs font-medium text-stone-500 uppercase tracking-wide">Processor Note</p>
+                          <p className={r.processor_note ? "whitespace-pre-wrap" : "text-stone-400 italic"}>
                             {r.processor_note ?? "none"}
                           </p>
                         </div>
@@ -173,9 +173,9 @@ export function PipelineRunsClient({ runs, isAdmin }: { runs: PipelineRunRow[]; 
                           </div>
                         )}
                         <div>
-                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Data Outputs</p>
+                          <p className="text-xs font-medium text-stone-500 uppercase tracking-wide">Data Outputs</p>
                           {r.output_files.length === 0 && !r.output_storage_path ? (
-                            <p className="text-slate-400 italic">no outputs</p>
+                            <p className="text-stone-400 italic">no outputs</p>
                           ) : (
                             <ul className="list-disc list-inside space-y-0.5">
                               {r.output_files.map((f, i) => (
@@ -185,15 +185,15 @@ export function PipelineRunsClient({ runs, isAdmin }: { runs: PipelineRunRow[]; 
                                   </a>
                                 </li>
                               ))}
-                              {r.output_storage_path && <li className="text-slate-600">stored at <code>{r.output_storage_path}</code></li>}
+                              {r.output_storage_path && <li className="text-stone-600">stored at <code>{r.output_storage_path}</code></li>}
                             </ul>
                           )}
                         </div>
                         {(r.stdout_log || r.stderr_log) && (
                           <details className="text-xs">
-                            <summary className="cursor-pointer text-slate-500">logs</summary>
-                            {r.stdout_log && <pre className="mt-1 overflow-x-auto rounded bg-slate-900 text-slate-100 p-2">{r.stdout_log}</pre>}
-                            {r.stderr_log && <pre className="mt-1 overflow-x-auto rounded bg-slate-900 text-amber-200 p-2">{r.stderr_log}</pre>}
+                            <summary className="cursor-pointer text-stone-500">logs</summary>
+                            {r.stdout_log && <pre className="mt-1 overflow-x-auto rounded bg-stone-900 text-stone-100 p-2">{r.stdout_log}</pre>}
+                            {r.stderr_log && <pre className="mt-1 overflow-x-auto rounded bg-stone-900 text-amber-200 p-2">{r.stderr_log}</pre>}
                           </details>
                         )}
                       </div>

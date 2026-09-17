@@ -30,7 +30,7 @@ export default function EventsClient({ geofence, events }: Props) {
       header: "Location",
       render: (row: Record<string, unknown>) => {
         const r = row as unknown as (typeof events)[number];
-        return <span className="text-xs text-slate-500">{r.lat.toFixed(5)}, {r.lng.toFixed(5)}</span>;
+        return <span className="text-xs text-stone-500">{r.lat.toFixed(5)}, {r.lng.toFixed(5)}</span>;
       },
     },
     {
@@ -45,14 +45,14 @@ export default function EventsClient({ geofence, events }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-          <Link href="/geofences" className="hover:text-slate-900">Geofences</Link>
+        <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+          <Link href="/geofences" className="hover:text-stone-900">Geofences</Link>
           <span>/</span>
-          <Link href={`/geofences/${geofence.id}/edit`} className="hover:text-slate-900">{geofence.title}</Link>
+          <Link href={`/geofences/${geofence.id}/edit`} className="hover:text-stone-900">{geofence.title}</Link>
           <span>/</span>
           <span>Events</span>
         </div>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="text-sm text-stone-500 mt-1">
           Chronological log of confirmed on-device entries — not a per-recipient completion status.
         </p>
       </div>

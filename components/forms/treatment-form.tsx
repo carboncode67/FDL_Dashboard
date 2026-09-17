@@ -114,12 +114,12 @@ export function TreatmentForm({ onSuccess, initialData, treatmentId }: Treatment
           </Button>
         </div>
         {fieldDefs.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">
+          <p className="text-xs text-stone-400 italic">
             No custom fields — this treatment uses only the rate / unit fields above.
           </p>
         ) : (
           <div className="space-y-1.5">
-            <div className="grid grid-cols-[1fr_120px_32px] gap-2 text-xs font-medium text-slate-500 px-0.5">
+            <div className="grid grid-cols-[1fr_120px_32px] gap-2 text-xs font-medium text-stone-500 px-0.5">
               <span>Column Label</span>
               <span>Type</span>
               <span />
@@ -157,7 +157,7 @@ export function TreatmentForm({ onSuccess, initialData, treatmentId }: Treatment
             className="h-4 w-4 rounded border-input"
           />
           <span>Allow adding multiple rows</span>
-          <span className="text-xs text-slate-400">(e.g. cover crop with several species)</span>
+          <span className="text-xs text-stone-400">(e.g. cover crop with several species)</span>
         </label>
       )}
 

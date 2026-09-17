@@ -86,16 +86,16 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <Link href="/fields" className="hover:text-slate-900">Fields</Link>
+          <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+            <Link href="/fields" className="hover:text-stone-900">Fields</Link>
             <span>/</span>
             <span>{field.Name ?? `Field #${field.id}`}</span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900">
+          <h2 className="text-2xl font-bold text-stone-900">
             {field.Name ?? `Field #${field.id}`}
           </h2>
           {field.Farm && (
-            <p className="text-slate-500">
+            <p className="text-stone-500">
               Farm: <Link href={`/farms/${field.Farm.id}`} className="text-blue-600 hover:underline">{field.Farm.Farm_Name ?? `Farm #${field.Farm.id}`}</Link>
             </p>
           )}
@@ -124,16 +124,16 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
             <CardHeader><CardTitle className="text-base">Field Details</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div><span className="text-slate-500">Field Name</span><p className="font-medium mt-0.5">{field.Name ?? "—"}</p></div>
-                <div><span className="text-slate-500">Boundary Source</span><p className="font-medium mt-0.5">{field.boundary_source ?? "—"}</p></div>
-                <div><span className="text-slate-500">Geometry</span><p className="font-medium mt-0.5"><Badge variant={field.geometry ? "default" : "outline"}>{field.geometry ? "Present" : "Not set"}</Badge></p></div>
+                <div><span className="text-stone-500">Field Name</span><p className="font-medium mt-0.5">{field.Name ?? "—"}</p></div>
+                <div><span className="text-stone-500">Boundary Source</span><p className="font-medium mt-0.5">{field.boundary_source ?? "—"}</p></div>
+                <div><span className="text-stone-500">Geometry</span><p className="font-medium mt-0.5"><Badge variant={field.geometry ? "default" : "outline"}>{field.geometry ? "Present" : "Not set"}</Badge></p></div>
               </div>
             </CardContent>
           </Card>
 
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-6">
+          <div className="rounded-lg border border-stone-200 bg-stone-50 p-6">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-medium text-slate-700">Map Visualization</h3>
+              <h3 className="font-medium text-stone-700">Map Visualization</h3>
               {showCreate && (
                 <EditBoundaryButton fieldId={field.id} initialGeometry={field.geometry} />
               )}
@@ -144,7 +144,7 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
                 geometry={field.geometry}
               />
             ) : (
-              <p className="text-sm text-slate-400 italic">No geometry data available for this field. Use the button above to draw a boundary.</p>
+              <p className="text-sm text-stone-400 italic">No geometry data available for this field. Use the button above to draw a boundary.</p>
             )}
           </div>
         </TabsContent>
@@ -156,7 +156,7 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
             </CardHeader>
             <CardContent>
               {linkedExperiments.length === 0 ? (
-                <p className="text-sm text-slate-500">No experiments linked to this field. Assign this field from an experiment&apos;s settings.</p>
+                <p className="text-sm text-stone-500">No experiments linked to this field. Assign this field from an experiment&apos;s settings.</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -187,7 +187,7 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
                               {ef.Experiment.Project.Project_Name ?? `Project #${ef.Experiment.Project.id}`}
                             </Link>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-stone-400">—</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -196,7 +196,7 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
                               {ef.Experiment.Farm.Farm_Name ?? `Farm #${ef.Experiment.Farm.id}`}
                             </Link>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-stone-400">—</span>
                           )}
                         </TableCell>
                       </TableRow>
@@ -216,7 +216,7 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
             </CardHeader>
             <CardContent>
               {field.FieldTests.length === 0 ? (
-                <p className="text-sm text-slate-500">No tests assigned</p>
+                <p className="text-sm text-stone-500">No tests assigned</p>
               ) : (
                 <Table>
                   <TableHeader><TableRow><TableHead>Test Name</TableHead><TableHead>Planned Date</TableHead><TableHead>Completed Date</TableHead><TableHead>Cost</TableHead></TableRow></TableHeader>
@@ -244,7 +244,7 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
             </CardHeader>
             <CardContent>
               {field.FieldCrops.length === 0 ? (
-                <p className="text-sm text-slate-500">No crops assigned</p>
+                <p className="text-sm text-stone-500">No crops assigned</p>
               ) : (
                 <Table>
                   <TableHeader><TableRow><TableHead>Crop Name</TableHead><TableHead>Crop Type</TableHead></TableRow></TableHeader>
@@ -270,7 +270,7 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
             </CardHeader>
             <CardContent>
               {field.FieldDrones.length === 0 ? (
-                <p className="text-sm text-slate-500">No drone flights recorded</p>
+                <p className="text-sm text-stone-500">No drone flights recorded</p>
               ) : (
                 <Table>
                   <TableHeader><TableRow><TableHead>Drone Name</TableHead><TableHead>Cost/Acre</TableHead><TableHead>Mobilization Cost</TableHead></TableRow></TableHeader>

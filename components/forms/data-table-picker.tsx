@@ -41,15 +41,15 @@ export function DataTablePicker({ testId, selectedIds, onChange }: DataTablePick
     <div className="space-y-2 pt-2 border-t">
       <div className="flex items-center justify-between">
         <Label>Data Sources</Label>
-        <Link href="/data-tables" className="text-xs text-slate-600 hover:text-slate-900 underline underline-offset-2">
+        <Link href="/data-tables" className="text-xs text-stone-600 hover:text-stone-900 underline underline-offset-2">
           Manage Data Tables
         </Link>
       </div>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-stone-500">
         Shared or equipment-linked data tables this test also collects data through.
       </p>
       {pickable.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">No other data tables yet.</p>
+        <p className="text-xs text-stone-400 italic">No other data tables yet.</p>
       ) : (
         <div className="border rounded-lg p-3 space-y-1.5 max-h-40 overflow-y-auto">
           {pickable.map((t) => (
@@ -61,8 +61,8 @@ export function DataTablePicker({ testId, selectedIds, onChange }: DataTablePick
                 className="rounded"
               />
               <span className="flex-1">{t.name}</span>
-              {t.homeDroneName && <span className="text-xs text-slate-400">{t.homeDroneName}</span>}
-              {t.homeTestName && <span className="text-xs text-slate-400">{t.homeTestName}</span>}
+              {t.homeDroneName && <span className="text-xs text-stone-400">{t.homeDroneName}</span>}
+              {t.homeTestName && <span className="text-xs text-stone-400">{t.homeTestName}</span>}
             </label>
           ))}
         </div>

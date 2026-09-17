@@ -68,22 +68,22 @@ export default async function ExperimentTestDataPage({
   return (
     <div className="space-y-6">
       <div>
-        <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-          <Link href={`/farms/${et.Experiment.farm_id}`} className="hover:text-slate-900">
+        <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+          <Link href={`/farms/${et.Experiment.farm_id}`} className="hover:text-stone-900">
             {et.Experiment.Farm?.Farm_Name ?? `Farm ${et.Experiment.farm_id}`}
           </Link>
           <span>/</span>
           <Link
             href={`/farms/${et.Experiment.farm_id}/experiments/${et.Experiment.id}`}
-            className="hover:text-slate-900"
+            className="hover:text-stone-900"
           >
             {et.Experiment.experiment_name ?? `Experiment ${et.Experiment.id}`}
           </Link>
           <span>/</span>
           <span>Data</span>
         </div>
-        <h2 className="text-2xl font-bold text-slate-900">{testName} — Collected Data</h2>
-        <p className="text-sm text-slate-500 mt-1">
+        <h2 className="text-2xl font-bold text-stone-900">{testName} — Collected Data</h2>
+        <p className="text-sm text-stone-500 mt-1">
           {allRows.length} row{allRows.length === 1 ? "" : "s"} across {tables.length} table{tables.length === 1 ? "" : "s"}
           {lastIngested ? ` · last ingested ${lastIngested.toLocaleDateString()}` : ""}
           {sourceFiles.length > 0 ? ` · from ${sourceFiles.join(", ")}` : ""}
@@ -91,7 +91,7 @@ export default async function ExperimentTestDataPage({
       </div>
 
       {tables.length === 0 ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-stone-500">
           No data tables attached to this test yet.{" "}
           <Link href={`/tests/${et.Test.id}/edit`} className="text-blue-600 hover:underline">
             Attach or create one on the test
@@ -110,7 +110,7 @@ export default async function ExperimentTestDataPage({
                 </CardHeader>
                 <CardContent>
                   {columns.length === 0 ? (
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-stone-500">
                       No template columns defined.{" "}
                       <Link href={`/data-tables/${table.id}/edit`} className="text-blue-600 hover:underline">
                         Define them on the table
@@ -122,7 +122,7 @@ export default async function ExperimentTestDataPage({
                       {columns.map((c) => (
                         <Badge key={c.col_index} variant="secondary">
                           {c.label}
-                          <span className="ml-1 text-slate-400">({c.field_type})</span>
+                          <span className="ml-1 text-stone-400">({c.field_type})</span>
                         </Badge>
                       ))}
                     </div>
@@ -151,7 +151,7 @@ export default async function ExperimentTestDataPage({
                             const data = r.data as Record<string, string | number | null>;
                             return (
                               <TableRow key={r.id}>
-                                <TableCell className="text-slate-400">{r.row_index + 1}</TableCell>
+                                <TableCell className="text-stone-400">{r.row_index + 1}</TableCell>
                                 {columns.map((c) => (
                                   <TableCell key={c.col_index}>
                                     {data[String(c.col_index)] ?? "—"}
@@ -168,7 +168,7 @@ export default async function ExperimentTestDataPage({
               )}
 
               {rows.length === 0 && (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-stone-500">
                   No data ingested yet for this table.
                 </p>
               )}

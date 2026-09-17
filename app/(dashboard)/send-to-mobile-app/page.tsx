@@ -26,8 +26,8 @@ const tiles: { href: string; label: string; description: string; icon: LucideIco
 export default function SendToMobileAppPage() {
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-slate-900">Send to Mobile App</h2>
-      <p className="text-sm text-slate-500">
+      <h2 className="text-2xl font-bold text-stone-900">Send to Mobile App</h2>
+      <p className="text-sm text-stone-500">
         Choose what to build and push out to the FarmerDataLogger mobile app.
       </p>
 
@@ -36,7 +36,7 @@ export default function SendToMobileAppPage() {
           <Link key={href} href={href}>
             <Card className="h-full transition-shadow hover:shadow-md">
               <CardHeader>
-                <Icon className="h-6 w-6 text-emerald-600" />
+                <Icon className="h-6 w-6 text-green-600" />
                 <CardTitle className="text-base">{label}</CardTitle>
                 <CardDescription>{description}</CardDescription>
               </CardHeader>

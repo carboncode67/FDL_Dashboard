@@ -114,7 +114,7 @@ export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
             onBlur={() => geocode(address)}
             placeholder="123 County Rd, Town, State"
           />
-          {geoStatus === "geocoding" && <p className="text-xs text-slate-500">Geocoding…</p>}
+          {geoStatus === "geocoding" && <p className="text-xs text-stone-500">Geocoding…</p>}
           {geoStatus === "ok" && latitude != null && longitude != null && (
             <p className="text-xs text-green-600">Geocoded ✓ ({latitude.toFixed(5)}, {longitude.toFixed(5)})</p>
           )}
@@ -148,7 +148,7 @@ export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
           aria-checked={isActive}
           onClick={() => setIsActive((v) => !v)}
           className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-            isActive ? "bg-green-500" : "bg-slate-200"
+            isActive ? "bg-green-500" : "bg-stone-200"
           }`}
         >
           <span

@@ -107,10 +107,10 @@ export function AnnotationTab({
       </CardHeader>
       <CardContent className="space-y-4">
         {result && (
-          <div className="rounded-md border bg-slate-50 px-4 py-3 text-sm space-y-1">
-            <p className="font-medium text-slate-800">Task created</p>
+          <div className="rounded-md border bg-stone-50 px-4 py-3 text-sm space-y-1">
+            <p className="font-medium text-stone-800">Task created</p>
             {!result.cvat_configured && (
-              <p className="text-slate-500">
+              <p className="text-stone-500">
                 CVAT is not configured — task saved locally. Set <code>CVAT_URL</code>,{" "}
                 <code>CVAT_USERNAME</code>, and <code>CVAT_PASSWORD</code> in your environment to
                 enable CVAT sync.
@@ -133,7 +133,7 @@ export function AnnotationTab({
         {showForm && (
           <form onSubmit={handleCreate} className="space-y-3 rounded-md border p-4">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">Task name</label>
+              <label className="text-sm font-medium text-stone-700">Task name</label>
               <Input
                 value={taskName}
                 onChange={(e) => setTaskName(e.target.value)}
@@ -142,8 +142,8 @@ export function AnnotationTab({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
-                Labels <span className="text-slate-400 font-normal">(comma-separated)</span>
+              <label className="text-sm font-medium text-stone-700">
+                Labels <span className="text-stone-400 font-normal">(comma-separated)</span>
               </label>
               <Input
                 value={labels}
@@ -152,7 +152,7 @@ export function AnnotationTab({
                 className="h-8"
               />
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-stone-500">
               {photoCount} photo{photoCount !== 1 ? "s" : ""} in this project will be added to the task.
             </p>
             {error && <p className="text-sm text-red-600">{error}</p>}
@@ -168,7 +168,7 @@ export function AnnotationTab({
         )}
 
         {tasks.length === 0 ? (
-          <p className="text-sm text-slate-500">No annotation tasks yet</p>
+          <p className="text-sm text-stone-500">No annotation tasks yet</p>
         ) : (
           <Table>
             <TableHeader>
@@ -191,7 +191,7 @@ export function AnnotationTab({
                     </Badge>
                   </TableCell>
                   <TableCell>{task.image_count}</TableCell>
-                  <TableCell className="text-sm text-slate-500">
+                  <TableCell className="text-sm text-stone-500">
                     {new Date(task.created_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
@@ -205,7 +205,7 @@ export function AnnotationTab({
                         Open
                       </a>
                     ) : (
-                      <span className="text-slate-400 text-sm">—</span>
+                      <span className="text-stone-400 text-sm">—</span>
                     )}
                   </TableCell>
                   {canCreate && (

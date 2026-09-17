@@ -194,7 +194,7 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
             <TableRow key={user.id}>
               <TableCell>{user.name ?? "—"}</TableCell>
               <TableCell>{user.email}</TableCell>
-              <TableCell className="text-slate-500">{user.position ?? "—"}</TableCell>
+              <TableCell className="text-stone-500">{user.position ?? "—"}</TableCell>
               <TableCell>
                 {user.has_token ? (
                   <Badge variant="default" className="gap-1">
@@ -202,7 +202,7 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
                     Active
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-slate-400">None</Badge>
+                  <Badge variant="outline" className="text-stone-400">None</Badge>
                 )}
               </TableCell>
               <TableCell>
@@ -212,12 +212,12 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
                     checked={user.is_service_account}
                     disabled={savingId === user.id}
                     onChange={(e) => handleServiceAccountChange(user.id, e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-slate-300 accent-emerald-600"
+                    className="h-3.5 w-3.5 rounded border-stone-300 accent-green-600"
                   />
                   {user.is_service_account ? (
                     <Badge variant="secondary">Service (full access)</Badge>
                   ) : (
-                    <Badge variant="outline" className="text-slate-400">Restricted</Badge>
+                    <Badge variant="outline" className="text-stone-400">Restricted</Badge>
                   )}
                 </label>
               </TableCell>
@@ -226,7 +226,7 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
                   value={user.role}
                   disabled={savingId === user.id || user.id === currentUserId}
                   onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                  className="text-sm border border-slate-200 rounded px-2 py-1 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-sm border border-stone-200 rounded px-2 py-1 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {ROLES.map((r) => (
                     <option key={r} value={r}>
@@ -235,7 +235,7 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
                   ))}
                 </select>
                 {user.id === currentUserId && (
-                  <span className="ml-2 text-xs text-slate-400">(you)</span>
+                  <span className="ml-2 text-xs text-stone-400">(you)</span>
                 )}
               </TableCell>
               <TableCell>
@@ -243,7 +243,7 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
                   value={user.category}
                   disabled={savingId === user.id}
                   onChange={(e) => handleCategoryChange(user.id, e.target.value)}
-                  className="text-sm border border-slate-200 rounded px-2 py-1 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-sm border border-stone-200 rounded px-2 py-1 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {CATEGORIES.map((c) => (
                     <option key={c.value} value={c.value}>{c.label}</option>
@@ -266,7 +266,7 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
                       </Badge>
                     )
                   ) : user.project_filter_ids.length === 0 ? (
-                    <Badge variant="outline" className="text-slate-400 cursor-pointer hover:border-slate-400">
+                    <Badge variant="outline" className="text-stone-400 cursor-pointer hover:border-stone-400">
                       All Projects
                     </Badge>
                   ) : (
@@ -276,7 +276,7 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
                   )}
                 </button>
               </TableCell>
-              <TableCell className="text-slate-500 text-xs">
+              <TableCell className="text-stone-500 text-xs">
                 {new Date(user.createdAt).toLocaleDateString()}
               </TableCell>
               {canDelete && (
@@ -346,7 +346,7 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
           </DialogHeader>
           <div className="max-h-72 overflow-y-auto space-y-2 py-1">
             {projects.length === 0 ? (
-              <p className="text-sm text-slate-500">No projects found.</p>
+              <p className="text-sm text-stone-500">No projects found.</p>
             ) : (
               projects.map((p) => (
                 <label key={p.id} className="flex items-center gap-2 cursor-pointer text-sm">
@@ -354,14 +354,14 @@ export function UserRolesTable({ users, currentUserId, canDelete, projects }: Us
                     type="checkbox"
                     checked={filterSelection.includes(p.id)}
                     onChange={() => toggleProject(p.id)}
-                    className="h-4 w-4 rounded border-slate-300 accent-emerald-600"
+                    className="h-4 w-4 rounded border-stone-300 accent-green-600"
                   />
                   {p.name}
                 </label>
               ))
             )}
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-stone-400">
             {filterSelection.length === 0
               ? filterUser?.category === "agronomist"
                 ? "No projects assigned — they will see nothing until you select at least one."

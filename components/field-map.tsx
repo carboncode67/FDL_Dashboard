@@ -62,7 +62,7 @@ export default function FieldMap({ fieldName, geometry }: { fieldName: string; g
   try { parsed = JSON.parse(geometry) } catch { /* invalid json */ }
 
   return (
-    <div className="relative rounded-lg overflow-hidden border border-slate-200" style={{ height: 420 }}>
+    <div className="relative rounded-lg overflow-hidden border border-stone-200" style={{ height: 420 }}>
       <div className="absolute top-2 right-2 z-[1000]">
         <SatelliteToggleButton satellite={isSatellite} onToggle={() => setIsSatellite((v) => !v)} />
       </div>

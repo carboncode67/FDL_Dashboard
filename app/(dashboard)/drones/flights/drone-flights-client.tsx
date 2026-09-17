@@ -56,7 +56,7 @@ export function DroneFlightsClient({ data }: { data: FlightRow[] }) {
       header: "Farm",
       render: (row: Record<string, unknown>) => {
         const r = row as unknown as FlightRow;
-        if (!r.farm_id) return <span className="text-slate-400">—</span>;
+        if (!r.farm_id) return <span className="text-stone-400">—</span>;
         return (
           <Link
             href={`/farms/${r.farm_id}`}
@@ -73,7 +73,7 @@ export function DroneFlightsClient({ data }: { data: FlightRow[] }) {
       header: "Experiment",
       render: (row: Record<string, unknown>) => {
         const r = row as unknown as FlightRow;
-        if (!r.experiment_id || !r.farm_id) return <span className="text-slate-400">—</span>;
+        if (!r.experiment_id || !r.farm_id) return <span className="text-stone-400">—</span>;
         return (
           <Link
             href={`/farms/${r.farm_id}/experiments/${r.experiment_id}`}
@@ -98,8 +98,8 @@ export function DroneFlightsClient({ data }: { data: FlightRow[] }) {
       header: "Status",
       render: (row: Record<string, unknown>) => {
         const r = row as unknown as FlightRow;
-        if (!r.flight_status) return <span className="text-slate-400">—</span>;
-        const cls = STATUS_COLORS[r.flight_status] ?? "bg-slate-100 text-slate-700";
+        if (!r.flight_status) return <span className="text-stone-400">—</span>;
+        const cls = STATUS_COLORS[r.flight_status] ?? "bg-stone-100 text-stone-700";
         return (
           <Badge variant="outline" className={`text-xs ${cls}`}>
             {r.flight_status}
@@ -131,7 +131,7 @@ export function DroneFlightsClient({ data }: { data: FlightRow[] }) {
         const tags: string[] = [];
         if (r.needs_3d)    tags.push("3D");
         if (r.needs_ortho) tags.push("Ortho");
-        if (!tags.length)  return <span className="text-slate-400">—</span>;
+        if (!tags.length)  return <span className="text-stone-400">—</span>;
         return (
           <div className="flex gap-1">
             {tags.map((t) => (

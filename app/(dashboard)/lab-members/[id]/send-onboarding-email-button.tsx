@@ -71,17 +71,17 @@ export function SendOnboardingEmailButton({ userId, email }: { userId: string; e
           </DialogDescription>
         </DialogHeader>
         <textarea
-          className="w-full border border-slate-200 rounded-lg p-3 text-sm text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="w-full border border-stone-200 rounded-lg p-3 text-sm text-stone-800 resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
           rows={10}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           disabled={sending}
         />
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-stone-400">
           Tip: <code>[link text](https://example.com)</code> becomes a clickable link.
         </p>
         {error && <p className="text-xs text-red-500">{error}</p>}
-        {sent && <p className="text-xs text-emerald-600">Sent!</p>}
+        {sent && <p className="text-xs text-green-600">Sent!</p>}
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={sending}>
             Close

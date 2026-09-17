@@ -104,7 +104,7 @@ export function EquipmentSignoutForm({ open, onClose, droneId, droneName, contac
               <button
                 type="button"
                 onClick={() => setContact(null)}
-                className="text-slate-400 hover:text-red-500"
+                className="text-stone-400 hover:text-red-500"
                 aria-label="Change farmer"
               >
                 <X className="h-3.5 w-3.5" />
@@ -124,10 +124,10 @@ export function EquipmentSignoutForm({ open, onClose, droneId, droneName, contac
                       <button
                         type="button"
                         onClick={() => { setContact(c); setSearch(""); }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-stone-50"
                       >
                         <span className="font-medium">{c.name}</span>
-                        {c.phone && <span className="text-slate-400 ml-2">{c.phone}</span>}
+                        {c.phone && <span className="text-stone-400 ml-2">{c.phone}</span>}
                       </button>
                     </li>
                   ))}

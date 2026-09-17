@@ -81,7 +81,7 @@ export function DataTable<T extends Record<string, unknown>>({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
+        <h2 className="text-2xl font-bold text-stone-900">{title}</h2>
         {onAdd && (
           <Button onClick={onAdd} size="sm">
             <Plus className="h-4 w-4 mr-1" />
@@ -91,7 +91,7 @@ export function DataTable<T extends Record<string, unknown>>({
       </div>
 
       <div className="relative w-full max-w-sm">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-stone-400" />
         <Input
           placeholder="Search..."
           value={search}
@@ -109,7 +109,7 @@ export function DataTable<T extends Record<string, unknown>>({
                   {col.sortable ? (
                     <button
                       onClick={() => handleSort(col.key)}
-                      className="flex items-center gap-1 hover:text-slate-900 transition-colors"
+                      className="flex items-center gap-1 hover:text-stone-900 transition-colors"
                     >
                       {col.header}
                       {sortKey === col.key ? (
@@ -134,7 +134,7 @@ export function DataTable<T extends Record<string, unknown>>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="text-center text-slate-500 py-8"
+                  className="text-center text-stone-500 py-8"
                 >
                   No records found
                 </TableCell>
@@ -144,7 +144,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 <TableRow
                   key={idx}
                   onClick={() => onRowClick?.(row)}
-                  className={onRowClick ? "cursor-pointer hover:bg-slate-50" : ""}
+                  className={onRowClick ? "cursor-pointer hover:bg-stone-50" : ""}
                 >
                   {columns.map((col) => (
                     <TableCell key={col.key}>

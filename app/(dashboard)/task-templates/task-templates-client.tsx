@@ -29,7 +29,7 @@ export function TaskTemplatesClient({ data }: { data: TemplateRow[] }) {
       header: "Classification",
       render: (row: Record<string, unknown>) => {
         const c = (row as unknown as TemplateRow).classification;
-        return c ? <Badge variant="outline" className="text-xs">{c}</Badge> : <span className="text-slate-400 text-xs">—</span>;
+        return c ? <Badge variant="outline" className="text-xs">{c}</Badge> : <span className="text-stone-400 text-xs">—</span>;
       },
     },
     {

@@ -24,10 +24,10 @@ export default function ResponsesClient({ form, fields, responses }: Props) {
       header: "Sampling Point",
       render: (row: Record<string, unknown>) => {
         const sp = (row as unknown as (typeof responses)[number]).samplingPoint;
-        if (!sp) return <span className="text-slate-400">—</span>;
+        if (!sp) return <span className="text-stone-400">—</span>;
         return (
           <Link href={`/farms/${sp.farmId}/maps/${sp.mapId}`} className="text-sm hover:underline">
-            {sp.label} <span className="text-slate-400">({sp.mapName})</span>
+            {sp.label} <span className="text-stone-400">({sp.mapName})</span>
           </Link>
         );
       },
@@ -45,7 +45,7 @@ export default function ResponsesClient({ form, fields, responses }: Props) {
       render: (row: Record<string, unknown>) => {
         const typedRow = row as unknown as (typeof responses)[number];
         const value = typedRow.data[String(f.col_index)];
-        if (value === null || value === undefined) return <span className="text-slate-400">—</span>;
+        if (value === null || value === undefined) return <span className="text-stone-400">—</span>;
         if (f.field_type === "photo") {
           const filename = typedRow.photoFilenames[String(f.col_index)];
           if (!filename) return <span className="text-xs text-amber-600">Uploading…</span>;
@@ -68,14 +68,14 @@ export default function ResponsesClient({ form, fields, responses }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-          <Link href="/forms" className="hover:text-slate-900">Custom Forms</Link>
+        <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+          <Link href="/forms" className="hover:text-stone-900">Custom Forms</Link>
           <span>/</span>
-          <Link href={`/forms/${form.id}/edit`} className="hover:text-slate-900">{form.title}</Link>
+          <Link href={`/forms/${form.id}/edit`} className="hover:text-stone-900">{form.title}</Link>
           <span>/</span>
           <span>Responses</span>
         </div>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="text-sm text-stone-500 mt-1">
           Forms are repeatable — this is a chronological log of every submission, not a per-recipient
           completion status.
         </p>

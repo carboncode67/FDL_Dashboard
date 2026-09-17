@@ -126,7 +126,7 @@ export function ExperimentTasksSection({
   return (
     <div className="space-y-4 mt-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-slate-900">Tasks</h3>
+        <h3 className="text-lg font-semibold text-stone-900">Tasks</h3>
         <div className="flex items-center gap-2">
           {templates.length > 0 && (
             <div className="relative">
@@ -145,11 +145,11 @@ export function ExperimentTasksSection({
                       key={t.id}
                       type="button"
                       onClick={() => applyTemplate(t)}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b last:border-b-0"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-stone-50 border-b last:border-b-0"
                     >
                       <span className="font-medium">{t.description}</span>
                       {t.classification && (
-                        <span className="ml-2 text-xs text-slate-500">{t.classification}</span>
+                        <span className="ml-2 text-xs text-stone-500">{t.classification}</span>
                       )}
                     </button>
                   ))}
@@ -168,7 +168,7 @@ export function ExperimentTasksSection({
           <CardContent className="pt-4">
             <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="sm:col-span-2 space-y-1">
-                <label className="text-sm font-medium text-slate-700">Description</label>
+                <label className="text-sm font-medium text-stone-700">Description</label>
                 <textarea
                   className="w-full rounded-md border border-input bg-white px-3 py-2 text-sm min-h-[72px] resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                   value={desc} onChange={(e) => setDesc(e.target.value)} required
@@ -176,7 +176,7 @@ export function ExperimentTasksSection({
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Classification</label>
+                <label className="text-sm font-medium text-stone-700">Classification</label>
                 <select value={cls} onChange={(e) => setCls(e.target.value)}
                   className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                   <option value="">— none —</option>
@@ -184,33 +184,33 @@ export function ExperimentTasksSection({
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Status</label>
+                <label className="text-sm font-medium text-stone-700">Status</label>
                 <select value={status} onChange={(e) => setStatus(e.target.value)}
                   className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                   {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Priority</label>
+                <label className="text-sm font-medium text-stone-700">Priority</label>
                 <select value={priority} onChange={(e) => setPriority(e.target.value)}
                   className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                   {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Due date</label>
+                <label className="text-sm font-medium text-stone-700">Due date</label>
                 <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="h-8" />
               </div>
               <div className="sm:col-span-2 space-y-1">
-                <label className="text-sm font-medium text-slate-700">Assign to</label>
+                <label className="text-sm font-medium text-stone-700">Assign to</label>
                 <div className="flex flex-wrap gap-2">
                   {users.map((u) => (
                     <button key={u.id} type="button"
                       onClick={() => toggleAssignee(u.id)}
                       className={`px-2 py-0.5 rounded-full text-xs border transition-colors ${
                         assigneeIds.includes(u.id)
-                          ? "bg-emerald-600 text-white border-emerald-600"
-                          : "bg-white text-slate-600 border-slate-300 hover:border-slate-500"
+                          ? "bg-green-600 text-white border-green-600"
+                          : "bg-white text-stone-600 border-stone-300 hover:border-stone-500"
                       }`}>
                       {u.name ?? u.email}
                     </button>
@@ -234,35 +234,35 @@ export function ExperimentTasksSection({
       {tasks.length > 0 ? (
         <div className="border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b">
+            <thead className="bg-stone-50 border-b">
               <tr>
-                <th className="text-left px-3 py-2 font-medium text-slate-600">Description</th>
-                <th className="text-left px-3 py-2 font-medium text-slate-600">Classification</th>
-                <th className="text-left px-3 py-2 font-medium text-slate-600">Status</th>
-                <th className="text-left px-3 py-2 font-medium text-slate-600">Priority</th>
-                <th className="text-left px-3 py-2 font-medium text-slate-600">Due</th>
-                <th className="text-left px-3 py-2 font-medium text-slate-600">Assignees</th>
+                <th className="text-left px-3 py-2 font-medium text-stone-600">Description</th>
+                <th className="text-left px-3 py-2 font-medium text-stone-600">Classification</th>
+                <th className="text-left px-3 py-2 font-medium text-stone-600">Status</th>
+                <th className="text-left px-3 py-2 font-medium text-stone-600">Priority</th>
+                <th className="text-left px-3 py-2 font-medium text-stone-600">Due</th>
+                <th className="text-left px-3 py-2 font-medium text-stone-600">Assignees</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {tasks.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-50">
+                <tr key={t.id} className="hover:bg-stone-50">
                   <td className="px-3 py-2">
-                    <Link href={`/tasks/${t.id}`} className="font-medium text-slate-900 hover:text-emerald-700 hover:underline">
+                    <Link href={`/tasks/${t.id}`} className="font-medium text-stone-900 hover:text-green-700 hover:underline">
                       {t.description}
                     </Link>
                   </td>
-                  <td className="px-3 py-2 text-slate-500">{t.classification ?? "—"}</td>
+                  <td className="px-3 py-2 text-stone-500">{t.classification ?? "—"}</td>
                   <td className="px-3 py-2">
                     <Badge variant={STATUS_VARIANT[t.status] ?? "outline"}>{t.status}</Badge>
                   </td>
                   <td className="px-3 py-2">
                     <Badge variant={PRIORITY_VARIANT[t.priority] ?? "outline"}>{t.priority}</Badge>
                   </td>
-                  <td className="px-3 py-2 text-slate-500">
+                  <td className="px-3 py-2 text-stone-500">
                     {t.due_date ? new Date(t.due_date).toLocaleDateString() : "—"}
                   </td>
-                  <td className="px-3 py-2 text-slate-500">
+                  <td className="px-3 py-2 text-stone-500">
                     {t.assignees.length > 0
                       ? t.assignees.map((a) => a.name ?? a.email).join(", ")
                       : "—"}
@@ -274,7 +274,7 @@ export function ExperimentTasksSection({
         </div>
       ) : (
         !showForm && (
-          <p className="text-sm text-slate-400 italic">No tasks linked to this experiment yet.</p>
+          <p className="text-sm text-stone-400 italic">No tasks linked to this experiment yet.</p>
         )
       )}
     </div>

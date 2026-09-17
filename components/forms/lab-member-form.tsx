@@ -106,7 +106,7 @@ export function LabMemberForm({ onSuccess, initialData, memberId }: LabMemberFor
       <div className="space-y-1.5">
         <Label>Email {!memberId && <span className="text-red-500">*</span>}</Label>
         {memberId ? (
-          <Input value={email} readOnly className="bg-slate-50 text-slate-500" />
+          <Input value={email} readOnly className="bg-stone-50 text-stone-500" />
         ) : (
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         )}
@@ -114,7 +114,7 @@ export function LabMemberForm({ onSuccess, initialData, memberId }: LabMemberFor
 
       {!memberId && (
         <div className="space-y-1.5">
-          <Label>Password <span className="text-slate-400 font-normal">(leave blank to disable web login)</span></Label>
+          <Label>Password <span className="text-stone-400 font-normal">(leave blank to disable web login)</span></Label>
           <Input
             type="password"
             value={password}
@@ -126,7 +126,7 @@ export function LabMemberForm({ onSuccess, initialData, memberId }: LabMemberFor
 
       {memberId && (
         <div className="space-y-1.5">
-          <Label>Reset Password <span className="text-slate-400 font-normal">(leave blank to keep current password)</span></Label>
+          <Label>Reset Password <span className="text-stone-400 font-normal">(leave blank to keep current password)</span></Label>
           <Input
             type="password"
             value={password}
@@ -164,7 +164,7 @@ export function LabMemberForm({ onSuccess, initialData, memberId }: LabMemberFor
           </SelectContent>
         </Select>
         {category === "agronomist" && (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-stone-500">
             Same app access as any Lab Member, but scoped to their assigned project(s) —
             set in Admin Panel → Project Filter. They won&apos;t see other projects&apos; data.
           </p>

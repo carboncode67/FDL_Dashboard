@@ -94,7 +94,7 @@ export default function FieldSelectorMap({ fields, selectedIds, onToggle, upload
   const center: [number, number] = allLatLngs.length > 0 ? allLatLngs[0] : [39.5, -98.35]
 
   return (
-    <div className="relative rounded-lg overflow-hidden border border-slate-200 isolate" style={{ height: 320 }}>
+    <div className="relative rounded-lg overflow-hidden border border-stone-200 isolate" style={{ height: 320 }}>
       <div className="absolute top-2 right-2 z-[1000]">
         <SatelliteToggleButton satellite={isSatellite} onToggle={() => setIsSatellite((v) => !v)} />
       </div>

@@ -67,7 +67,7 @@ export function GeofenceBasicsForm({ geofenceId, onSuccess, initialData }: Geofe
           onChange={(e) => setActionMessage(e.target.value)}
           placeholder="Leave blank to auto-generate per event"
         />
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-stone-500">
           Shown as the notification body when the assignee enters this geofence. Left blank, the app
           generates a message per event (&quot;You&apos;re near {"{Farm}"}&quot; / &quot;You&apos;ve entered {"{Field}"}&quot;).
         </p>

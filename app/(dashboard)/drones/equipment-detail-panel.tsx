@@ -69,9 +69,9 @@ export function EquipmentDetailPanel({
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Currently Signed Out</p>
+            <p className="text-xs font-medium text-stone-500 uppercase tracking-wide">Currently Signed Out</p>
             {activeLoans.length === 0 ? (
-              <p className="text-sm text-slate-400 italic">All units are available.</p>
+              <p className="text-sm text-stone-400 italic">All units are available.</p>
             ) : (
               <ul className="divide-y rounded-md border">
                 {activeLoans.map((loan) => {
@@ -80,7 +80,7 @@ export function EquipmentDetailPanel({
                     <li key={loan.id} className="flex items-center justify-between gap-2 px-3 py-2">
                       <div className="text-sm">
                         <div className="font-medium">{loan.contactName}</div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-stone-500">
                           Out {formatDate(loan.signedOutAt)} ·{" "}
                           <Badge variant="outline" className={`text-xs ${overdue ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
                             due {formatDate(loan.dueAt)}
@@ -104,7 +104,7 @@ export function EquipmentDetailPanel({
 
           {methodology && (
             <div className="space-y-1">
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Methodology</p>
+              <p className="text-xs font-medium text-stone-500 uppercase tracking-wide">Methodology</p>
               <Link href={`/methodologies/${methodology.id}/edit`} className="text-sm text-blue-600 hover:underline">
                 {methodology.title}
               </Link>
@@ -113,7 +113,7 @@ export function EquipmentDetailPanel({
 
           {requiredByTests.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Used by Tests</p>
+              <p className="text-xs font-medium text-stone-500 uppercase tracking-wide">Used by Tests</p>
               <ul className="text-sm list-disc list-inside space-y-0.5">
                 {requiredByTests.map((name, i) => <li key={i}>{name}</li>)}
               </ul>

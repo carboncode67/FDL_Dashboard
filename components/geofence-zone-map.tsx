@@ -135,14 +135,14 @@ export default function GeofenceZoneMap({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-stone-500">
           {circle
             ? "Drag the circle to move it, or drag its edge to resize."
             : "Click one or more fields, then Add Zone."}
         </p>
         <SatelliteToggleButton satellite={isSatellite} onToggle={() => setIsSatellite((v) => !v)} />
       </div>
-      <div className="rounded-lg overflow-hidden border border-slate-200 isolate" style={{ height: 480 }}>
+      <div className="rounded-lg overflow-hidden border border-stone-200 isolate" style={{ height: 480 }}>
         <MapContainer center={center} zoom={14} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
           {combinedBounds && <BoundsAdjuster bounds={combinedBounds} />}
 

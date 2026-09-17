@@ -709,14 +709,14 @@ export default function SamplingMapEditor({
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
-      <div className="flex items-center gap-3 px-4 h-14 border-b border-slate-200 bg-white shrink-0">
+      <div className="flex items-center gap-3 px-4 h-14 border-b border-stone-200 bg-white shrink-0">
         <Link
           href={`/farms/${farmId}`}
-          className="text-sm text-slate-500 hover:text-slate-900 shrink-0 flex items-center gap-1"
+          className="text-sm text-stone-500 hover:text-stone-900 shrink-0 flex items-center gap-1"
         >
           ← {farmName}
         </Link>
-        <span className="text-slate-300 shrink-0">/</span>
+        <span className="text-stone-300 shrink-0">/</span>
         <span className="text-sm font-medium truncate">{mapName}</span>
         <div className="ml-auto flex items-center gap-2 shrink-0">
           <Select
@@ -739,7 +739,7 @@ export default function SamplingMapEditor({
             </SelectContent>
           </Select>
           <div className="flex items-center gap-1.5" title="Radius around every point that auto-prompts &quot;Fill Form&quot; on the phone when entered">
-            <label htmlFor="proximity-radius" className="text-xs text-slate-500 whitespace-nowrap">
+            <label htmlFor="proximity-radius" className="text-xs text-stone-500 whitespace-nowrap">
               Auto-prompt radius
             </label>
             <input
@@ -753,9 +753,9 @@ export default function SamplingMapEditor({
               onBlur={handleRadiusBlur}
               disabled={savingRadius}
               placeholder="Off"
-              className="h-8 w-16 rounded-md border border-slate-200 px-2 text-sm"
+              className="h-8 w-16 rounded-md border border-stone-200 px-2 text-sm"
             />
-            <span className="text-xs text-slate-500">m</span>
+            <span className="text-xs text-stone-500">m</span>
           </div>
           <Select
             value={linkedBasemapId ? String(linkedBasemapId) : "none"}
@@ -779,7 +779,7 @@ export default function SamplingMapEditor({
           {linkedBasemapId != null && (
             <>
               <div className="flex items-center gap-1.5" title="Extend the basemap this far beyond the field boundary before sending to the phone">
-                <label htmlFor="basemap-buffer" className="text-xs text-slate-500 whitespace-nowrap">
+                <label htmlFor="basemap-buffer" className="text-xs text-stone-500 whitespace-nowrap">
                   Buffer
                 </label>
                 <input
@@ -799,12 +799,12 @@ export default function SamplingMapEditor({
                   }
                   disabled={savingBuffer}
                   placeholder="0"
-                  className="h-8 w-16 rounded-md border border-slate-200 px-2 text-sm"
+                  className="h-8 w-16 rounded-md border border-stone-200 px-2 text-sm"
                 />
-                <span className="text-xs text-slate-500">m</span>
+                <span className="text-xs text-stone-500">m</span>
               </div>
               <div className="flex items-center gap-1.5" title="Maximum tiling level sent to the phone app">
-                <label htmlFor="basemap-max-zoom" className="text-xs text-slate-500 whitespace-nowrap">
+                <label htmlFor="basemap-max-zoom" className="text-xs text-stone-500 whitespace-nowrap">
                   Max zoom
                 </label>
                 <input
@@ -825,7 +825,7 @@ export default function SamplingMapEditor({
                   }
                   disabled={savingMaxZoom}
                   placeholder="Auto"
-                  className="h-8 w-16 rounded-md border border-slate-200 px-2 text-sm"
+                  className="h-8 w-16 rounded-md border border-stone-200 px-2 text-sm"
                 />
               </div>
             </>
@@ -908,17 +908,17 @@ export default function SamplingMapEditor({
           </MapContainer>
         </div>
 
-        <div className="w-80 shrink-0 border-l border-slate-200 overflow-y-auto p-3 space-y-4">
+        <div className="w-80 shrink-0 border-l border-stone-200 overflow-y-auto p-3 space-y-4">
           <div>
-            <h3 className="text-sm font-semibold text-slate-900">Polygons ({polygons.length})</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h3 className="text-sm font-semibold text-stone-900">Polygons ({polygons.length})</h3>
+            <p className="text-xs text-stone-500 mt-0.5">
               Draw with the polygon tool (top-left of the map), or import an existing Field/Zone boundary.
             </p>
           </div>
 
           {rasters.length > 0 && (
             <div>
-              <h4 className="text-xs font-semibold uppercase text-slate-500 mb-1.5">Overlays</h4>
+              <h4 className="text-xs font-semibold uppercase text-stone-500 mb-1.5">Overlays</h4>
               <div className="space-y-1">
                 {rasters.map((r) => (
                   <label key={rasterKey(r)} className="flex items-center gap-2 text-sm">
@@ -936,7 +936,7 @@ export default function SamplingMapEditor({
 
           <div className="space-y-2">
             {polygons.map((p) => (
-              <div key={p.id} className="rounded border border-slate-200 p-2 space-y-1.5">
+              <div key={p.id} className="rounded border border-stone-200 p-2 space-y-1.5">
                 <Input
                   value={p.label ?? ""}
                   placeholder={`Polygon ${p.id}`}
@@ -957,12 +957,12 @@ export default function SamplingMapEditor({
                       ))}
                     </SelectContent>
                   </Select>
-                  <span className="text-xs text-slate-400 shrink-0">
+                  <span className="text-xs text-stone-400 shrink-0">
                     {geojsonAreaAcres(p.geometry).toFixed(1)} ac
                   </span>
                 </div>
                 {p.source !== "drawn" && (
-                  <p className="text-xs text-slate-400">Imported from {p.source === "field" ? "a Field" : "a Zone"}</p>
+                  <p className="text-xs text-stone-400">Imported from {p.source === "field" ? "a Field" : "a Zone"}</p>
                 )}
                 <div className="flex items-center gap-1">
                   <Button
@@ -984,7 +984,7 @@ export default function SamplingMapEditor({
                 </div>
 
                 {generatingPolygonId === p.id && (
-                  <div className="rounded bg-slate-50 border border-slate-200 p-2 space-y-2 mt-1">
+                  <div className="rounded bg-stone-50 border border-stone-200 p-2 space-y-2 mt-1">
                     <Select value={genMethod} onValueChange={(v) => v && setGenMethod(v as "grid" | "random")}>
                       <SelectTrigger className="h-8 text-sm">
                         <SelectValue />
@@ -995,7 +995,7 @@ export default function SamplingMapEditor({
                       </SelectContent>
                     </Select>
 
-                    <label className="block text-xs text-slate-500">
+                    <label className="block text-xs text-stone-500">
                       Edge buffer (meters, negative = inward)
                       <Input
                         type="number"
@@ -1006,7 +1006,7 @@ export default function SamplingMapEditor({
                     </label>
 
                     {genMethod === "grid" ? (
-                      <label className="block text-xs text-slate-500">
+                      <label className="block text-xs text-stone-500">
                         Spacing (meters)
                         <Input
                           type="number"
@@ -1018,7 +1018,7 @@ export default function SamplingMapEditor({
                       </label>
                     ) : (
                       <>
-                        <label className="block text-xs text-slate-500">
+                        <label className="block text-xs text-stone-500">
                           Point count
                           <Input
                             type="number"
@@ -1028,7 +1028,7 @@ export default function SamplingMapEditor({
                             className="h-8 text-sm mt-0.5"
                           />
                         </label>
-                        <label className="block text-xs text-slate-500">
+                        <label className="block text-xs text-stone-500">
                           Min. spacing (meters, optional)
                           <Input
                             type="number"
@@ -1049,7 +1049,7 @@ export default function SamplingMapEditor({
 
                     {previewPoints.length > 0 && (
                       <>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-stone-500">
                           {previewPoints.length} point(s) previewed on the map
                           {genBuffer !== 0 && ` (${genBuffer}m edge buffer applied)`}.
                         </p>
@@ -1078,13 +1078,13 @@ export default function SamplingMapEditor({
               </div>
             ))}
             {polygons.length === 0 && (
-              <p className="text-sm text-slate-400 italic">No polygons yet.</p>
+              <p className="text-sm text-stone-400 italic">No polygons yet.</p>
             )}
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-slate-900">Sampling Points ({points.length})</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h3 className="text-sm font-semibold text-stone-900">Sampling Points ({points.length})</h3>
+            <p className="text-xs text-stone-500 mt-0.5">
               Use the circle-marker tool (top-left of the map) to place points by hand.
             </p>
             {!hasExperiment && (
@@ -1096,7 +1096,7 @@ export default function SamplingMapEditor({
 
           <div className="space-y-2">
             {points.map((p) => (
-              <div key={p.id} className="rounded border border-slate-200 p-2 space-y-1.5">
+              <div key={p.id} className="rounded border border-stone-200 p-2 space-y-1.5">
                 <Input
                   value={p.label ?? ""}
                   placeholder={`Point ${p.id}`}
@@ -1124,7 +1124,7 @@ export default function SamplingMapEditor({
                     </SelectContent>
                   </Select>
                 )}
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-stone-400">
                   {polygonLabel(p.polygon_id) ? `In ${polygonLabel(p.polygon_id)}` : "Not inside a polygon"}
                 </p>
                 <Button
@@ -1138,7 +1138,7 @@ export default function SamplingMapEditor({
               </div>
             ))}
             {points.length === 0 && (
-              <p className="text-sm text-slate-400 italic">No points yet.</p>
+              <p className="text-sm text-stone-400 italic">No points yet.</p>
             )}
           </div>
         </div>

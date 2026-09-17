@@ -335,15 +335,15 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <Link href="/farms" className="hover:text-slate-900">Farms</Link>
+          <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+            <Link href="/farms" className="hover:text-stone-900">Farms</Link>
             <span>/</span>
             <span>{farm.Farm_Name ?? `Farm #${farm.id}`}</span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900">
+          <h2 className="text-2xl font-bold text-stone-900">
             {farm.Farm_Name ?? `Farm #${farm.id}`}
           </h2>
-          <p className="text-slate-500">{primaryContact?.name ? `Farmer: ${primaryContact.name}` : ""}</p>
+          <p className="text-stone-500">{primaryContact?.name ? `Farmer: ${primaryContact.name}` : ""}</p>
         </div>
         <div className="flex items-center gap-2">
           {showOfeSyncToggle && (
@@ -378,10 +378,10 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
               <CardHeader><CardTitle className="text-base">Farm Details</CardTitle></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <div><span className="text-slate-500">Farm Name</span><p className="font-medium mt-0.5">{farm.Farm_Name ?? "—"}</p></div>
-                  <div><span className="text-slate-500">Farmer Name</span><p className="font-medium mt-0.5">{primaryContact?.name ?? "—"}</p></div>
-                  <div><span className="text-slate-500">Phone</span><p className="font-medium mt-0.5">{primaryContact?.phone ?? "—"}</p></div>
-                  <div><span className="text-slate-500">Email</span><p className="font-medium mt-0.5">{primaryContact?.email ?? "—"}</p></div>
+                  <div><span className="text-stone-500">Farm Name</span><p className="font-medium mt-0.5">{farm.Farm_Name ?? "—"}</p></div>
+                  <div><span className="text-stone-500">Farmer Name</span><p className="font-medium mt-0.5">{primaryContact?.name ?? "—"}</p></div>
+                  <div><span className="text-stone-500">Phone</span><p className="font-medium mt-0.5">{primaryContact?.phone ?? "—"}</p></div>
+                  <div><span className="text-stone-500">Email</span><p className="font-medium mt-0.5">{primaryContact?.email ?? "—"}</p></div>
                 </div>
               </CardContent>
             </Card>
@@ -392,7 +392,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
               </CardHeader>
               <CardContent>
                 {linkedProjects.length === 0 ? (
-                  <p className="text-sm text-slate-500">No projects linked — assign an experiment to a project to link it here.</p>
+                  <p className="text-sm text-stone-500">No projects linked — assign an experiment to a project to link it here.</p>
                 ) : (
                   <Table>
                     <TableHeader><TableRow><TableHead>Project Name</TableHead><TableHead>Status</TableHead><TableHead>Year Started</TableHead></TableRow></TableHeader>
@@ -481,7 +481,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
                             </Link>
                           </TableCell>
                           <TableCell className="text-sm">{new Date(a.expected_date).toLocaleDateString()}</TableCell>
-                          <TableCell>{a.status ? <Badge variant="secondary" className="text-xs">{a.status}</Badge> : <span className="text-slate-400 text-xs">—</span>}</TableCell>
+                          <TableCell>{a.status ? <Badge variant="secondary" className="text-xs">{a.status}</Badge> : <span className="text-stone-400 text-xs">—</span>}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -495,7 +495,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
           {farmExperiments.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-slate-700">Experiments</h3>
+                <h3 className="text-sm font-semibold text-stone-700">Experiments</h3>
                 <Link href={`/farms/${farm.id}/experiments/new`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
                   + Add Experiment
                 </Link>
@@ -567,7 +567,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             </CardHeader>
             <CardContent>
               {farm.Contacts.length === 0 ? (
-                <p className="text-sm text-slate-500">No contacts linked to this farm</p>
+                <p className="text-sm text-stone-500">No contacts linked to this farm</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -608,13 +608,13 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             <CardHeader><CardTitle className="text-base">Farmer Summary</CardTitle></CardHeader>
             <CardContent>
               {farm.farm_summary ? (
-                <div className="prose prose-sm max-w-none prose-headings:text-slate-900 prose-p:text-slate-700">
+                <div className="prose prose-sm max-w-none prose-headings:text-stone-900 prose-p:text-stone-700">
                   <ReactMarkdown>{farm.farm_summary}</ReactMarkdown>
                 </div>
               ) : (
-                <p className="text-sm text-slate-500 italic">
+                <p className="text-sm text-stone-500 italic">
                   No farmer summary uploaded yet. Push markdown content to{" "}
-                  <code className="text-xs bg-slate-100 px-1 rounded">POST /api/farms/{farm.id}/summary</code>{" "}
+                  <code className="text-xs bg-stone-100 px-1 rounded">POST /api/farms/{farm.id}/summary</code>{" "}
                   with a Bearer token.
                 </p>
               )}
@@ -628,13 +628,13 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             <CardHeader><CardTitle className="text-base">Interview Transcript</CardTitle></CardHeader>
             <CardContent>
               {farm.interview_transcript ? (
-                <pre className="whitespace-pre-wrap text-sm text-slate-700 font-mono leading-relaxed max-h-[600px] overflow-y-auto">
+                <pre className="whitespace-pre-wrap text-sm text-stone-700 font-mono leading-relaxed max-h-[600px] overflow-y-auto">
                   {farm.interview_transcript}
                 </pre>
               ) : (
-                <p className="text-sm text-slate-500 italic">
+                <p className="text-sm text-stone-500 italic">
                   No interview transcript yet. Push text content to{" "}
-                  <code className="text-xs bg-slate-100 px-1 rounded">POST /api/farms/{farm.id}/transcript</code>{" "}
+                  <code className="text-xs bg-stone-100 px-1 rounded">POST /api/farms/{farm.id}/transcript</code>{" "}
                   with a Bearer token, or paste it in via Edit.
                 </p>
               )}
@@ -677,13 +677,13 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
                       <TableRow key={doc.id}>
                         <TableCell className="font-medium">{doc.original_name ?? doc.filename}</TableCell>
                         <TableCell><Badge variant="secondary">{doc.file_type?.toUpperCase() ?? "—"}</Badge></TableCell>
-                        <TableCell className="text-slate-500 text-sm">
+                        <TableCell className="text-stone-500 text-sm">
                           {doc.file_size ? `${Math.round(doc.file_size / 1024)} KB` : "—"}
                         </TableCell>
-                        <TableCell className="text-slate-500 text-sm">
+                        <TableCell className="text-stone-500 text-sm">
                           {new Date(doc.uploaded_at).toLocaleDateString()}
                         </TableCell>
-                        <TableCell className="text-slate-500">{doc.description ?? "—"}</TableCell>
+                        <TableCell className="text-stone-500">{doc.description ?? "—"}</TableCell>
                         <TableCell>
                           <a
                             href={`/api/files/documents/${doc.filename}`}
@@ -729,7 +729,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             <CardHeader><CardTitle className="text-base">All Uploads</CardTitle></CardHeader>
             <CardContent>
               {uploadRows.length === 0 ? (
-                <p className="text-sm text-slate-500">No uploads for this farm yet</p>
+                <p className="text-sm text-stone-500">No uploads for this farm yet</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -748,11 +748,11 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
                         <TableRow key={row.key}>
                           <TableCell><Badge variant="secondary">{row.type}</Badge></TableCell>
                           <TableCell>{row.uploaderName}</TableCell>
-                          <TableCell className="text-slate-500 text-sm">
+                          <TableCell className="text-stone-500 text-sm">
                             {row.date ? new Date(row.date).toLocaleDateString() : "—"}
                           </TableCell>
                           <TableCell><Badge variant={s.variant}>{s.label}</Badge></TableCell>
-                          <TableCell className="text-slate-500">{row.category ?? "—"}</TableCell>
+                          <TableCell className="text-stone-500">{row.category ?? "—"}</TableCell>
                         </TableRow>
                       );
                     })}

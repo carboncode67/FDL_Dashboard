@@ -23,7 +23,7 @@ export function MethodologiesClient({ data }: { data: MethodologyRow[] }) {
       header: "Preview",
       render: (row: Record<string, unknown>) => {
         const b = (row as unknown as MethodologyRow).body;
-        return <span className="text-slate-500 text-xs">{b.length > 100 ? `${b.slice(0, 100)}…` : b}</span>;
+        return <span className="text-stone-500 text-xs">{b.length > 100 ? `${b.slice(0, 100)}…` : b}</span>;
       },
     },
     {
@@ -33,7 +33,7 @@ export function MethodologiesClient({ data }: { data: MethodologyRow[] }) {
         const n = (row as unknown as MethodologyRow).usageCount;
         return n > 0
           ? <Badge variant="outline" className="text-xs">{n} test{n === 1 ? "" : "s"}</Badge>
-          : <span className="text-slate-400 text-xs">—</span>;
+          : <span className="text-stone-400 text-xs">—</span>;
       },
     },
     {

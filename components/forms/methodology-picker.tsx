@@ -33,7 +33,7 @@ export function MethodologyPicker({
         onCreated={(m) => setOptions((prev) => [...prev, m].sort((a, b) => a.title.localeCompare(b.title)))}
       />
       {linked && (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-stone-500">
           Linked to shared library entry &quot;{linked.title}&quot; (Data Collection → Methodologies). Text
           below overrides it when filled in; leave blank to use the library text as-is.
         </p>

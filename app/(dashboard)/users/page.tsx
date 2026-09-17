@@ -24,8 +24,8 @@ export default async function UsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Dashboard Users</h2>
-          <p className="text-slate-500 text-sm mt-0.5">Accounts with access to this dashboard</p>
+          <h2 className="text-2xl font-bold text-stone-900">Dashboard Users</h2>
+          <p className="text-stone-500 text-sm mt-0.5">Accounts with access to this dashboard</p>
         </div>
         <Link href="/users/new" className={cn(buttonVariants({ size: "sm" }))}>
           + New User
@@ -38,7 +38,7 @@ export default async function UsersPage() {
         </CardHeader>
         <CardContent>
           {users.length === 0 ? (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-stone-500">
               No accounts created yet — the bootstrap admin (<code>admin@lab.com</code>) is active
               until the first account is added.
             </p>
@@ -56,7 +56,7 @@ export default async function UsersPage() {
                   <TableRow key={u.id}>
                     <TableCell>{u.name ?? "—"}</TableCell>
                     <TableCell>{u.email}</TableCell>
-                    <TableCell className="text-slate-500 text-xs">
+                    <TableCell className="text-stone-500 text-xs">
                       {u.createdAt.toLocaleDateString()}
                     </TableCell>
                   </TableRow>

@@ -81,12 +81,12 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <Link href="/projects" className="hover:text-slate-900">Projects</Link>
+          <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+            <Link href="/projects" className="hover:text-stone-900">Projects</Link>
             <span>/</span>
             <span>{project.Project_Name ?? `Project #${project.id}`}</span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900">
+          <h2 className="text-2xl font-bold text-stone-900">
             {project.Project_Name ?? `Project #${project.id}`}
           </h2>
         </div>
@@ -119,11 +119,11 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             <CardHeader><CardTitle className="text-base">Project Details</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div><span className="text-slate-500">Name</span><p className="font-medium mt-0.5">{project.Project_Name ?? "—"}</p></div>
-                <div><span className="text-slate-500">Status</span><p className="font-medium mt-0.5">{project.Status ?? "—"}</p></div>
-                <div><span className="text-slate-500">Year Started</span><p className="font-medium mt-0.5">{project.Year_Started ?? "—"}</p></div>
-                <div><span className="text-slate-500">Total Budget</span><p className="font-medium mt-0.5">{project.Total_Budget ? `$${Number(project.Total_Budget).toLocaleString()}` : "—"}</p></div>
-                <div className="col-span-2"><span className="text-slate-500">Sponsors</span><p className="font-medium mt-0.5">{project.Project_Sponsors ?? "—"}</p></div>
+                <div><span className="text-stone-500">Name</span><p className="font-medium mt-0.5">{project.Project_Name ?? "—"}</p></div>
+                <div><span className="text-stone-500">Status</span><p className="font-medium mt-0.5">{project.Status ?? "—"}</p></div>
+                <div><span className="text-stone-500">Year Started</span><p className="font-medium mt-0.5">{project.Year_Started ?? "—"}</p></div>
+                <div><span className="text-stone-500">Total Budget</span><p className="font-medium mt-0.5">{project.Total_Budget ? `$${Number(project.Total_Budget).toLocaleString()}` : "—"}</p></div>
+                <div className="col-span-2"><span className="text-stone-500">Sponsors</span><p className="font-medium mt-0.5">{project.Project_Sponsors ?? "—"}</p></div>
               </div>
             </CardContent>
           </Card>
@@ -139,7 +139,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             </CardHeader>
             <CardContent>
               {project.FarmExperiments.length === 0 ? (
-                <p className="text-sm text-slate-500">No experiments linked to this project</p>
+                <p className="text-sm text-stone-500">No experiments linked to this project</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -190,7 +190,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             </CardHeader>
             <CardContent>
               {project.ProjectLabMembers.length === 0 ? (
-                <p className="text-sm text-slate-500">No lab members assigned</p>
+                <p className="text-sm text-stone-500">No lab members assigned</p>
               ) : (
                 <Table>
                   <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Position</TableHead><TableHead>Email</TableHead></TableRow></TableHeader>
@@ -214,7 +214,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             <CardHeader><CardTitle className="text-base">Treatment Protocols</CardTitle></CardHeader>
             <CardContent>
               {project.TreatmentProtocols.length === 0 ? (
-                <p className="text-sm text-slate-500">No treatment protocols defined</p>
+                <p className="text-sm text-stone-500">No treatment protocols defined</p>
               ) : (
                 <Table>
                   <TableHeader><TableRow><TableHead>Protocol Name</TableHead><TableHead>Treatment</TableHead><TableHead>Product</TableHead><TableHead>Control</TableHead></TableRow></TableHeader>
@@ -239,7 +239,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             <CardHeader><CardTitle className="text-base">Experiment Zones</CardTitle></CardHeader>
             <CardContent>
               {project.ExperimentZones.length === 0 ? (
-                <p className="text-sm text-slate-500">No experiment zones defined</p>
+                <p className="text-sm text-stone-500">No experiment zones defined</p>
               ) : (
                 <Table>
                   <TableHeader><TableRow><TableHead>Zone Label</TableHead><TableHead>Farm</TableHead><TableHead>Rep #</TableHead><TableHead>Geometry</TableHead></TableRow></TableHeader>
@@ -297,13 +297,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                       <TableRow key={doc.id}>
                         <TableCell className="font-medium">{doc.original_name ?? doc.filename}</TableCell>
                         <TableCell><Badge variant="secondary">{doc.file_type?.toUpperCase() ?? "—"}</Badge></TableCell>
-                        <TableCell className="text-slate-500 text-sm">
+                        <TableCell className="text-stone-500 text-sm">
                           {doc.file_size ? `${Math.round(doc.file_size / 1024)} KB` : "—"}
                         </TableCell>
-                        <TableCell className="text-slate-500 text-sm">
+                        <TableCell className="text-stone-500 text-sm">
                           {new Date(doc.uploaded_at).toLocaleDateString()}
                         </TableCell>
-                        <TableCell className="text-slate-500">{doc.description ?? "—"}</TableCell>
+                        <TableCell className="text-stone-500">{doc.description ?? "—"}</TableCell>
                         <TableCell>
                           <a
                             href={`/api/files/documents/${doc.filename}`}

@@ -40,7 +40,7 @@ export function FarmsClient({ data, canCreate, activeFilter }: { data: FarmRow[]
             className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
               active
                 ? "bg-green-100 text-green-700"
-                : "bg-slate-100 text-slate-500"
+                : "bg-stone-100 text-stone-500"
             }`}
           >
             {active ? "Active" : "Inactive"}

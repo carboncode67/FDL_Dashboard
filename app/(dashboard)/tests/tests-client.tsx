@@ -27,7 +27,7 @@ export function TestsClient({ data }: { data: TestRow[] }) {
       header: "Assigned To",
       render: (row: Record<string, unknown>) => {
         const assignments = (row as unknown as TestRow).assignments;
-        if (!assignments.length) return <span className="text-slate-400 text-xs">—</span>;
+        if (!assignments.length) return <span className="text-stone-400 text-xs">—</span>;
         return (
           <div className="flex flex-wrap gap-1">
             {assignments.map((a, i) => (

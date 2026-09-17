@@ -30,12 +30,12 @@ export default function EditMethodologyClient({ methodology }: Props) {
     <div className="max-w-lg space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <Link href="/methodologies" className="hover:text-slate-900">Methodologies</Link>
+          <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+            <Link href="/methodologies" className="hover:text-stone-900">Methodologies</Link>
             <span>/</span>
             <span>Edit</span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900">{methodology.title}</h2>
+          <h2 className="text-2xl font-bold text-stone-900">{methodology.title}</h2>
         </div>
         <Button variant="ghost" size="icon-sm" onClick={handleDelete} disabled={deleting} className="text-red-500 hover:text-red-700 hover:bg-red-50 mt-1">
           <Trash2 className="h-4 w-4" />

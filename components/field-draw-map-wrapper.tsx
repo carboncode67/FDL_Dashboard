@@ -7,10 +7,10 @@ const FieldDrawMap = dynamic(() => import("./field-draw-map"), {
   ssr: false,
   loading: () => (
     <div
-      className="rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center"
+      className="rounded-lg border border-stone-200 bg-stone-50 flex items-center justify-center"
       style={{ height: 480 }}
     >
-      <p className="text-sm text-slate-500">Loading map…</p>
+      <p className="text-sm text-stone-500">Loading map…</p>
     </div>
   ),
 })

@@ -62,7 +62,7 @@ export function ContactsClient({
       header: (
         <input
           type="checkbox"
-          className="h-4 w-4 accent-slate-700"
+          className="h-4 w-4 accent-stone-700"
           checked={allEligibleSelected}
           onChange={toggleAll}
           disabled={eligible.length === 0}
@@ -75,7 +75,7 @@ export function ContactsClient({
         return (
           <input
             type="checkbox"
-            className="h-4 w-4 accent-slate-700"
+            className="h-4 w-4 accent-stone-700"
             checked={selected.has(r.id)}
             disabled={!canOnboard}
             title={!canOnboard ? "No email on file" : undefined}
@@ -93,7 +93,7 @@ export function ContactsClient({
       header: "Farm",
       render: (row: Record<string, unknown>) => {
         const r = row as unknown as ContactRow;
-        return r.farm_name ?? <span className="text-slate-400">—</span>;
+        return r.farm_name ?? <span className="text-stone-400">—</span>;
       },
     },
     {
@@ -104,7 +104,7 @@ export function ContactsClient({
         return r.whatsapp ? (
           <MessageCircle className="h-4 w-4 text-green-600" />
         ) : (
-          <span className="text-slate-300">—</span>
+          <span className="text-stone-300">—</span>
         );
       },
     },
@@ -135,8 +135,8 @@ export function ContactsClient({
       )}
 
       {canEdit && selected.size > 0 && (
-        <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-4 py-2">
-          <span className="text-sm text-slate-700">{selected.size} selected</span>
+        <div className="flex items-center justify-between rounded-md border border-stone-200 bg-stone-50 px-4 py-2">
+          <span className="text-sm text-stone-700">{selected.size} selected</span>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
               Clear

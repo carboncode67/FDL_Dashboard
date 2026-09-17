@@ -9,7 +9,6 @@ import {
   Building2,
   Users,
   Beaker,
-  ChevronRight,
   SlidersHorizontal,
   Settings2,
   MessageCircle,
@@ -81,13 +80,12 @@ export function Sidebar({ role, className, onNavigate }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "w-60 min-h-screen bg-slate-900 text-slate-100 flex flex-col shrink-0",
+        "w-60 min-h-screen bg-stone-900 text-stone-100 flex flex-col shrink-0",
         className
       )}
     >
-      <div className="px-4 py-5 border-b border-slate-700">
+      <div className="px-4 py-5 border-b border-stone-700">
         <div className="flex items-center gap-2">
-          <ChevronRight className="h-5 w-5 text-emerald-400" />
           <span className="text-lg font-bold tracking-tight">Farmers Database</span>
         </div>
       </div>
@@ -95,7 +93,7 @@ export function Sidebar({ role, className, onNavigate }: SidebarProps) {
       <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
         {sections.map(({ label, items }) => (
           <div key={label}>
-            <p className="px-2 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <p className="px-2 mb-2 text-xs font-semibold text-stone-400 uppercase tracking-wider">
               {label}
             </p>
             <ul className="space-y-0.5">
@@ -107,8 +105,8 @@ export function Sidebar({ role, className, onNavigate }: SidebarProps) {
                     className={cn(
                       "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
                       pathname === href
-                        ? "bg-emerald-600 text-white"
-                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                        ? "bg-green-600 text-white"
+                        : "text-stone-300 hover:bg-stone-800 hover:text-white"
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
@@ -121,7 +119,7 @@ export function Sidebar({ role, className, onNavigate }: SidebarProps) {
         ))}
 
         <div>
-          <p className="px-2 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <p className="px-2 mb-2 text-xs font-semibold text-stone-400 uppercase tracking-wider">
             Admin
           </p>
           <ul className="space-y-0.5">
@@ -133,8 +131,8 @@ export function Sidebar({ role, className, onNavigate }: SidebarProps) {
                   className={cn(
                     "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
                     pathname === href
-                      ? "bg-emerald-600 text-white"
-                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                      ? "bg-green-600 text-white"
+                      : "text-stone-300 hover:bg-stone-800 hover:text-white"
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
@@ -151,8 +149,8 @@ export function Sidebar({ role, className, onNavigate }: SidebarProps) {
                     className={cn(
                       "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
                       pathname === "/admin"
-                        ? "bg-emerald-600 text-white"
-                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                        ? "bg-green-600 text-white"
+                        : "text-stone-300 hover:bg-stone-800 hover:text-white"
                     )}
                   >
                     <Settings2 className="h-4 w-4 shrink-0" />
@@ -166,8 +164,8 @@ export function Sidebar({ role, className, onNavigate }: SidebarProps) {
                     className={cn(
                       "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
                       pathname.startsWith("/pipelines")
-                        ? "bg-emerald-600 text-white"
-                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                        ? "bg-green-600 text-white"
+                        : "text-stone-300 hover:bg-stone-800 hover:text-white"
                     )}
                   >
                     <Cpu className="h-4 w-4 shrink-0" />

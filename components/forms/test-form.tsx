@@ -175,11 +175,11 @@ export function TestForm({ onSuccess, testId, initialData }: TestFormProps) {
 
       <div className="space-y-2 pt-2 border-t">
         <Label>Required Equipment</Label>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-stone-500">
           Equipment a lab member needs to sign out before running this test.
         </p>
         {equipmentOptions.length === 0 && (
-          <p className="text-xs text-slate-400 italic">No equipment items yet. Add some at Equipment.</p>
+          <p className="text-xs text-stone-400 italic">No equipment items yet. Add some at Equipment.</p>
         )}
         {equipmentOptions.length > 0 && (
           <div className="border rounded-lg p-3 space-y-1.5 max-h-40 overflow-y-auto">
@@ -205,29 +205,29 @@ export function TestForm({ onSuccess, testId, initialData }: TestFormProps) {
             <button
               type="button"
               onClick={openLibrary}
-              className="text-xs text-slate-600 hover:text-slate-900 font-medium underline underline-offset-2"
+              className="text-xs text-stone-600 hover:text-stone-900 font-medium underline underline-offset-2"
             >
               Pick from library
             </button>
             <button
               type="button"
               onClick={addTemplate}
-              className="text-xs text-emerald-700 hover:text-emerald-900 font-medium"
+              className="text-xs text-green-700 hover:text-green-900 font-medium"
             >
               + Add Template
             </button>
           </div>
         </div>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-stone-500">
           Tasks auto-created from these templates when this test is assigned to an experiment.
         </p>
 
         {libraryOpen && (
-          <div className="border rounded-lg p-3 bg-slate-50 space-y-2">
-            <p className="text-xs font-medium text-slate-700">Select from library:</p>
-            {libraryLoading && <p className="text-xs text-slate-400">Loading...</p>}
+          <div className="border rounded-lg p-3 bg-stone-50 space-y-2">
+            <p className="text-xs font-medium text-stone-700">Select from library:</p>
+            {libraryLoading && <p className="text-xs text-stone-400">Loading...</p>}
             {!libraryLoading && library.length === 0 && (
-              <p className="text-xs text-slate-400 italic">No library templates yet. Create some at Advanced → Task Templates.</p>
+              <p className="text-xs text-stone-400 italic">No library templates yet. Create some at Advanced → Task Templates.</p>
             )}
             {library.map((t) => (
               <label key={t.id} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -238,8 +238,8 @@ export function TestForm({ onSuccess, testId, initialData }: TestFormProps) {
                   className="rounded"
                 />
                 <span className="flex-1">{t.description}</span>
-                {t.classification && <span className="text-xs text-slate-400">{t.classification}</span>}
-                <span className="text-xs text-slate-400">{t.priority}</span>
+                {t.classification && <span className="text-xs text-stone-400">{t.classification}</span>}
+                <span className="text-xs text-stone-400">{t.priority}</span>
               </label>
             ))}
             <div className="flex gap-2 pt-1">
@@ -247,14 +247,14 @@ export function TestForm({ onSuccess, testId, initialData }: TestFormProps) {
                 type="button"
                 onClick={addFromLibrary}
                 disabled={selected.size === 0}
-                className="text-xs bg-emerald-600 text-white px-3 py-1 rounded-md disabled:opacity-40 hover:bg-emerald-700"
+                className="text-xs bg-green-600 text-white px-3 py-1 rounded-md disabled:opacity-40 hover:bg-green-700"
               >
                 Add selected ({selected.size})
               </button>
               <button
                 type="button"
                 onClick={() => { setLibraryOpen(false); setSelected(new Set()); }}
-                className="text-xs text-slate-500 hover:text-slate-800 px-2"
+                className="text-xs text-stone-500 hover:text-stone-800 px-2"
               >
                 Cancel
               </button>
@@ -263,7 +263,7 @@ export function TestForm({ onSuccess, testId, initialData }: TestFormProps) {
         )}
 
         {templates.length === 0 && (
-          <p className="text-xs text-slate-400 italic">No templates yet.</p>
+          <p className="text-xs text-stone-400 italic">No templates yet.</p>
         )}
         {templates.map((t, i) => (
           <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
@@ -291,7 +291,7 @@ export function TestForm({ onSuccess, testId, initialData }: TestFormProps) {
             <button
               type="button"
               onClick={() => removeTemplate(i)}
-              className="text-slate-400 hover:text-red-500 text-sm leading-none px-1"
+              className="text-stone-400 hover:text-red-500 text-sm leading-none px-1"
               aria-label="Remove"
             >
               ✕

@@ -51,12 +51,12 @@ export default function EditGeofenceClient({ geofence, zones, assignments, conta
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-          <Link href="/geofences" className="hover:text-slate-900">Geofences</Link>
+        <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+          <Link href="/geofences" className="hover:text-stone-900">Geofences</Link>
           <span>/</span>
           <span>Edit</span>
         </div>
-        <h2 className="text-2xl font-bold text-slate-900">Edit {geofence.title}</h2>
+        <h2 className="text-2xl font-bold text-stone-900">Edit {geofence.title}</h2>
       </div>
 
       <div className="bg-white border rounded-lg p-6">
@@ -65,18 +65,18 @@ export default function EditGeofenceClient({ geofence, zones, assignments, conta
 
       <div className="bg-white border rounded-lg p-6 space-y-3">
         <div className="flex items-center justify-between pb-2 border-b">
-          <h3 className="text-sm font-semibold text-slate-900">Zones</h3>
-          <span className="text-xs text-slate-400">To change zones, delete and recreate this geofence.</span>
+          <h3 className="text-sm font-semibold text-stone-900">Zones</h3>
+          <span className="text-xs text-stone-400">To change zones, delete and recreate this geofence.</span>
         </div>
         {zones.length === 0 ? (
-          <p className="text-sm text-slate-400 italic">No zones.</p>
+          <p className="text-sm text-stone-400 italic">No zones.</p>
         ) : (
           <ul className="divide-y">
             {zones.map((z) => (
               <li key={z.id} className="py-2 text-sm">
                 <span className="font-medium">{z.farm_name}</span>
-                <span className="text-slate-500"> — {z.field_names.join(", ")}</span>
-                <span className="text-xs text-slate-400 ml-2">({Math.round(z.radius_meters)}m radius)</span>
+                <span className="text-stone-500"> — {z.field_names.join(", ")}</span>
+                <span className="text-xs text-stone-400 ml-2">({Math.round(z.radius_meters)}m radius)</span>
               </li>
             ))}
           </ul>
@@ -84,7 +84,7 @@ export default function EditGeofenceClient({ geofence, zones, assignments, conta
       </div>
 
       <div className="bg-white border rounded-lg p-6 space-y-3">
-        <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Assigned To</h3>
+        <h3 className="text-sm font-semibold text-stone-900 pb-2 border-b">Assigned To</h3>
         <GeofenceAssignmentPicker
           geofenceId={geofence.id}
           initialAssignments={assignments}
@@ -96,7 +96,7 @@ export default function EditGeofenceClient({ geofence, zones, assignments, conta
       </div>
 
       <div className="bg-white border rounded-lg p-6">
-        <Link href={`/geofences/${geofence.id}/events`} className="text-sm font-medium text-emerald-700 hover:text-emerald-900">
+        <Link href={`/geofences/${geofence.id}/events`} className="text-sm font-medium text-green-700 hover:text-green-900">
           View Events →
         </Link>
       </div>

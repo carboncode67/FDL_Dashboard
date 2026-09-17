@@ -23,8 +23,8 @@ export default function DashboardError({
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center px-4">
       <AlertTriangle className="h-8 w-8 text-amber-500" />
-      <h2 className="text-lg font-semibold text-slate-900">Something went wrong loading this page</h2>
-      <p className="max-w-md text-sm text-slate-500">
+      <h2 className="text-lg font-semibold text-stone-900">Something went wrong loading this page</h2>
+      <p className="max-w-md text-sm text-stone-500">
         This can happen after a deploy if your sign-in is out of date. Try again, or sign out and
         back in.
       </p>

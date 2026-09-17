@@ -171,7 +171,7 @@ export function SamplingMapsListClient({
               placeholder="Map name…"
             />
 
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-stone-500">
               Link to an experiment to be able to connect sampling points to its tests.
             </p>
             {error && <p className="text-sm text-red-500">{error}</p>}

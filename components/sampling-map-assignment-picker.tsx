@@ -62,12 +62,12 @@ export function SamplingMapAssignmentPicker({ samplingMapId, initialAssignments,
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-stone-500">
         Send this sampling map to a lab member&apos;s phone. It appears in their app&apos;s Sampling Maps list.
       </p>
 
       {assignments.length === 0 ? (
-        <p className="text-sm text-slate-400 italic">Not sent to anyone yet.</p>
+        <p className="text-sm text-stone-400 italic">Not sent to anyone yet.</p>
       ) : (
         <ul className="divide-y">
           {assignments.map((a) => (
@@ -77,7 +77,7 @@ export function SamplingMapAssignmentPicker({ samplingMapId, initialAssignments,
                 type="button"
                 onClick={() => handleRemove(a.id)}
                 disabled={removingId === a.id}
-                className="text-slate-400 hover:text-red-500 disabled:opacity-50"
+                className="text-stone-400 hover:text-red-500 disabled:opacity-50"
                 aria-label="Remove assignment"
               >
                 <X className="h-3.5 w-3.5" />

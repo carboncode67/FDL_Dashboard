@@ -50,32 +50,32 @@ export default function EditTestClient({ test, dataSources, documents }: Props) 
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-          <Link href="/tests" className="hover:text-slate-900">Tests</Link>
+        <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+          <Link href="/tests" className="hover:text-stone-900">Tests</Link>
           <span>/</span>
           <span>Edit</span>
         </div>
-        <h2 className="text-2xl font-bold text-slate-900">Edit {test.Test_Name ?? `Test #${test.id}`}</h2>
+        <h2 className="text-2xl font-bold text-stone-900">Edit {test.Test_Name ?? `Test #${test.id}`}</h2>
       </div>
       <div className="bg-white border rounded-lg p-6">
         <TestForm testId={test.id} initialData={test} onSuccess={() => router.push("/tests")} />
       </div>
       <div className="bg-white border rounded-lg p-6 space-y-3">
         <div className="flex items-center justify-between pb-2 border-b">
-          <h3 className="text-sm font-semibold text-slate-900">Data Sources</h3>
+          <h3 className="text-sm font-semibold text-stone-900">Data Sources</h3>
           <Link
             href={`/data-tables/new?test_id=${test.id}`}
-            className="text-xs text-emerald-700 hover:text-emerald-900 font-medium"
+            className="text-xs text-green-700 hover:text-green-900 font-medium"
           >
             + New Dedicated Table
           </Link>
         </div>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-stone-500">
           Each data source is its own schema — a GPS track, a sample form, a results form — with its
           own processing instructions and pipeline. Attach existing/shared ones below on this form.
         </p>
         {dataSources.length === 0 ? (
-          <p className="text-sm text-slate-400 italic">No data tables yet.</p>
+          <p className="text-sm text-stone-400 italic">No data tables yet.</p>
         ) : (
           <ul className="divide-y">
             {dataSources.map((d) => (
@@ -83,7 +83,7 @@ export default function EditTestClient({ test, dataSources, documents }: Props) 
                 <Link href={`/data-tables/${d.id}/edit`} className="text-blue-600 hover:underline">
                   {d.name}
                 </Link>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-stone-400">
                   {d.columnCount} column{d.columnCount === 1 ? "" : "s"}{d.home ? "" : " · shared"}
                 </span>
               </li>
@@ -93,8 +93,8 @@ export default function EditTestClient({ test, dataSources, documents }: Props) 
       </div>
       <div className="bg-white border rounded-lg p-6 space-y-4">
         <div className="pb-2 border-b">
-          <h3 className="text-sm font-semibold text-slate-900">Lab Forms</h3>
-          <p className="text-xs text-slate-500 mt-1">
+          <h3 className="text-sm font-semibold text-stone-900">Lab Forms</h3>
+          <p className="text-xs text-stone-500 mt-1">
             Blank forms (PDF/Excel) that accompany samples to the lab. These are synced into each
             farm&apos;s Tests folder by the client.
           </p>
@@ -107,11 +107,11 @@ export default function EditTestClient({ test, dataSources, documents }: Props) 
                   <a
                     href={`/api/files/documents/${doc.filename}`}
                     download={doc.original_name ?? doc.filename}
-                    className="font-medium text-slate-900 hover:underline truncate block"
+                    className="font-medium text-stone-900 hover:underline truncate block"
                   >
                     {doc.original_name ?? doc.filename}
                   </a>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-stone-500">
                     {doc.file_type?.toUpperCase() ?? "—"}
                     {doc.file_size ? ` · ${Math.round(doc.file_size / 1024)} KB` : ""}
                     {` · ${new Date(doc.uploaded_at).toLocaleDateString()}`}

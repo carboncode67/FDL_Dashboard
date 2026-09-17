@@ -69,7 +69,7 @@ export function LabMembersClient({
       header: (
         <input
           type="checkbox"
-          className="h-4 w-4 accent-slate-700"
+          className="h-4 w-4 accent-stone-700"
           checked={allEligibleSelected}
           onChange={toggleAll}
           disabled={eligible.length === 0}
@@ -82,7 +82,7 @@ export function LabMembersClient({
         return (
           <input
             type="checkbox"
-            className="h-4 w-4 accent-slate-700"
+            className="h-4 w-4 accent-stone-700"
             checked={selected.has(r.id)}
             disabled={!canOnboard}
             title={!canOnboard ? "No app access token — grant access first" : undefined}
@@ -102,7 +102,7 @@ export function LabMembersClient({
         return r.category === "agronomist" ? (
           <Badge variant="secondary">Agronomist</Badge>
         ) : (
-          <span className="text-slate-400">Lab Member</span>
+          <span className="text-stone-400">Lab Member</span>
         );
       },
     },
@@ -115,7 +115,7 @@ export function LabMembersClient({
         return r.status ? (
           <Badge variant={statusVariant(r.status)}>{r.status}</Badge>
         ) : (
-          <span className="text-slate-400">—</span>
+          <span className="text-stone-400">—</span>
         );
       },
     },
@@ -127,7 +127,7 @@ export function LabMembersClient({
         return r.faa_part_107 ? (
           <CheckCircle2 className="h-4 w-4 text-green-600" />
         ) : (
-          <span className="text-slate-300">—</span>
+          <span className="text-stone-300">—</span>
         );
       },
     },
@@ -150,7 +150,7 @@ export function LabMembersClient({
             Active
           </Badge>
         ) : (
-          <Badge variant="outline" className="text-slate-400">None</Badge>
+          <Badge variant="outline" className="text-stone-400">None</Badge>
         );
       },
     },
@@ -172,8 +172,8 @@ export function LabMembersClient({
   return (
     <div className="space-y-4">
       {canEdit && selected.size > 0 && (
-        <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-4 py-2">
-          <span className="text-sm text-slate-700">{selected.size} selected</span>
+        <div className="flex items-center justify-between rounded-md border border-stone-200 bg-stone-50 px-4 py-2">
+          <span className="text-sm text-stone-700">{selected.size} selected</span>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
               Clear

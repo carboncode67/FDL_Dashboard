@@ -87,7 +87,7 @@ export function DataTableSample({ dataTableId, sampleFilename, sampleOriginalNam
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-stone-500">
         A small example table — real rows, not just column labels. Pipelines matched to this Data
         Table send it to the processing LLM alongside the description, so it sees actual values
         (e.g. that a &quot;ReadingA&quot; column holds sensor readings while &quot;X&quot;/&quot;Y&quot;/&quot;Z&quot; are position columns).
@@ -97,7 +97,7 @@ export function DataTableSample({ dataTableId, sampleFilename, sampleOriginalNam
         <div className="border rounded-lg p-3 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm">
-              <FileText className="h-4 w-4 text-slate-400" />
+              <FileText className="h-4 w-4 text-stone-400" />
               <span className="font-medium">{sampleOriginalName ?? sampleFilename}</span>
             </div>
             <div className="flex gap-2">
@@ -116,7 +116,7 @@ export function DataTableSample({ dataTableId, sampleFilename, sampleOriginalNam
           {preview && (
             <div className="overflow-x-auto border rounded-md">
               <table className="text-xs w-full">
-                <thead className="bg-slate-50">
+                <thead className="bg-stone-50">
                   <tr>{preview[0]?.map((h, i) => <th key={i} className="text-left px-2 py-1 font-medium border-b whitespace-nowrap">{h}</th>)}</tr>
                 </thead>
                 <tbody>
@@ -131,7 +131,7 @@ export function DataTableSample({ dataTableId, sampleFilename, sampleOriginalNam
           )}
         </div>
       ) : (
-        <p className="text-xs text-slate-400 italic">No sample table attached.</p>
+        <p className="text-xs text-stone-400 italic">No sample table attached.</p>
       )}
 
       <input

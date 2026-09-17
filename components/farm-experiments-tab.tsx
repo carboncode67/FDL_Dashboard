@@ -116,23 +116,23 @@ function ExperimentCard({
         </CardHeader>
         <CardContent>
           {!hasData ? (
-            <p className="text-sm text-slate-500 italic">No experiment info yet.</p>
+            <p className="text-sm text-stone-500 italic">No experiment info yet.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               {farmName && (
                 <div>
-                  <span className="text-slate-500">Farm</span>
+                  <span className="text-stone-500">Farm</span>
                   <p className="font-medium mt-0.5">{farmName}</p>
                 </div>
               )}
               {farmerName && (
                 <div>
-                  <span className="text-slate-500">Farmer</span>
+                  <span className="text-stone-500">Farmer</span>
                   <p className="font-medium mt-0.5">{farmerName}</p>
                 </div>
               )}
               <div>
-                <span className="text-slate-500">Start Date</span>
+                <span className="text-stone-500">Start Date</span>
                 <p className="font-medium mt-0.5">
                   {experiment.start_date
                     ? new Date(experiment.start_date).toLocaleDateString()
@@ -141,37 +141,37 @@ function ExperimentCard({
               </div>
               {experiment.end_date && (
                 <div>
-                  <span className="text-slate-500">End Date</span>
+                  <span className="text-stone-500">End Date</span>
                   <p className="font-medium mt-0.5">{new Date(experiment.end_date).toLocaleDateString()}</p>
                 </div>
               )}
               {experiment.hypothesis && (
                 <div className="col-span-2">
-                  <span className="text-slate-500">Hypothesis</span>
+                  <span className="text-stone-500">Hypothesis</span>
                   <p className="mt-0.5 whitespace-pre-wrap">{experiment.hypothesis}</p>
                 </div>
               )}
               {experiment.experiment_desc && (
                 <div className="col-span-2">
-                  <span className="text-slate-500">Experiment</span>
+                  <span className="text-stone-500">Experiment</span>
                   <p className="mt-0.5 whitespace-pre-wrap">{experiment.experiment_desc}</p>
                 </div>
               )}
               {experiment.measurements && (
                 <div className="col-span-2">
-                  <span className="text-slate-500">Measurements</span>
+                  <span className="text-stone-500">Measurements</span>
                   <p className="mt-0.5 whitespace-pre-wrap">{experiment.measurements}</p>
                 </div>
               )}
               {experiment.criteria && (
                 <div className="col-span-2">
-                  <span className="text-slate-500">Criteria</span>
+                  <span className="text-stone-500">Criteria</span>
                   <p className="mt-0.5 whitespace-pre-wrap">{experiment.criteria}</p>
                 </div>
               )}
               {linkedFieldNames.length > 0 && (
                 <div className="col-span-2">
-                  <span className="text-slate-500">Linked Fields</span>
+                  <span className="text-stone-500">Linked Fields</span>
                   <p className="mt-0.5 font-medium">{linkedFieldNames.join(", ")}</p>
                 </div>
               )}
@@ -200,20 +200,20 @@ function ExperimentCard({
           <CardContent className="space-y-4">
             {experiment.lab_description && (
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Description</p>
+                <p className="text-xs font-medium text-stone-500 uppercase tracking-wide mb-1">Description</p>
                 <p className="text-sm whitespace-pre-wrap">{experiment.lab_description}</p>
               </div>
             )}
 
             {experiment.tests.length > 0 && (
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Tests</p>
+                <p className="text-xs font-medium text-stone-500 uppercase tracking-wide mb-2">Tests</p>
                 <div className="space-y-1">
                   {experiment.tests.map((t, i) => (
                     <div key={i} className="flex items-center gap-3 text-sm py-1 border-b last:border-0">
                       <span className="flex-1 font-medium">{t.test_name ?? `Test #${t.test_id}`}</span>
-                      <span className="text-slate-500">{t.n_samples != null ? `${t.n_samples} samples` : ""}</span>
-                      <span className="text-slate-500">
+                      <span className="text-stone-500">{t.n_samples != null ? `${t.n_samples} samples` : ""}</span>
+                      <span className="text-stone-500">
                         {t.expected_date ? new Date(t.expected_date).toLocaleDateString() : ""}
                       </span>
                       {t.status && <Badge variant="outline" className="text-xs">{t.status}</Badge>}
@@ -225,13 +225,13 @@ function ExperimentCard({
 
             {experiment.drones.length > 0 && (
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Drone Flights</p>
+                <p className="text-xs font-medium text-stone-500 uppercase tracking-wide mb-2">Drone Flights</p>
                 <div className="space-y-1">
                   {experiment.drones.map((d, i) => (
                     <div key={i} className="flex items-center gap-3 text-sm py-1 border-b last:border-0">
                       <span className="flex-1 font-medium">{d.drone_name ?? `Drone #${d.drone_id}`}</span>
-                      <span className="text-slate-500">{d.n_flights != null ? `${d.n_flights} flights` : ""}</span>
-                      <span className="text-slate-500">
+                      <span className="text-stone-500">{d.n_flights != null ? `${d.n_flights} flights` : ""}</span>
+                      <span className="text-stone-500">
                         {d.expected_date ? new Date(d.expected_date).toLocaleDateString() : ""}
                       </span>
                       {d.status && <Badge variant="outline" className="text-xs">{d.status}</Badge>}
@@ -243,7 +243,7 @@ function ExperimentCard({
 
             {experiment.treatments.length > 0 && (
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Farm Level Treatments</p>
+                <p className="text-xs font-medium text-stone-500 uppercase tracking-wide mb-2">Farm Level Treatments</p>
                 <div className="space-y-3">
                   {experiment.treatments.map((t, i) => (
                     <div key={i} className="py-1 border-b last:border-0">
@@ -269,7 +269,7 @@ function ExperimentCard({
                             <thead>
                               <tr>
                                 {t.field_columns.map((col) => (
-                                  <th key={col} className="text-left text-slate-400 font-medium pr-6 pb-0.5">{col}</th>
+                                  <th key={col} className="text-left text-stone-400 font-medium pr-6 pb-0.5">{col}</th>
                                 ))}
                               </tr>
                             </thead>
@@ -277,7 +277,7 @@ function ExperimentCard({
                               {t.field_rows.map((row, ri) => (
                                 <tr key={ri}>
                                   {row.map((val, ci) => (
-                                    <td key={ci} className="text-slate-700 pr-6 py-0.5">{val || "—"}</td>
+                                    <td key={ci} className="text-stone-700 pr-6 py-0.5">{val || "—"}</td>
                                   ))}
                                 </tr>
                               ))}
@@ -313,7 +313,7 @@ export function FarmExperimentsTab({ farmId, experiments, farmFieldNames, farmNa
 
       {experiments.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-slate-500 text-sm italic">
+          <CardContent className="py-8 text-center text-stone-500 text-sm italic">
             No experiments yet.
           </CardContent>
         </Card>

@@ -79,16 +79,16 @@ function IntakeRegister({ farmId, onRegistered }: { farmId: number; onRegistered
   if (!files || files.length === 0) return null;
 
   return (
-    <div className="border-t border-slate-100 pt-4 space-y-2">
-      <p className="text-xs text-slate-500">
+    <div className="border-t border-stone-100 pt-4 space-y-2">
+      <p className="text-xs text-stone-500">
         Or register a file already dropped on the server&apos;s intake share:
       </p>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <ul className="space-y-1.5">
         {files.map((f) => (
           <li key={f.filename} className="flex items-center justify-between gap-2 text-sm">
-            <span className="truncate text-slate-700" title={f.filename}>
-              {f.filename} <span className="text-slate-400">({formatBytes(f.bytes)})</span>
+            <span className="truncate text-stone-700" title={f.filename}>
+              {f.filename} <span className="text-stone-400">({formatBytes(f.bytes)})</span>
             </span>
             <button
               type="button"
@@ -97,8 +97,8 @@ function IntakeRegister({ farmId, onRegistered }: { farmId: number; onRegistered
               className={cn(
                 "shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                 registeringFile === f.filename
-                  ? "bg-slate-100 text-slate-400"
-                  : "bg-slate-900 text-white hover:bg-slate-700",
+                  ? "bg-stone-100 text-stone-400"
+                  : "bg-stone-900 text-white hover:bg-stone-700",
               )}
             >
               {registeringFile === f.filename ? "Registering…" : "Register"}
@@ -164,8 +164,8 @@ export function BasemapUpload({ farmId }: Props) {
           <div
             className={cn(
               "border-2 border-dashed rounded-lg px-4 py-6 text-center cursor-pointer transition-colors",
-              dragging ? "border-blue-500 bg-blue-50" : "border-slate-200 hover:border-slate-400",
-              selectedFile ? "bg-slate-50" : "",
+              dragging ? "border-blue-500 bg-blue-50" : "border-stone-200 hover:border-stone-400",
+              selectedFile ? "bg-stone-50" : "",
             )}
             onClick={() => fileRef.current?.click()}
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -188,11 +188,11 @@ export function BasemapUpload({ farmId }: Props) {
               }}
             />
             {selectedFile ? (
-              <p className="text-sm font-medium text-slate-700">{selectedFile.name}</p>
+              <p className="text-sm font-medium text-stone-700">{selectedFile.name}</p>
             ) : (
               <div>
-                <p className="text-sm text-slate-500">Drop a GeoTIFF here or click to browse</p>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-sm text-stone-500">Drop a GeoTIFF here or click to browse</p>
+                <p className="text-xs text-stone-400 mt-1">
                   A drone orthomosaic or other large raster (.tif/.tiff) — tiled automatically after upload.
                 </p>
               </div>
@@ -212,8 +212,8 @@ export function BasemapUpload({ farmId }: Props) {
             className={cn(
               "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
               !selectedFile || status === "uploading"
-                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                : "bg-slate-900 text-white hover:bg-slate-700",
+                ? "bg-stone-100 text-stone-400 cursor-not-allowed"
+                : "bg-stone-900 text-white hover:bg-stone-700",
             )}
           >
             {status === "uploading" && (

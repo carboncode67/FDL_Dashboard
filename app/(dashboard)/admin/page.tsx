@@ -61,8 +61,8 @@ export default async function AdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Admin Panel</h2>
-        <p className="text-slate-500 text-sm mt-0.5">Manage user roles and site settings</p>
+        <h2 className="text-2xl font-bold text-stone-900">Admin Panel</h2>
+        <p className="text-stone-500 text-sm mt-0.5">Manage user roles and site settings</p>
       </div>
 
       <Card>
@@ -99,7 +99,7 @@ export default async function AdminPage() {
         </CardHeader>
         <CardContent>
           {users.length === 0 ? (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-stone-500">
               No accounts yet — bootstrap admin (<code>admin@lab.com</code>) is active.
             </p>
           ) : (

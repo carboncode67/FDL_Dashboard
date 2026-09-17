@@ -47,20 +47,20 @@ export function EditBoundaryPage({ fieldId, fieldName, farmId, farmName, initial
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
       {/* Top bar */}
-      <div className="flex items-center gap-3 px-4 h-14 border-b border-slate-200 bg-white shrink-0">
+      <div className="flex items-center gap-3 px-4 h-14 border-b border-stone-200 bg-white shrink-0">
         <Link
           href={backHref}
-          className="text-sm text-slate-500 hover:text-slate-900 shrink-0 flex items-center gap-1"
+          className="text-sm text-stone-500 hover:text-stone-900 shrink-0 flex items-center gap-1"
         >
           ← {fieldName}
         </Link>
         {farmName && farmId && (
           <>
-            <span className="text-slate-300 shrink-0">·</span>
-            <span className="text-sm text-slate-400 shrink-0">{farmName}</span>
+            <span className="text-stone-300 shrink-0">·</span>
+            <span className="text-sm text-stone-400 shrink-0">{farmName}</span>
           </>
         )}
-        <span className="text-sm font-medium text-slate-700 shrink-0 ml-1">
+        <span className="text-sm font-medium text-stone-700 shrink-0 ml-1">
           {initialGeometry ? "Edit Boundary" : "Draw Boundary"}
         </span>
         {error && <span className="text-sm text-red-500 shrink-0">{error}</span>}

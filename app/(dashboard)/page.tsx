@@ -173,15 +173,15 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Dashboard</h2>
-        <p className="text-slate-500 mt-1">Overview of all field operations</p>
+        <h2 className="text-2xl font-bold text-stone-900">Dashboard</h2>
+        <p className="text-stone-500 mt-1">Overview of all field operations</p>
       </div>
 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-stone-500 flex items-center gap-2">
               <FolderKanban className="h-4 w-4" />
               Active Projects
             </CardTitle>
@@ -204,20 +204,20 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-stone-500 flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Enrolled Farms
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{data.farmCount}</div>
-            <p className="text-xs text-slate-400 mt-2">Total registered farms</p>
+            <p className="text-xs text-stone-400 mt-2">Total registered farms</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-stone-500 flex items-center gap-2">
               <Map className="h-4 w-4" />
               Enrolled Area
             </CardTitle>
@@ -226,12 +226,12 @@ export default async function DashboardPage() {
             {hasFieldArea ? (
               <>
                 <div className="text-3xl font-bold">{data.totalFieldAcres.toFixed(1)}</div>
-                <p className="text-xs text-slate-400 mt-2">Acres across all farm fields</p>
+                <p className="text-xs text-stone-400 mt-2">Acres across all farm fields</p>
               </>
             ) : (
               <>
-                <div className="text-2xl font-bold text-slate-400">—</div>
-                <p className="text-xs text-slate-400 mt-2">No field boundaries uploaded yet</p>
+                <div className="text-2xl font-bold text-stone-400">—</div>
+                <p className="text-xs text-stone-400 mt-2">No field boundaries uploaded yet</p>
               </>
             )}
           </CardContent>
@@ -239,27 +239,27 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-stone-500 flex items-center gap-2">
               <Layers className="h-4 w-4" />
               Experiment Zones
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{data.zoneCount}</div>
-            <p className="text-xs text-slate-400 mt-2">Total defined zones</p>
+            <p className="text-xs text-stone-400 mt-2">Total defined zones</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-stone-500 flex items-center gap-2">
               <TestTube className="h-4 w-4" />
               Upcoming Tests
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{data.upcomingTestCount}</div>
-            <p className="text-xs text-slate-400 mt-2">Next 30 days</p>
+            <p className="text-xs text-stone-400 mt-2">Next 30 days</p>
           </CardContent>
         </Card>
       </div>
@@ -299,13 +299,13 @@ export default async function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <FlaskConical className="h-4 w-4 text-slate-500" />
+            <FlaskConical className="h-4 w-4 text-stone-500" />
             Recent Experiments
           </CardTitle>
         </CardHeader>
         <CardContent>
           {data.recentExperiments.length === 0 ? (
-            <p className="text-sm text-slate-500 py-4 text-center">No experiments yet</p>
+            <p className="text-sm text-stone-500 py-4 text-center">No experiments yet</p>
           ) : (
             <Table>
               <TableHeader>
@@ -317,7 +317,7 @@ export default async function DashboardPage() {
               </TableHeader>
               <TableBody>
                 {data.recentExperiments.map((exp) => (
-                  <TableRow key={exp.id} className="hover:bg-slate-50">
+                  <TableRow key={exp.id} className="hover:bg-stone-50">
                     <TableCell className="font-medium">
                       <Link
                         href={`/farms/${exp.farm_id}/experiments/${exp.id}`}
@@ -327,7 +327,7 @@ export default async function DashboardPage() {
                       </Link>
                     </TableCell>
                     <TableCell>{exp.Farm?.Farm_Name ?? "—"}</TableCell>
-                    <TableCell className="text-slate-500">
+                    <TableCell className="text-stone-500">
                       {format(new Date(exp.updated_at), "MMM d, yyyy")}
                     </TableCell>
                   </TableRow>
@@ -345,7 +345,7 @@ export default async function DashboardPage() {
         </CardHeader>
         <CardContent>
           {data.upcomingTests.length === 0 ? (
-            <p className="text-sm text-slate-500 py-4 text-center">No upcoming tests scheduled</p>
+            <p className="text-sm text-stone-500 py-4 text-center">No upcoming tests scheduled</p>
           ) : (
             <Table>
               <TableHeader>
@@ -383,13 +383,13 @@ export default async function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-slate-500" />
+            <ClipboardList className="h-4 w-4 text-stone-500" />
             Upcoming Tasks
           </CardTitle>
         </CardHeader>
         <CardContent>
           {data.upcomingTasks.length === 0 ? (
-            <p className="text-sm text-slate-500 py-4 text-center">No upcoming tasks</p>
+            <p className="text-sm text-stone-500 py-4 text-center">No upcoming tasks</p>
           ) : (
             <Table>
               <TableHeader>
@@ -413,7 +413,7 @@ export default async function DashboardPage() {
                   const assigneeNames = task.Assignees.map((a) => a.User?.name ?? a.User?.id ?? "Unknown user").join(", ");
                   return (
                     <TableRow key={task.id}>
-                      <TableCell className={isUrgent ? "text-amber-600 font-medium" : "text-slate-500"}>
+                      <TableCell className={isUrgent ? "text-amber-600 font-medium" : "text-stone-500"}>
                         {task.due_date ? format(new Date(task.due_date), "MMM d, yyyy") : "—"}
                       </TableCell>
                       <TableCell className="font-medium">
@@ -444,7 +444,7 @@ export default async function DashboardPage() {
                           </Link>
                         ) : "—"}
                       </TableCell>
-                      <TableCell className="text-slate-500 text-sm">
+                      <TableCell className="text-stone-500 text-sm">
                         {assigneeNames || "Unassigned"}
                       </TableCell>
                     </TableRow>

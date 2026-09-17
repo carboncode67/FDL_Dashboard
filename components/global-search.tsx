@@ -35,7 +35,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
     <>
       {parts.map((part, i) =>
         part.toLowerCase() === query.toLowerCase() ? (
-          <mark key={i} className="bg-amber-200 text-slate-900 rounded-sm px-0.5">
+          <mark key={i} className="bg-amber-200 text-stone-900 rounded-sm px-0.5">
             {part}
           </mark>
         ) : (
@@ -127,14 +127,14 @@ export function GlobalSearch() {
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          "flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 text-slate-500",
-          "px-2.5 py-1.5 text-sm hover:bg-slate-100 hover:text-slate-700 transition-colors",
+          "flex items-center gap-2 rounded-md border border-stone-200 bg-stone-50 text-stone-500",
+          "px-2.5 py-1.5 text-sm hover:bg-stone-100 hover:text-stone-700 transition-colors",
         )}
         aria-label="Search"
       >
         <Search className="h-4 w-4" />
         <span className="hidden md:inline">Search</span>
-        <kbd className="hidden md:inline rounded border border-slate-200 bg-white px-1 text-[10px] text-slate-400">
+        <kbd className="hidden md:inline rounded border border-stone-200 bg-white px-1 text-[10px] text-stone-400">
           ⌘K
         </kbd>
       </button>
@@ -143,52 +143,52 @@ export function GlobalSearch() {
         <DialogContent className="max-w-xl p-0 gap-0 overflow-hidden">
           <DialogHeader className="px-4 pt-4 pb-2">
             <DialogTitle className="sr-only">Search</DialogTitle>
-            <div className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2">
-              <Search className="h-4 w-4 text-slate-400 shrink-0" />
+            <div className="flex items-center gap-2 rounded-md border border-stone-200 px-3 py-2">
+              <Search className="h-4 w-4 text-stone-400 shrink-0" />
               <input
                 autoFocus
                 value={query}
                 onChange={(e) => onQueryChange(e.target.value)}
                 placeholder="Search farms, experiments, uploads…"
-                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                className="w-full bg-transparent text-sm outline-none placeholder:text-stone-400"
               />
-              {loading && <span className="text-xs text-slate-400 shrink-0">searching…</span>}
+              {loading && <span className="text-xs text-stone-400 shrink-0">searching…</span>}
             </div>
           </DialogHeader>
 
           <div className="max-h-[60vh] overflow-y-auto px-2 pb-3">
             {query.trim().length < 2 ? (
-              <p className="px-3 py-6 text-center text-sm text-slate-400">
+              <p className="px-3 py-6 text-center text-sm text-stone-400">
                 Type at least two characters to search the whole database.
               </p>
             ) : searched && hits.length === 0 && !loading ? (
-              <p className="px-3 py-6 text-center text-sm text-slate-400">
+              <p className="px-3 py-6 text-center text-sm text-stone-400">
                 No results for “{query.trim()}”.
               </p>
             ) : (
               Object.entries(grouped).map(([entity, entityHits]) => (
                 <div key={entity} className="mb-1">
-                  <p className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-stone-400">
                     {ENTITY_LABELS[entity] ?? entity}
                   </p>
                   {entityHits.map((hit) => (
                     <button
                       key={`${hit.entity}-${hit.matched_field}-${hit.id}`}
                       onClick={() => go(hit)}
-                      className="w-full rounded-md px-3 py-2 text-left hover:bg-slate-100"
+                      className="w-full rounded-md px-3 py-2 text-left hover:bg-stone-100"
                     >
                       <span className="flex items-baseline gap-2">
-                        <span className="text-sm font-medium text-slate-900 truncate">
+                        <span className="text-sm font-medium text-stone-900 truncate">
                           <Highlight text={hit.title} query={query.trim()} />
                         </span>
                         {hit.context && (
-                          <span className="text-xs text-slate-400 truncate shrink-0">
+                          <span className="text-xs text-stone-400 truncate shrink-0">
                             {hit.context}
                           </span>
                         )}
                       </span>
                       {hit.snippet && hit.snippet !== hit.title && (
-                        <span className="mt-0.5 block text-xs text-slate-500 line-clamp-2">
+                        <span className="mt-0.5 block text-xs text-stone-500 line-clamp-2">
                           <Highlight text={hit.snippet} query={query.trim()} />
                         </span>
                       )}

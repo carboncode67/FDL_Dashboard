@@ -14,7 +14,7 @@ export function LabMemberQrDisplay({ userId, name }: { userId: string; name?: st
   }, [userId]);
 
   if (error) return <p className="text-sm text-red-500">Failed to generate QR code.</p>;
-  if (!dataUrl) return <div className="h-32 w-32 bg-slate-100 animate-pulse rounded" />;
+  if (!dataUrl) return <div className="h-32 w-32 bg-stone-100 animate-pulse rounded" />;
 
   return (
     <div className="flex flex-col items-start gap-1.5">
@@ -23,7 +23,7 @@ export function LabMemberQrDisplay({ userId, name }: { userId: string; name?: st
         alt="Mobile app QR code"
         className="h-40 w-40 rounded border"
       />
-      {name && <p className="text-sm font-medium text-slate-700">{name}</p>}
+      {name && <p className="text-sm font-medium text-stone-700">{name}</p>}
     </div>
   );
 }

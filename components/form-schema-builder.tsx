@@ -104,13 +104,13 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-stone-500">
         Define the fields recipients will fill in. Forms are repeatable — the same recipient can submit
         this form more than once.
       </p>
 
       {columns.length === 0 ? (
-        <p className="text-sm text-slate-400 italic">No fields defined — add one below.</p>
+        <p className="text-sm text-stone-400 italic">No fields defined — add one below.</p>
       ) : (
         <div className="space-y-2">
           {columns.map((col, i) => {
@@ -143,7 +143,7 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
                   onChange={(e) => updateColumn(i, { label: e.target.value })}
                   className={`flex-1 ${isDuplicate ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                 />
-                <label className="flex items-center gap-1.5 text-xs text-slate-600 shrink-0 px-1">
+                <label className="flex items-center gap-1.5 text-xs text-stone-600 shrink-0 px-1">
                   <input
                     type="checkbox"
                     checked={col.required}

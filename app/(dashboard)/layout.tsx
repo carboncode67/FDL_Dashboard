@@ -35,7 +35,7 @@ export default async function DashboardLayout({
 
   return (
     <AuthSessionProvider>
-      <div className="flex min-h-screen bg-slate-50">
+      <div className="flex min-h-screen bg-stone-50">
         <Sidebar role={role} className="hidden lg:flex" />
         <div className="flex flex-col flex-1 min-w-0">
           <Header

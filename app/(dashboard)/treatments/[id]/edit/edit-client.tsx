@@ -20,12 +20,12 @@ export default function EditTreatmentClient({ treatment }: Props) {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-          <Link href="/treatments" className="hover:text-slate-900">Treatment Types</Link>
+        <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+          <Link href="/treatments" className="hover:text-stone-900">Treatment Types</Link>
           <span>/</span>
           <span>Edit</span>
         </div>
-        <h2 className="text-2xl font-bold text-slate-900">
+        <h2 className="text-2xl font-bold text-stone-900">
           Edit {treatment.Treatment_Name ?? `Treatment #${treatment.id}`}
         </h2>
       </div>

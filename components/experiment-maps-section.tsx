@@ -76,7 +76,7 @@ export function ExperimentMapsSection({
   return (
     <div className="space-y-4 mt-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-slate-900">Sampling Maps</h3>
+        <h3 className="text-lg font-semibold text-stone-900">Sampling Maps</h3>
         <Button
           type="button"
           size="sm"
@@ -95,7 +95,7 @@ export function ExperimentMapsSection({
       </div>
 
       {showForm && (
-        <div className="flex items-start gap-2 rounded-md border border-slate-200 p-3">
+        <div className="flex items-start gap-2 rounded-md border border-stone-200 p-3">
           <div className="flex-1 space-y-1">
             <Input
               value={name}
@@ -112,16 +112,16 @@ export function ExperimentMapsSection({
       )}
 
       {maps.length === 0 ? (
-        <p className="text-sm text-slate-500">No sampling maps for this experiment yet.</p>
+        <p className="text-sm text-stone-500">No sampling maps for this experiment yet.</p>
       ) : (
-        <div className="rounded-md border border-slate-200 divide-y">
+        <div className="rounded-md border border-stone-200 divide-y">
           {maps.map((m) => (
             <div key={m.id} className="flex items-center justify-between px-3 py-2">
               <div>
                 <Link href={`/farms/${farmId}/maps/${m.id}`} className="text-blue-600 hover:underline font-medium text-sm">
                   {m.name}
                 </Link>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-stone-500 mt-0.5">
                   {m.polygonCount} polygon{m.polygonCount === 1 ? "" : "s"}, {m.pointCount} point{m.pointCount === 1 ? "" : "s"}
                   {" · "}Updated {new Date(m.updated_at).toLocaleDateString()}
                 </p>

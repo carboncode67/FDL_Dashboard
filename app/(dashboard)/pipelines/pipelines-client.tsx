@@ -114,8 +114,8 @@ export function PipelinesClient({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Pipelines</h2>
-          <p className="text-sm text-slate-500">
+          <h2 className="text-2xl font-bold text-stone-900">Pipelines</h2>
+          <p className="text-sm text-stone-500">
             Automated data-processing pipelines: upload a sample dataset + script (+ optional model),
             an LLM wires it up on the processing machine, and it auto-runs on every future matching upload.
           </p>
@@ -138,11 +138,11 @@ export function PipelinesClient({
           <CardContent className="pt-4">
             <form ref={formRef} onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Name</label>
+                <label className="text-sm font-medium text-stone-700">Name</label>
                 <Input name="name" required placeholder="e.g. Dualex kriging interpolation" />
               </div>
               <div className="flex items-end pb-1.5">
-                <label className="flex items-center gap-2 text-sm text-slate-700">
+                <label className="flex items-center gap-2 text-sm text-stone-700">
                   <input
                     type="checkbox"
                     name="target_kind"
@@ -154,14 +154,14 @@ export function PipelinesClient({
                 </label>
               </div>
               <div className="sm:col-span-2 space-y-1">
-                <label className="text-sm font-medium text-slate-700">Description</label>
-                <p className="text-xs text-slate-500">Include a description of the desired output.</p>
+                <label className="text-sm font-medium text-stone-700">Description</label>
+                <p className="text-xs text-stone-500">Include a description of the desired output.</p>
                 <textarea name="description"
                   className="w-full rounded-md border border-input bg-white px-3 py-2 text-sm min-h-[60px] resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                   placeholder={'e.g. "A GeoTIFF surface of interpolated NBI at 1 m resolution, plus a CSV of per-zone means."'} />
               </div>
               {isDroneFlightTarget ? (
-                <div className="sm:col-span-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                <div className="sm:col-span-2 rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-600">
                   This pipeline has no match table — it never auto-triggers on uploads. Imagery is
                   copied directly onto the processing machine&apos;s landing folder for a chosen drone
                   flight, then run manually from that flight&apos;s &quot;Run&quot; button. Output is written to
@@ -170,8 +170,8 @@ export function PipelinesClient({
               ) : (
                 <>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">Trigger on (upload type)</label>
-                    <p className="text-xs text-slate-500">
+                    <label className="text-sm font-medium text-stone-700">Trigger on (upload type)</label>
+                    <p className="text-xs text-stone-500">
                       Which kind of upload sets this pipeline running. &quot;Sample Data Upload&quot; fires
                       only when data matching a specific Data Table&apos;s schema is ingested.
                     </p>
@@ -183,13 +183,13 @@ export function PipelinesClient({
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">Category filter (optional)</label>
-                    <p className="text-xs text-slate-500">Only trigger for uploads tagged with this category.</p>
+                    <label className="text-sm font-medium text-stone-700">Category filter (optional)</label>
+                    <p className="text-xs text-stone-500">Only trigger for uploads tagged with this category.</p>
                     <Input name="match_category" placeholder="leave blank to match any category" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">Project scope (optional)</label>
-                    <p className="text-xs text-slate-500">Only trigger for uploads in this project.</p>
+                    <label className="text-sm font-medium text-stone-700">Project scope (optional)</label>
+                    <p className="text-xs text-stone-500">Only trigger for uploads in this project.</p>
                     <select name="match_project_id" defaultValue=""
                       className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                       <option value="">— any project —</option>
@@ -197,10 +197,10 @@ export function PipelinesClient({
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">
+                    <label className="text-sm font-medium text-stone-700">
                       Data Table {dataTableRequired ? <span className="text-red-500">*</span> : "(optional)"}
                     </label>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-stone-500">
                       {dataTableRequired
                         ? "Required for Sample Data Upload — the pipeline fires only when data matching this table's schema is ingested. Its description, columns, and sample table go to the processing LLM."
                         : matchTable === "documents"
@@ -216,8 +216,8 @@ export function PipelinesClient({
                       {dataTables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                     {selectedDataTable && (
-                      <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 space-y-1">
-                        <p>{selectedDataTable.description || <span className="italic text-slate-400">No description set.</span>}</p>
+                      <div className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600 space-y-1">
+                        <p>{selectedDataTable.description || <span className="italic text-stone-400">No description set.</span>}</p>
                         <p>
                           {selectedDataTable.columnCount} column{selectedDataTable.columnCount === 1 ? "" : "s"} defined ·{" "}
                           {selectedDataTable.hasSample
@@ -229,9 +229,9 @@ export function PipelinesClient({
                   </div>
                   <div className="sm:col-span-2 flex items-start gap-2 pt-1">
                     <input type="checkbox" name="use_spatial_context" id="use_spatial_context" className="mt-0.5" />
-                    <label htmlFor="use_spatial_context" className="text-sm text-slate-700">
+                    <label htmlFor="use_spatial_context" className="text-sm text-stone-700">
                       <span className="font-medium">Use spatial context</span>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-stone-500">
                         Tell the processing LLM that per-farm spatial-context rasters (terrain, soil,
                         imagery) are available on the server, so it can use them for spatially-informed
                         interpolation — regression, regression kriging, ML, etc.
@@ -241,13 +241,13 @@ export function PipelinesClient({
                 </>
               )}
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">
+                <label className="text-sm font-medium text-stone-700">
                   Sample dataset{isDroneFlightTarget ? " (.zip of sample images)" : ""}
                 </label>
                 <input type="file" name="sample_dataset" required
-                  className="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm" />
+                  className="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-stone-100 file:px-3 file:py-1.5 file:text-sm" />
                 {isDroneFlightTarget && (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-stone-500">
                     Upload a .zip of a handful of sample images — it&apos;s extracted into a folder
                     on the processing machine so the wired script can be tested against a
                     directory, same shape as a real flight&apos;s landing folder.
@@ -255,14 +255,14 @@ export function PipelinesClient({
                 )}
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Script (.py)</label>
+                <label className="text-sm font-medium text-stone-700">Script (.py)</label>
                 <input type="file" name="script" accept=".py" required
-                  className="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm" />
+                  className="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-stone-100 file:px-3 file:py-1.5 file:text-sm" />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Model weights (optional)</label>
+                <label className="text-sm font-medium text-stone-700">Model weights (optional)</label>
                 <input type="file" name="model" accept=".safetensors,.pt,.pth"
-                  className="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm" />
+                  className="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-stone-100 file:px-3 file:py-1.5 file:text-sm" />
               </div>
               {formError && <p className="sm:col-span-2 text-sm text-red-600">{formError}</p>}
               <div className="sm:col-span-2 flex gap-2">
@@ -290,12 +290,12 @@ export function PipelinesClient({
           <TableBody>
             {pipelines.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-slate-500 py-8">
+                <TableCell colSpan={6} className="text-center text-stone-500 py-8">
                   No pipelines yet
                 </TableCell>
               </TableRow>
             ) : pipelines.map((p) => (
-              <TableRow key={p.id} className="cursor-pointer hover:bg-slate-50"
+              <TableRow key={p.id} className="cursor-pointer hover:bg-stone-50"
                 onClick={() => router.push(`/pipelines/${p.id}`)}>
                 <TableCell className="font-medium max-w-xs">
                   <span className="line-clamp-2">{p.name}</span>
@@ -303,7 +303,7 @@ export function PipelinesClient({
                 <TableCell>
                   <Badge variant={STATUS_VARIANT[p.status] ?? "outline"}>{p.status}</Badge>
                 </TableCell>
-                <TableCell className="text-sm text-slate-600">
+                <TableCell className="text-sm text-stone-600">
                   {p.target_kind === "drone_flight" ? (
                     "drone flight (manual)"
                   ) : (
@@ -313,12 +313,12 @@ export function PipelinesClient({
                     </>
                   )}
                 </TableCell>
-                <TableCell className="text-sm text-slate-500">
+                <TableCell className="text-sm text-stone-500">
                   {p.last_run_at ? new Date(p.last_run_at).toLocaleString() : "—"}
                   {p.last_run_status ? ` (${p.last_run_status})` : ""}
                 </TableCell>
-                <TableCell className="text-sm text-slate-500">{p.run_count}</TableCell>
-                <TableCell className="text-sm text-slate-500">{p.creator_name}</TableCell>
+                <TableCell className="text-sm text-stone-500">{p.run_count}</TableCell>
+                <TableCell className="text-sm text-stone-500">{p.creator_name}</TableCell>
               </TableRow>
             ))}
           </TableBody>

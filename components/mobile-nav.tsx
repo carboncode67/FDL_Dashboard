@@ -13,7 +13,7 @@ export function MobileNav({ role }: { role: Role }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="lg:hidden -ml-2 rounded-md p-2 text-slate-600 hover:bg-slate-100 transition-colors"
+        className="lg:hidden -ml-2 rounded-md p-2 text-stone-600 hover:bg-stone-100 transition-colors"
         aria-label="Open navigation"
       >
         <Menu className="h-5 w-5" />

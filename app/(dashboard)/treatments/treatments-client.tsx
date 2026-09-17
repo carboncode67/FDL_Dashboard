@@ -23,11 +23,11 @@ export function TreatmentsClient({ data }: { data: TreatmentRow[] }) {
       header: "Custom Fields",
       render: (row: Record<string, unknown>) => {
         const r = row as unknown as TreatmentRow;
-        if (r.fieldLabels.length === 0) return <span className="text-slate-400 text-sm">—</span>;
+        if (r.fieldLabels.length === 0) return <span className="text-stone-400 text-sm">—</span>;
         return (
-          <span className="text-sm text-slate-600">
+          <span className="text-sm text-stone-600">
             {r.fieldLabels.join(", ")}
-            {r.allow_extra_rows && <span className="ml-1 text-xs text-slate-400">(multi-row)</span>}
+            {r.allow_extra_rows && <span className="ml-1 text-xs text-stone-400">(multi-row)</span>}
           </span>
         );
       },
@@ -36,7 +36,7 @@ export function TreatmentsClient({ data }: { data: TreatmentRow[] }) {
       key: "Description",
       header: "Description",
       render: (row: Record<string, unknown>) => (
-        <span className="text-slate-600 line-clamp-1 max-w-xs text-sm">
+        <span className="text-stone-600 line-clamp-1 max-w-xs text-sm">
           {(row as unknown as TreatmentRow).Description ?? "—"}
         </span>
       ),

@@ -149,7 +149,7 @@ export default function FieldDrawMap({
   if (fullscreen) {
     return (
       <div className="flex flex-col h-full">
-        <div className="flex justify-end px-2 py-1 shrink-0 border-b border-slate-100 bg-slate-50">
+        <div className="flex justify-end px-2 py-1 shrink-0 border-b border-stone-100 bg-stone-50">
           {satelliteBtn}
         </div>
         <div className="flex-1 min-h-0 isolate">
@@ -172,7 +172,7 @@ export default function FieldDrawMap({
       <div className="flex justify-end">
         {satelliteBtn}
       </div>
-      <div className="rounded-lg overflow-hidden border border-slate-200 isolate" style={{ height: 480 }}>
+      <div className="rounded-lg overflow-hidden border border-stone-200 isolate" style={{ height: 480 }}>
         <MapContainer center={center} zoom={14} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
           {combinedBounds && <BoundsAdjuster bounds={combinedBounds} />}
 
@@ -198,7 +198,7 @@ export default function FieldDrawMap({
           <DrawControls initialGeometry={initialGeometry} onGeometryChange={onGeometryChange} />
         </MapContainer>
       </div>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-stone-500">
         Click the polygon tool in the top-left to draw a boundary. Click vertices to edit after drawing.
         Toggle satellite view for better imagery.
       </p>

@@ -213,8 +213,8 @@ export function TaskDetailClient({
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <Link href="/tasks" className="hover:text-slate-900 flex items-center gap-1">
+          <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+            <Link href="/tasks" className="hover:text-stone-900 flex items-center gap-1">
               <ArrowLeft className="h-3.5 w-3.5" />Tasks
             </Link>
             <span>/</span>
@@ -229,7 +229,7 @@ export function TaskDetailClient({
                 href={`${process.env.NEXT_PUBLIC_VIKUNJA_URL}/tasks/${task.vikunja_task_id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                className="inline-flex items-center gap-1 rounded-full border border-green-300 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 hover:bg-green-100"
               >
                 Vikunja ↗
               </a>
@@ -249,12 +249,12 @@ export function TaskDetailClient({
 
       {showCvatForm && (
         <form onSubmit={handleSendToCvat} className="rounded-md border bg-white p-4 space-y-3">
-          <p className="text-sm font-medium text-slate-800">
+          <p className="text-sm font-medium text-stone-800">
             Send {task.upload_count} linked file{task.upload_count !== 1 ? "s" : ""} to CVAT as an annotation task
           </p>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700">
-              Labels <span className="text-slate-400 font-normal">(comma-separated)</span>
+            <label className="text-sm font-medium text-stone-700">
+              Labels <span className="text-stone-400 font-normal">(comma-separated)</span>
             </label>
             <Input
               value={cvatLabels}
@@ -270,16 +270,16 @@ export function TaskDetailClient({
       )}
 
       {cvatResult && (
-        <div className="rounded-md border bg-slate-50 px-4 py-3 text-sm space-y-1">
+        <div className="rounded-md border bg-stone-50 px-4 py-3 text-sm space-y-1">
           {cvatResult.cvat_url ? (
             <>
-              <p className="font-medium text-slate-800">CVAT task created — {cvatResult.image_count} images ready for annotation</p>
+              <p className="font-medium text-stone-800">CVAT task created — {cvatResult.image_count} images ready for annotation</p>
               <a href={cvatResult.cvat_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                 Open annotation task in CVAT →
               </a>
             </>
           ) : cvatResult.message ? (
-            <p className="text-slate-600">{cvatResult.message}</p>
+            <p className="text-stone-600">{cvatResult.message}</p>
           ) : null}
           {cvatResult.warning && <p className="text-amber-700">{cvatResult.warning}</p>}
         </div>
@@ -294,12 +294,12 @@ export function TaskDetailClient({
               {editing ? (
                 <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="sm:col-span-2 space-y-1">
-                    <label className="text-sm font-medium text-slate-700">Description</label>
+                    <label className="text-sm font-medium text-stone-700">Description</label>
                     <textarea className="w-full rounded-md border border-input bg-white px-3 py-2 text-sm min-h-[80px] resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                       value={desc} onChange={(e) => setDesc(e.target.value)} required />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">Classification</label>
+                    <label className="text-sm font-medium text-stone-700">Classification</label>
                     <select value={cls} onChange={(e) => setCls(e.target.value)}
                       className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                       <option value="">— none —</option>
@@ -307,7 +307,7 @@ export function TaskDetailClient({
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">Experiment</label>
+                    <label className="text-sm font-medium text-stone-700">Experiment</label>
                     <select value={expId} onChange={(e) => setExpId(e.target.value)}
                       className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                       <option value="">— none —</option>
@@ -315,21 +315,21 @@ export function TaskDetailClient({
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">Status</label>
+                    <label className="text-sm font-medium text-stone-700">Status</label>
                     <select value={status} onChange={(e) => setStatus(e.target.value)}
                       className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                       {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">Priority</label>
+                    <label className="text-sm font-medium text-stone-700">Priority</label>
                     <select value={priority} onChange={(e) => setPriority(e.target.value)}
                       className="h-8 w-full rounded-md border border-input bg-white px-2 text-sm">
                       {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">Due date</label>
+                    <label className="text-sm font-medium text-stone-700">Due date</label>
                     <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="h-8" />
                   </div>
                   {saveError && <p className="sm:col-span-2 text-sm text-red-600">{saveError}</p>}
@@ -341,17 +341,17 @@ export function TaskDetailClient({
               ) : (
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="sm:col-span-2">
-                    <dt className="text-slate-500">Description</dt>
+                    <dt className="text-stone-500">Description</dt>
                     <dd className="font-medium mt-0.5 whitespace-pre-wrap">{task.description}</dd>
                   </div>
-                  <div><dt className="text-slate-500">Classification</dt><dd className="mt-0.5">{task.classification ?? "—"}</dd></div>
-                  <div><dt className="text-slate-500">Experiment</dt><dd className="mt-0.5">{task.experiment_name ?? "—"}{task.farm_name ? ` / ${task.farm_name}` : ""}</dd></div>
-                  <div><dt className="text-slate-500">Status</dt><dd className="mt-0.5">{task.status}</dd></div>
-                  <div><dt className="text-slate-500">Priority</dt><dd className="mt-0.5">{task.priority}</dd></div>
-                  <div><dt className="text-slate-500">Due date</dt>
+                  <div><dt className="text-stone-500">Classification</dt><dd className="mt-0.5">{task.classification ?? "—"}</dd></div>
+                  <div><dt className="text-stone-500">Experiment</dt><dd className="mt-0.5">{task.experiment_name ?? "—"}{task.farm_name ? ` / ${task.farm_name}` : ""}</dd></div>
+                  <div><dt className="text-stone-500">Status</dt><dd className="mt-0.5">{task.status}</dd></div>
+                  <div><dt className="text-stone-500">Priority</dt><dd className="mt-0.5">{task.priority}</dd></div>
+                  <div><dt className="text-stone-500">Due date</dt>
                     <dd className="mt-0.5">{task.due_date ? new Date(task.due_date + "T00:00:00").toLocaleDateString() : "—"}</dd>
                   </div>
-                  <div><dt className="text-slate-500">Linked files</dt><dd className="mt-0.5">{task.upload_count || "—"}</dd></div>
+                  <div><dt className="text-stone-500">Linked files</dt><dd className="mt-0.5">{task.upload_count || "—"}</dd></div>
                 </dl>
               )}
             </CardContent>
@@ -369,10 +369,10 @@ export function TaskDetailClient({
             </CardHeader>
             <CardContent className="space-y-4">
               {showPicker && (
-                <div className="rounded-md border p-3 space-y-3 bg-slate-50">
+                <div className="rounded-md border p-3 space-y-3 bg-stone-50">
                   <div className="flex flex-wrap gap-2 items-center">
                     <div className="relative">
-                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-stone-400" />
                       <Input placeholder="Search files…" value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)} className="pl-8 h-8 w-44" />
                     </div>
                     <select value={pickerProject} onChange={(e) => setPickerProject(e.target.value)}
@@ -407,23 +407,23 @@ export function TaskDetailClient({
                       </TableHeader>
                       <TableBody>
                         {filteredPicker.length === 0 ? (
-                          <TableRow><TableCell colSpan={5} className="text-center text-slate-500 py-4">No files found</TableCell></TableRow>
+                          <TableRow><TableCell colSpan={5} className="text-center text-stone-500 py-4">No files found</TableCell></TableRow>
                         ) : filteredPicker.map((item) => {
                           const k = itemKey(item);
                           return (
-                            <TableRow key={k} className={item.linked ? "opacity-40" : "cursor-pointer hover:bg-slate-50"}
+                            <TableRow key={k} className={item.linked ? "opacity-40" : "cursor-pointer hover:bg-stone-50"}
                               onClick={() => !item.linked && toggleSelected(item)}>
                               <TableCell>
                                 {item.linked
-                                  ? <span className="text-xs text-emerald-600 font-medium">linked</span>
-                                  : <input type="checkbox" className="h-4 w-4 accent-slate-700"
+                                  ? <span className="text-xs text-green-600 font-medium">linked</span>
+                                  : <input type="checkbox" className="h-4 w-4 accent-stone-700"
                                       checked={selected.has(k)} onChange={() => toggleSelected(item)}
                                       onClick={(e) => e.stopPropagation()} />}
                               </TableCell>
                               <TableCell className="text-sm font-mono truncate max-w-[160px]">{item.filename}</TableCell>
-                              <TableCell className="text-sm text-slate-500">{item.category ?? "—"}</TableCell>
-                              <TableCell className="text-sm text-slate-500">{item.farm_name ?? "—"}</TableCell>
-                              <TableCell className="text-sm text-slate-500">{item.project_name ?? "—"}</TableCell>
+                              <TableCell className="text-sm text-stone-500">{item.category ?? "—"}</TableCell>
+                              <TableCell className="text-sm text-stone-500">{item.farm_name ?? "—"}</TableCell>
+                              <TableCell className="text-sm text-stone-500">{item.project_name ?? "—"}</TableCell>
                             </TableRow>
                           );
                         })}
@@ -434,7 +434,7 @@ export function TaskDetailClient({
               )}
 
               {linkedItems.length === 0 ? (
-                <p className="text-sm text-slate-500">No files linked yet</p>
+                <p className="text-sm text-stone-500">No files linked yet</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -451,8 +451,8 @@ export function TaskDetailClient({
                       <TableRow key={itemKey(item)}>
                         <TableCell className="text-sm font-mono">{item.filename}</TableCell>
                         <TableCell><Badge variant="outline" className="text-xs">{item.upload_table === "photos" ? "photo" : "lab"}</Badge></TableCell>
-                        <TableCell className="text-sm text-slate-500">{item.farm_name ?? "—"}</TableCell>
-                        <TableCell className="text-sm text-slate-500">{item.project_name ?? "—"}</TableCell>
+                        <TableCell className="text-sm text-stone-500">{item.farm_name ?? "—"}</TableCell>
+                        <TableCell className="text-sm text-stone-500">{item.project_name ?? "—"}</TableCell>
                         {canEdit && (
                           <TableCell>
                             <Button variant="ghost" size="sm" className="h-7 px-2 text-red-500 hover:text-red-700"
@@ -477,7 +477,7 @@ export function TaskDetailClient({
                 const isAssigned = task.assignees.some((a) => a.id === u.id);
                 return (
                   <div key={u.id} className="flex items-center justify-between gap-2">
-                    <span className={`text-sm ${isAssigned ? "font-medium text-slate-900" : "text-slate-500"}`}>{u.name}</span>
+                    <span className={`text-sm ${isAssigned ? "font-medium text-stone-900" : "text-stone-500"}`}>{u.name}</span>
                     {canEdit && (
                       <Button size="sm" variant={isAssigned ? "secondary" : "outline"} className="h-6 px-2 text-xs"
                         onClick={() => handleToggleAssignee(u.id, isAssigned)}>

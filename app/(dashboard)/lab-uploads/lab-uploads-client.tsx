@@ -63,7 +63,7 @@ function StatusSelect({ id, current }: { id: number; current: number }) {
         value={value}
         disabled={saving}
         onChange={(e) => handleChange(Number(e.target.value))}
-        className="text-xs border rounded px-1 py-0.5 bg-white text-slate-700 disabled:opacity-50"
+        className="text-xs border rounded px-1 py-0.5 bg-white text-stone-700 disabled:opacity-50"
       >
         {[1, 2, 3, 4].map((s) => (
           <option key={s} value={s}>{STATUS_LABEL[s]}</option>
@@ -80,7 +80,7 @@ export function LabUploadsClient({ data, activeFilter }: { data: UploadRow[]; ac
       header: "Uploaded By",
       render: (row: Record<string, unknown>) => {
         const r = row as unknown as UploadRow;
-        return r.member_name ?? <span className="text-slate-400">Unknown</span>;
+        return r.member_name ?? <span className="text-stone-400">Unknown</span>;
       },
     },
     {
@@ -88,7 +88,7 @@ export function LabUploadsClient({ data, activeFilter }: { data: UploadRow[]; ac
       header: "Assigned Farm",
       render: (row: Record<string, unknown>) => {
         const r = row as unknown as UploadRow;
-        return r.farm_name ?? <span className="text-slate-400">—</span>;
+        return r.farm_name ?? <span className="text-stone-400">—</span>;
       },
     },
     {
@@ -106,7 +106,7 @@ export function LabUploadsClient({ data, activeFilter }: { data: UploadRow[]; ac
         const r = row as unknown as UploadRow;
         return r.date_collected
           ? new Date(r.date_collected).toLocaleDateString()
-          : <span className="text-slate-400">—</span>;
+          : <span className="text-stone-400">—</span>;
       },
     },
     {
@@ -122,7 +122,7 @@ export function LabUploadsClient({ data, activeFilter }: { data: UploadRow[]; ac
       header: "Received",
       render: (row: Record<string, unknown>) => {
         const r = row as unknown as UploadRow;
-        return <span className="text-xs text-slate-500">{new Date(r.received_at).toLocaleString()}</span>;
+        return <span className="text-xs text-stone-500">{new Date(r.received_at).toLocaleString()}</span>;
       },
     },
   ];

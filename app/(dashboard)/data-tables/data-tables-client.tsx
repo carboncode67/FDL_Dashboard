@@ -26,7 +26,7 @@ export function DataTablesClient({ data }: { data: DataTableRowShape[] }) {
       header: "Columns",
       render: (row: Record<string, unknown>) => {
         const n = (row as unknown as DataTableRowShape).columnCount;
-        return <span className="text-slate-500 text-xs">{n}</span>;
+        return <span className="text-stone-500 text-xs">{n}</span>;
       },
     },
     {
@@ -36,7 +36,7 @@ export function DataTablesClient({ data }: { data: DataTableRowShape[] }) {
         const n = (row as unknown as DataTableRowShape).usageCount;
         return n > 0
           ? <Badge variant="outline" className="text-xs">{n} test{n === 1 ? "" : "s"}</Badge>
-          : <span className="text-slate-400 text-xs">—</span>;
+          : <span className="text-stone-400 text-xs">—</span>;
       },
     },
     {

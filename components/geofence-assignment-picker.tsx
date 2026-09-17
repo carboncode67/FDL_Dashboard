@@ -85,20 +85,20 @@ export function GeofenceAssignmentPicker({ geofenceId, initialAssignments, conta
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-stone-500">
         Assign this geofence to an individual farmer or lab member, or broadly to everyone tied to a farm or
         experiment.
       </p>
 
       {assignments.length === 0 ? (
-        <p className="text-sm text-slate-400 italic">Not assigned to anyone yet.</p>
+        <p className="text-sm text-stone-400 italic">Not assigned to anyone yet.</p>
       ) : (
         <ul className="divide-y">
           {assignments.map((a) => (
             <li key={a.id} className="flex items-center justify-between gap-2 py-1.5 text-sm">
               <span>
                 {a.target_label}
-                <span className="text-xs text-slate-400 ml-2">
+                <span className="text-xs text-stone-400 ml-2">
                   ({KIND_LABELS[a.contact_id !== null ? "contact" : a.user_id !== null ? "user" : a.farm_id !== null ? "farm" : "experiment"]})
                 </span>
               </span>
@@ -106,7 +106,7 @@ export function GeofenceAssignmentPicker({ geofenceId, initialAssignments, conta
                 type="button"
                 onClick={() => handleRemove(a.id)}
                 disabled={removingId === a.id}
-                className="text-slate-400 hover:text-red-500 disabled:opacity-50"
+                className="text-stone-400 hover:text-red-500 disabled:opacity-50"
                 aria-label="Remove assignment"
               >
                 <X className="h-3.5 w-3.5" />

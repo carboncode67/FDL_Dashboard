@@ -44,13 +44,13 @@ export default function EditDataTableClient({
     <div className="max-w-2xl space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <Link href="/data-tables" className="hover:text-slate-900">Data Tables</Link>
+          <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+            <Link href="/data-tables" className="hover:text-stone-900">Data Tables</Link>
             <span>/</span>
             <span>Edit</span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900">{table.name}</h2>
-          {homeLabel && <p className="text-sm text-slate-500 mt-1">{homeLabel}</p>}
+          <h2 className="text-2xl font-bold text-stone-900">{table.name}</h2>
+          {homeLabel && <p className="text-sm text-stone-500 mt-1">{homeLabel}</p>}
         </div>
         <Button variant="ghost" size="icon-sm" onClick={handleDelete} disabled={deleting} className="text-red-500 hover:text-red-700 hover:bg-red-50 mt-1">
           <Trash2 className="h-4 w-4" />
@@ -66,12 +66,12 @@ export default function EditDataTableClient({
       </div>
 
       <div className="bg-white border rounded-lg p-6 space-y-3">
-        <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Data Template</h3>
+        <h3 className="text-sm font-semibold text-stone-900 pb-2 border-b">Data Template</h3>
         <SchemaBuilder endpoint={`/api/data-tables/${table.id}/schema`} initialColumns={fieldDefs} />
       </div>
 
       <div className="bg-white border rounded-lg p-6 space-y-3">
-        <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Sample Table</h3>
+        <h3 className="text-sm font-semibold text-stone-900 pb-2 border-b">Sample Table</h3>
         <DataTableSample
           dataTableId={table.id}
           sampleFilename={sampleFilename}
@@ -81,7 +81,7 @@ export default function EditDataTableClient({
 
       {usedByTests.length > 0 && (
         <div className="bg-white border rounded-lg p-6 space-y-2">
-          <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Also Used By</h3>
+          <h3 className="text-sm font-semibold text-stone-900 pb-2 border-b">Also Used By</h3>
           <ul className="text-sm list-disc list-inside space-y-0.5">
             {usedByTests.map((name, i) => <li key={i}>{name}</li>)}
           </ul>

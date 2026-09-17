@@ -53,14 +53,14 @@ export function DrawFieldPage({ farmId, farmName, existingFields, farmLat, farmL
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
       {/* Top bar */}
-      <div className="flex items-center gap-3 px-4 h-14 border-b border-slate-200 bg-white shrink-0">
+      <div className="flex items-center gap-3 px-4 h-14 border-b border-stone-200 bg-white shrink-0">
         <Link
           href={`/farms/${farmId}`}
-          className="text-sm text-slate-500 hover:text-slate-900 shrink-0 flex items-center gap-1"
+          className="text-sm text-stone-500 hover:text-stone-900 shrink-0 flex items-center gap-1"
         >
           ← {farmName}
         </Link>
-        <span className="text-slate-300 shrink-0">/</span>
+        <span className="text-stone-300 shrink-0">/</span>
         <Input
           value={fieldName}
           onChange={(e) => { setFieldName(e.target.value); setError("") }}

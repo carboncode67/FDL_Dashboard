@@ -416,7 +416,7 @@ export function DataSortingClient({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-slate-900">Incoming Data</h2>
+      <h2 className="text-2xl font-bold text-stone-900">Incoming Data</h2>
 
       {activeFilter && (activeFilter.projectCount > 0 || activeFilter.farmCount > 0) && (
         <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
@@ -436,13 +436,13 @@ export function DataSortingClient({
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-slate-200">
+      <div className="flex items-center gap-1 border-b border-stone-200">
         <button
           onClick={() => switchTab("images")}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
             activeTab === "images"
-              ? "border-slate-800 text-slate-900"
-              : "border-transparent text-slate-500 hover:text-slate-700"
+              ? "border-stone-800 text-stone-900"
+              : "border-transparent text-stone-500 hover:text-stone-700"
           }`}
         >
           Images ({imageItems.length})
@@ -451,8 +451,8 @@ export function DataSortingClient({
           onClick={() => switchTab("other")}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
             activeTab === "other"
-              ? "border-slate-800 text-slate-900"
-              : "border-transparent text-slate-500 hover:text-slate-700"
+              ? "border-stone-800 text-stone-900"
+              : "border-transparent text-stone-500 hover:text-stone-700"
           }`}
         >
           Other Uploads ({otherItems.length})
@@ -461,7 +461,7 @@ export function DataSortingClient({
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-stone-400" />
           <Input
             placeholder="Search uploader, farm..."
             value={search}
@@ -473,7 +473,7 @@ export function DataSortingClient({
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="h-8 rounded-md border border-input bg-white px-2 text-sm text-slate-700"
+          className="h-8 rounded-md border border-input bg-white px-2 text-sm text-stone-700"
         >
           <option value="all">All Statuses</option>
           <option value="1">Unassigned</option>
@@ -486,7 +486,7 @@ export function DataSortingClient({
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="h-8 rounded-md border border-input bg-white px-2 text-sm text-slate-700"
+            className="h-8 rounded-md border border-input bg-white px-2 text-sm text-stone-700"
           >
             <option value="all">All Media</option>
             <option value="note">Note</option>
@@ -500,7 +500,7 @@ export function DataSortingClient({
         <select
           value={filterFarm}
           onChange={(e) => setFilterFarm(e.target.value)}
-          className="h-8 rounded-md border border-input bg-white px-2 text-sm text-slate-700"
+          className="h-8 rounded-md border border-input bg-white px-2 text-sm text-stone-700"
         >
           <option value="all">All Farms</option>
           {farms.map((f) => (
@@ -525,7 +525,7 @@ export function DataSortingClient({
           Clear Filters
         </Button>
 
-        <span className="ml-auto text-sm text-slate-500">
+        <span className="ml-auto text-sm text-stone-500">
           {displayRows.length} of {activeTab === "images" ? imageItems.length : otherItems.length}
           {groupCount > 0 && ` (${groupMap.size} merged group${groupMap.size !== 1 ? "s" : ""})`}
         </span>
@@ -541,8 +541,8 @@ export function DataSortingClient({
 
       {/* Bulk action bar */}
       {selectMode && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 py-2">
-          <span className="text-sm text-slate-600 mr-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-4 py-2">
+          <span className="text-sm text-stone-600 mr-2">
             {selectedCount === 0 ? "No items selected" : `${selectedCount} item${selectedCount !== 1 ? "s" : ""} selected`}
           </span>
 
@@ -551,7 +551,7 @@ export function DataSortingClient({
               <select
                 value={bulkFarm}
                 onChange={(e) => setBulkFarm(e.target.value)}
-                className="h-8 rounded-md border border-input bg-white px-2 text-sm text-slate-700"
+                className="h-8 rounded-md border border-input bg-white px-2 text-sm text-stone-700"
               >
                 <option value="">Assign farm...</option>
                 {farms.map((f) => (
@@ -565,7 +565,7 @@ export function DataSortingClient({
               <select
                 value={bulkCategory}
                 onChange={(e) => setBulkCategory(e.target.value)}
-                className="h-8 rounded-md border border-input bg-white px-2 text-sm text-slate-700"
+                className="h-8 rounded-md border border-input bg-white px-2 text-sm text-stone-700"
               >
                 <option value="">Assign category...</option>
                 {categories.map((c) => (
@@ -711,7 +711,7 @@ function ImagesGrid({
 
   if (cards.length === 0) {
     return (
-      <div className="rounded-md border bg-white py-12 text-center text-slate-500">
+      <div className="rounded-md border bg-white py-12 text-center text-stone-500">
         No images found
       </div>
     );
@@ -720,10 +720,10 @@ function ImagesGrid({
   return (
     <div>
       {selectMode && (
-        <label className="flex items-center gap-2 mb-2 text-sm text-slate-600 cursor-pointer">
+        <label className="flex items-center gap-2 mb-2 text-sm text-stone-600 cursor-pointer">
           <input
             type="checkbox"
-            className="h-4 w-4 accent-slate-700 cursor-pointer"
+            className="h-4 w-4 accent-stone-700 cursor-pointer"
             checked={allDisplaySelected}
             onChange={onToggleAll}
           />
@@ -738,8 +738,8 @@ function ImagesGrid({
             <div
               key={key}
               onClick={() => !selectMode && onOpen(item)}
-              className={`relative rounded-md border bg-white overflow-hidden cursor-pointer hover:border-slate-400 transition-colors ${
-                isChecked ? "ring-2 ring-slate-700" : ""
+              className={`relative rounded-md border bg-white overflow-hidden cursor-pointer hover:border-stone-400 transition-colors ${
+                isChecked ? "ring-2 ring-stone-700" : ""
               }`}
             >
               {selectMode && (
@@ -749,13 +749,13 @@ function ImagesGrid({
                 >
                   <input
                     type="checkbox"
-                    className="h-4 w-4 accent-slate-700 cursor-pointer"
+                    className="h-4 w-4 accent-stone-700 cursor-pointer"
                     checked={isChecked}
                     onChange={(e) => onCheckboxChange(key, (e.nativeEvent as MouseEvent).shiftKey)}
                   />
                 </div>
               )}
-              <div className="aspect-square bg-slate-100">
+              <div className="aspect-square bg-stone-100">
                 {item.filename ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -765,19 +765,19 @@ function ImagesGrid({
                     style={{ imageOrientation: "from-image" }}
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+                  <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs">
                     No preview
                   </div>
                 )}
               </div>
               <div className="p-2 space-y-1">
                 <ItemBadges item={item} groupCount={isGroupRep ? groupCount : undefined} />
-                <p className="text-xs text-slate-600 truncate">{item.uploader ?? "Unknown"}</p>
-                <div className="flex items-center justify-between text-xs text-slate-400">
+                <p className="text-xs text-stone-600 truncate">{item.uploader ?? "Unknown"}</p>
+                <div className="flex items-center justify-between text-xs text-stone-400">
                   <span className="truncate">{item.farm ?? "—"}</span>
                   {isGroupRep && (
                     <button
-                      className="shrink-0 text-slate-400 hover:text-slate-700"
+                      className="shrink-0 text-stone-400 hover:text-stone-700"
                       onClick={(e) => { e.stopPropagation(); toggleGroup(item.merge_group_id!); }}
                     >
                       {expandedGroups.has(item.merge_group_id!)
@@ -833,14 +833,14 @@ function OtherUploadsTable({
     return (
       <TableRow
         key={key}
-        className={`cursor-pointer hover:bg-slate-50 ${opts.indented ? "bg-blue-50/40 hover:bg-blue-50" : ""}`}
+        className={`cursor-pointer hover:bg-stone-50 ${opts.indented ? "bg-blue-50/40 hover:bg-blue-50" : ""}`}
         onClick={() => !selectMode && onOpen(item)}
       >
         {selectMode && (
           <TableCell onClick={(e) => e.stopPropagation()}>
             <input
               type="checkbox"
-              className="h-4 w-4 accent-slate-700 cursor-pointer"
+              className="h-4 w-4 accent-stone-700 cursor-pointer"
               checked={selected.has(key)}
               onChange={(e) => onCheckboxChange(key, (e.nativeEvent as MouseEvent).shiftKey)}
             />
@@ -850,7 +850,7 @@ function OtherUploadsTable({
           <div className={`flex items-center gap-1.5 ${opts.indented ? "pl-5" : ""}`}>
             {opts.isGroupRep && (
               <button
-                className="text-slate-400 hover:text-slate-700"
+                className="text-stone-400 hover:text-stone-700"
                 onClick={(e) => { e.stopPropagation(); toggleGroup(item.merge_group_id!); }}
               >
                 {expandedGroups.has(item.merge_group_id!)
@@ -858,11 +858,11 @@ function OtherUploadsTable({
                   : <ChevronRight className="h-3.5 w-3.5" />}
               </button>
             )}
-            <span className={opts.indented ? "text-slate-500" : "font-medium"}>
-              {item.uploader ?? <span className="text-slate-400">Unknown</span>}
+            <span className={opts.indented ? "text-stone-500" : "font-medium"}>
+              {item.uploader ?? <span className="text-stone-400">Unknown</span>}
             </span>
             {item.uploader_type === "lab_member" && (
-              <span className="ml-1.5 text-xs text-slate-400">(lab)</span>
+              <span className="ml-1.5 text-xs text-stone-400">(lab)</span>
             )}
             {opts.isGroupRep && opts.groupCount > 0 && (
               <span className="ml-1 inline-flex items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700">
@@ -871,30 +871,30 @@ function OtherUploadsTable({
             )}
           </div>
         </TableCell>
-        <TableCell>{item.farm ?? <span className="text-slate-400">—</span>}</TableCell>
+        <TableCell>{item.farm ?? <span className="text-stone-400">—</span>}</TableCell>
         <TableCell>
           <Badge variant="outline">{MEDIA_LABEL[item.media_type] ?? item.media_type}</Badge>
         </TableCell>
-        <TableCell className="text-sm text-slate-500">
+        <TableCell className="text-sm text-stone-500">
           {item.date_collected
             ? new Date(item.date_collected).toLocaleDateString()
-            : <span className="text-slate-400">—</span>}
+            : <span className="text-stone-400">—</span>}
         </TableCell>
         <TableCell className="text-sm">
-          {item.category ?? <span className="text-slate-400">—</span>}
+          {item.category ?? <span className="text-stone-400">—</span>}
         </TableCell>
         <TableCell>
           <ItemBadges item={item} />
         </TableCell>
-        <TableCell className="text-sm text-slate-500">
-          {item.stage ?? <span className="text-slate-400">—</span>}
+        <TableCell className="text-sm text-stone-500">
+          {item.stage ?? <span className="text-stone-400">—</span>}
         </TableCell>
         {canDelete && (
           <TableCell onClick={(e) => e.stopPropagation()}>
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+              className="h-7 w-7 p-0 text-stone-400 hover:text-red-600 hover:bg-red-50"
               disabled={deleting === key}
               onClick={(e) => onDelete(e, item)}
             >
@@ -916,7 +916,7 @@ function OtherUploadsTable({
                 <input
                   ref={selectAllRef}
                   type="checkbox"
-                  className="h-4 w-4 accent-slate-700 cursor-pointer"
+                  className="h-4 w-4 accent-stone-700 cursor-pointer"
                   checked={allDisplaySelected}
                   onChange={onToggleAll}
                   aria-label="Select all"
@@ -936,7 +936,7 @@ function OtherUploadsTable({
         <TableBody>
           {displayRows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={colCount} className="text-center text-slate-500 py-8">
+              <TableCell colSpan={colCount} className="text-center text-stone-500 py-8">
                 No records found
               </TableCell>
             </TableRow>

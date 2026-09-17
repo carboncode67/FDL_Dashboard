@@ -80,8 +80,8 @@ export function FieldBoundaryUpload({ farmId, fieldCount, drawButton }: Props) {
           <div
             className={cn(
               "border-2 border-dashed rounded-lg px-4 py-6 text-center cursor-pointer transition-colors",
-              dragging ? "border-blue-500 bg-blue-50" : "border-slate-200 hover:border-slate-400",
-              selectedFile ? "bg-slate-50" : "",
+              dragging ? "border-blue-500 bg-blue-50" : "border-stone-200 hover:border-stone-400",
+              selectedFile ? "bg-stone-50" : "",
             )}
             onClick={() => fileRef.current?.click()}
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -104,13 +104,13 @@ export function FieldBoundaryUpload({ farmId, fieldCount, drawButton }: Props) {
               }}
             />
             {selectedFile ? (
-              <p className="text-sm font-medium text-slate-700">{selectedFile.name}</p>
+              <p className="text-sm font-medium text-stone-700">{selectedFile.name}</p>
             ) : (
               <div>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-stone-500">
                   Drop a file here or click to browse
                 </p>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-stone-400 mt-1">
                   Supported: .geojson, .json, .zip (shapefile), .gpkg, .kml, .kmz
                 </p>
               </div>
@@ -119,24 +119,24 @@ export function FieldBoundaryUpload({ farmId, fieldCount, drawButton }: Props) {
 
           {/* EPSG input — not applicable to KML/KMZ, which are always WGS84 */}
           {isKmlLike ? (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-stone-400">
               KML/KMZ coordinates are always WGS84 — no coordinate system to set.
             </p>
           ) : (
             <div className="flex items-center gap-3">
-              <label className="text-sm text-slate-600 whitespace-nowrap">
+              <label className="text-sm text-stone-600 whitespace-nowrap">
                 Coordinate System (EPSG)
               </label>
               <input
                 type="number"
                 value={epsg}
                 onChange={(e) => setEpsg(e.target.value)}
-                className="w-32 rounded-md border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-32 rounded-md border border-stone-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="4326"
                 min={1}
               />
               {epsg !== "4326" && (
-                <span className="text-xs text-slate-400">will reproject to WGS84</span>
+                <span className="text-xs text-stone-400">will reproject to WGS84</span>
               )}
             </div>
           )}
@@ -155,8 +155,8 @@ export function FieldBoundaryUpload({ farmId, fieldCount, drawButton }: Props) {
             className={cn(
               "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
               !selectedFile || status === "uploading"
-                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                : "bg-slate-900 text-white hover:bg-slate-700",
+                ? "bg-stone-100 text-stone-400 cursor-not-allowed"
+                : "bg-stone-900 text-white hover:bg-stone-700",
             )}
           >
             {status === "uploading" && (

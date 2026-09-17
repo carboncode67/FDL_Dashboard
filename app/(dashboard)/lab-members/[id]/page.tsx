@@ -61,16 +61,16 @@ export default async function LabMemberDetailPage({ params }: { params: Promise<
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <Link href="/lab-members" className="hover:text-slate-900">Lab Members</Link>
+          <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+            <Link href="/lab-members" className="hover:text-stone-900">Lab Members</Link>
             <span>/</span>
             <span>{member.name ?? member.email}</span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-stone-900 flex items-center gap-2">
             {member.name ?? member.email}
             {member.category === "agronomist" && <Badge variant="secondary">Agronomist</Badge>}
           </h2>
-          {member.position && <p className="text-slate-500">{member.position}</p>}
+          {member.position && <p className="text-stone-500">{member.position}</p>}
         </div>
         <div className="flex items-center gap-2">
           {showEdit && (
@@ -88,11 +88,11 @@ export default async function LabMemberDetailPage({ params }: { params: Promise<
           <CardContent>
             <div className="grid grid-cols-1 gap-3 text-sm">
               <div>
-                <span className="text-slate-500">Email</span>
+                <span className="text-stone-500">Email</span>
                 <p className="font-medium mt-0.5">{member.email}</p>
               </div>
               <div>
-                <span className="text-slate-500">Status</span>
+                <span className="text-stone-500">Status</span>
                 <p className="font-medium mt-0.5">
                   {member.status ? (
                     <Badge variant={member.status === "Active" ? "default" : "secondary"}>
@@ -102,11 +102,11 @@ export default async function LabMemberDetailPage({ params }: { params: Promise<
                 </p>
               </div>
               <div>
-                <span className="text-slate-500">Phone</span>
+                <span className="text-stone-500">Phone</span>
                 <p className="font-medium mt-0.5">{member.contact_phone ?? "—"}</p>
               </div>
               <div>
-                <span className="text-slate-500">FAA Part 107</span>
+                <span className="text-stone-500">FAA Part 107</span>
                 <p className="font-medium mt-0.5">
                   <Badge variant={member.faa_part_107 ? "default" : "outline"}>
                     {member.faa_part_107 ? "Certified" : "No"}
@@ -114,7 +114,7 @@ export default async function LabMemberDetailPage({ params }: { params: Promise<
                 </p>
               </div>
               <div>
-                <span className="text-slate-500">Dashboard Role</span>
+                <span className="text-stone-500">Dashboard Role</span>
                 <p className="font-medium mt-0.5">
                   <Badge variant={member.role === "admin" ? "default" : "secondary"}>
                     {member.role}
@@ -130,7 +130,7 @@ export default async function LabMemberDetailPage({ params }: { params: Promise<
           <CardContent>
             {member.bearer_token ? (
               <>
-                <p className="text-sm text-slate-500 mb-3">
+                <p className="text-sm text-stone-500 mb-3">
                   Scan this QR code with the FarmerDataLogger app to connect {member.name}.
                 </p>
                 <LabMemberQrDisplay key={member.bearer_token ?? 'none'} userId={member.id} name={member.name ?? undefined} />
@@ -138,16 +138,16 @@ export default async function LabMemberDetailPage({ params }: { params: Promise<
                   <GrantAccessButton userId={member.id} />
                   {showEdit && <SendOnboardingEmailButton userId={member.id} email={member.email} />}
                 </div>
-                <p className="text-xs text-slate-400 mt-1">Regenerating invalidates the old code.</p>
+                <p className="text-xs text-stone-400 mt-1">Regenerating invalidates the old code.</p>
                 {member.onboarded_at && (
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-stone-400 mt-1">
                     Onboarding email sent on {member.onboarded_at.toLocaleDateString()}
                   </p>
                 )}
               </>
             ) : (
               <>
-                <p className="text-sm text-slate-500 mb-4">
+                <p className="text-sm text-stone-500 mb-4">
                   No app access yet. Generate a QR code to allow this member to upload data.
                 </p>
                 <GrantAccessButton userId={member.id} />
@@ -165,7 +165,7 @@ export default async function LabMemberDetailPage({ params }: { params: Promise<
         </CardHeader>
         <CardContent>
           {member.LabMemberUploads.length === 0 ? (
-            <p className="text-sm text-slate-500">No data uploaded yet.</p>
+            <p className="text-sm text-stone-500">No data uploaded yet.</p>
           ) : (
             <Table>
               <TableHeader>
@@ -188,9 +188,9 @@ export default async function LabMemberDetailPage({ params }: { params: Promise<
                         <Link href={`/farms/${u.Farm.id}`} className="text-blue-600 hover:underline text-sm">
                           {u.Farm.Farm_Name ?? `Farm #${u.Farm.id}`}
                         </Link>
-                      ) : <span className="text-slate-400">—</span>}
+                      ) : <span className="text-stone-400">—</span>}
                     </TableCell>
-                    <TableCell className="text-xs text-slate-500">
+                    <TableCell className="text-xs text-stone-500">
                       {u.date_collected?.toLocaleDateString() ?? "—"}
                     </TableCell>
                     <TableCell>
@@ -198,7 +198,7 @@ export default async function LabMemberDetailPage({ params }: { params: Promise<
                         {STATUS_LABEL[u.status] ?? u.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-slate-500">
+                    <TableCell className="text-xs text-stone-500">
                       {u.received_at.toLocaleString()}
                     </TableCell>
                   </TableRow>

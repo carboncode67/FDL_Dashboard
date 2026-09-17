@@ -69,7 +69,7 @@ function MetricEditor({
   const [optionsText, setOptionsText] = useState((initial?.options ?? []).join(", "));
 
   return (
-    <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 space-y-2">
+    <div className="rounded-md border border-dashed border-stone-300 bg-stone-50 p-3 space-y-2">
       <div className="flex gap-2">
         <Input
           placeholder="Metric label (e.g. Height)"
@@ -80,7 +80,7 @@ function MetricEditor({
         <select
           value={fieldType}
           onChange={(e) => setFieldType(e.target.value)}
-          className="h-9 rounded-md border border-input bg-white px-2 text-sm text-slate-700"
+          className="h-9 rounded-md border border-input bg-white px-2 text-sm text-stone-700"
         >
           {FIELD_TYPE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -180,13 +180,13 @@ function MetricRow({
 
   return (
     <div className="flex items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm">
-      <span className="font-medium text-slate-800">{metric.label}</span>
+      <span className="font-medium text-stone-800">{metric.label}</span>
       <Badge variant="outline" className="text-xs">
         {FIELD_TYPE_OPTIONS.find((o) => o.value === metric.field_type)?.label ?? metric.field_type}
       </Badge>
-      {metric.unit && <span className="text-xs text-slate-400">({metric.unit})</span>}
+      {metric.unit && <span className="text-xs text-stone-400">({metric.unit})</span>}
       {metric.field_type === "select" && metric.options && metric.options.length > 0 && (
-        <span className="text-xs text-slate-400 truncate">{metric.options.join(", ")}</span>
+        <span className="text-xs text-stone-400 truncate">{metric.options.join(", ")}</span>
       )}
       {canEdit && (
         <div className="ml-auto flex items-center gap-1">
@@ -295,7 +295,7 @@ function CategoryCard({
   return (
     <div className="rounded-md border bg-white">
       <div className="flex items-center gap-2 px-3 py-2.5">
-        <button className="text-slate-400 hover:text-slate-700" onClick={() => setExpanded((v) => !v)}>
+        <button className="text-stone-400 hover:text-stone-700" onClick={() => setExpanded((v) => !v)}>
           {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
 
@@ -304,7 +304,7 @@ function CategoryCard({
             <Input value={name} onChange={(e) => setName(e.target.value)} className="max-w-xs" />
             <div className="flex flex-wrap gap-3">
               {MEDIA_TYPE_OPTIONS.map((o) => (
-                <label key={o.value} className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                <label key={o.value} className="flex items-center gap-1.5 text-xs text-stone-600 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={mediaTypes.has(o.value)}
@@ -314,7 +314,7 @@ function CategoryCard({
                 </label>
               ))}
             </div>
-            <p className="text-xs text-slate-400">Leave all unchecked to apply to every upload type.</p>
+            <p className="text-xs text-stone-400">Leave all unchecked to apply to every upload type.</p>
             {error && <p className="text-xs text-red-600">{error}</p>}
             <div className="flex gap-2">
               <Button size="sm" disabled={!name.trim() || saving} onClick={handleSaveName}>
@@ -336,8 +336,8 @@ function CategoryCard({
           </div>
         ) : (
           <>
-            <Tag className="h-3.5 w-3.5 text-slate-400" />
-            <span className="font-medium text-slate-800">{category.name}</span>
+            <Tag className="h-3.5 w-3.5 text-stone-400" />
+            <span className="font-medium text-stone-800">{category.name}</span>
             <div className="flex flex-wrap gap-1">
               {category.media_types.length === 0 ? (
                 <Badge variant="secondary" className="text-xs">All types</Badge>
@@ -348,7 +348,7 @@ function CategoryCard({
               )}
             </div>
             {category.Metrics.length > 0 && (
-              <span className="text-xs text-slate-400">
+              <span className="text-xs text-stone-400">
                 {category.Metrics.length} metric{category.Metrics.length !== 1 ? "s" : ""}
               </span>
             )}
@@ -371,7 +371,7 @@ function CategoryCard({
       {expanded && (
         <div className="border-t px-3 py-3 space-y-2">
           {category.Metrics.length === 0 && !addingMetric && (
-            <p className="text-sm text-slate-400 italic">No metrics defined for this category.</p>
+            <p className="text-sm text-stone-400 italic">No metrics defined for this category.</p>
           )}
           {category.Metrics.map((metric) => (
             <MetricRow
@@ -461,8 +461,8 @@ export function DataCategoriesClient({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Data Categories</h2>
-          <p className="text-sm text-slate-500">
+          <h2 className="text-2xl font-bold text-stone-900">Data Categories</h2>
+          <p className="text-sm text-stone-500">
             Manage the categories used to sort uploads, and the metrics (e.g. Height, Growth Stage)
             collected when an upload is assigned to one.
           </p>
@@ -475,9 +475,9 @@ export function DataCategoriesClient({
       </div>
 
       {addingCategory && (
-        <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 space-y-3">
+        <div className="rounded-md border border-dashed border-stone-300 bg-stone-50 p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-700">New Category</p>
+            <p className="text-sm font-semibold text-stone-700">New Category</p>
             <Button size="icon-sm" variant="ghost" onClick={() => setAddingCategory(false)}>
               <X className="h-4 w-4" />
             </Button>
@@ -490,7 +490,7 @@ export function DataCategoriesClient({
           />
           <div className="flex flex-wrap gap-3">
             {MEDIA_TYPE_OPTIONS.map((o) => (
-              <label key={o.value} className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+              <label key={o.value} className="flex items-center gap-1.5 text-xs text-stone-600 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={newMediaTypes.has(o.value)}
@@ -500,7 +500,7 @@ export function DataCategoriesClient({
               </label>
             ))}
           </div>
-          <p className="text-xs text-slate-400">Leave all unchecked to apply to every upload type.</p>
+          <p className="text-xs text-stone-400">Leave all unchecked to apply to every upload type.</p>
           {error && <p className="text-xs text-red-600">{error}</p>}
           <Button size="sm" disabled={!newName.trim() || saving} onClick={handleAddCategory}>
             {saving ? "Saving…" : "Create Category"}
@@ -510,7 +510,7 @@ export function DataCategoriesClient({
 
       <div className="space-y-2">
         {categories.length === 0 && !addingCategory && (
-          <p className="text-sm text-slate-400 italic">No categories defined yet.</p>
+          <p className="text-sm text-stone-400 italic">No categories defined yet.</p>
         )}
         {categories.map((category) => (
           <CategoryCard

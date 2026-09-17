@@ -151,10 +151,10 @@ export function Header({
   const isFiltered = projectSelection.length > 0 || farmSelection.length > 0;
 
   return (
-    <header className="h-14 border-b border-slate-200 bg-white flex items-center justify-between px-4 sm:px-6 shrink-0">
+    <header className="h-14 border-b border-stone-200 bg-white flex items-center justify-between px-4 sm:px-6 shrink-0">
       <div className="flex items-center gap-3">
         {role && <MobileNav role={role} />}
-        <h1 className="text-lg font-semibold text-slate-900">{title}</h1>
+        <h1 className="text-lg font-semibold text-stone-900">{title}</h1>
         {editMode && (
           <span className="rounded px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
             Edit Mode
@@ -169,7 +169,7 @@ export function Header({
           />
         ) : (
           labName && (
-            <span className="hidden sm:flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+            <span className="hidden sm:flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-semibold bg-stone-100 text-stone-600 border border-stone-200">
               <Building2 className="h-3.5 w-3.5" />
               {labName}
             </span>
@@ -180,9 +180,9 @@ export function Header({
       <GlobalSearch />
       <DropdownMenu>
         <DropdownMenuTrigger className="flex items-center gap-2 outline-none">
-          <span className="text-sm text-slate-600 hidden sm:block">{name}</span>
+          <span className="text-sm text-stone-600 hidden sm:block">{name}</span>
           <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-emerald-600 text-white text-xs">
+            <AvatarFallback className="bg-green-600 text-white text-xs">
               {initials}
             </AvatarFallback>
           </Avatar>
@@ -192,7 +192,7 @@ export function Header({
             <DropdownMenuLabel className="flex items-center justify-between gap-2">
               <span className="truncate">{name}</span>
               {role && (
-                <span className="text-xs font-medium text-slate-500 shrink-0">
+                <span className="text-xs font-medium text-stone-500 shrink-0">
                   {roleLabels[role]}
                 </span>
               )}
@@ -250,15 +250,15 @@ export function Header({
           </DialogHeader>
 
           {loading ? (
-            <p className="text-sm text-slate-500 py-4 text-center">Loading…</p>
+            <p className="text-sm text-stone-500 py-4 text-center">Loading…</p>
           ) : (
             <div className="space-y-4 py-1">
               {/* Projects */}
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Projects</p>
+                <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Projects</p>
                 <div className="max-h-44 overflow-y-auto space-y-2">
                   {projects.length === 0 ? (
-                    <p className="text-sm text-slate-400">No projects found.</p>
+                    <p className="text-sm text-stone-400">No projects found.</p>
                   ) : (
                     projects.map((p) => (
                       <label key={p.id} className="flex items-center gap-2 cursor-pointer text-sm">
@@ -267,7 +267,7 @@ export function Header({
                           checked={projectSelection.includes(p.id)}
                           onChange={() => toggleProject(p.id)}
                           disabled={isAgronomist}
-                          className="h-4 w-4 rounded border-slate-300 accent-emerald-600 disabled:opacity-60"
+                          className="h-4 w-4 rounded border-stone-300 accent-green-600 disabled:opacity-60"
                         />
                         {p.name}
                       </label>
@@ -278,7 +278,7 @@ export function Header({
 
               {/* Farms — cascade from selected projects */}
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
                   Farms
                   {projectSelection.length > 0 && (
                     <span className="ml-1 font-normal normal-case">(in selected projects)</span>
@@ -286,7 +286,7 @@ export function Header({
                 </p>
                 <div className="max-h-44 overflow-y-auto space-y-2">
                   {visibleFarms.length === 0 ? (
-                    <p className="text-sm text-slate-400">No farms found.</p>
+                    <p className="text-sm text-stone-400">No farms found.</p>
                   ) : (
                     visibleFarms.map((f) => (
                       <label key={f.id} className="flex items-center gap-2 cursor-pointer text-sm">
@@ -295,7 +295,7 @@ export function Header({
                           checked={farmSelection.includes(f.id)}
                           onChange={() => toggleFarm(f.id)}
                           disabled={isAgronomist}
-                          className="h-4 w-4 rounded border-slate-300 accent-emerald-600 disabled:opacity-60"
+                          className="h-4 w-4 rounded border-stone-300 accent-green-600 disabled:opacity-60"
                         />
                         {f.name}
                       </label>
@@ -306,23 +306,23 @@ export function Header({
 
               {/* Show unassigned toggle */}
               {!isAgronomist && (
-                <div className="border-t border-slate-100 pt-3">
+                <div className="border-t border-stone-100 pt-3">
                   <label className="flex items-center gap-2 cursor-pointer text-sm">
                     <input
                       type="checkbox"
                       checked={showUnassigned}
                       onChange={(e) => setShowUnassigned(e.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 accent-emerald-600"
+                      className="h-4 w-4 rounded border-stone-300 accent-green-600"
                     />
                     Show unassigned data
-                    <span className="text-xs text-slate-400">(uploads not yet matched to a farm)</span>
+                    <span className="text-xs text-stone-400">(uploads not yet matched to a farm)</span>
                   </label>
                 </div>
               )}
             </div>
           )}
 
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-stone-400">
             {isAgronomist
               ? projectSelection.length === 0
                 ? "No projects assigned yet — contact an admin."

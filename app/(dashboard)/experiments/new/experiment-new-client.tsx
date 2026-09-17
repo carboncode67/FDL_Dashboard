@@ -120,18 +120,18 @@ export default function ExperimentNewClient({ farms, allTests, allDrones, allTre
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-          <Link href="/experiments" className="hover:text-slate-900">Experiments</Link>
+        <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+          <Link href="/experiments" className="hover:text-stone-900">Experiments</Link>
           <span>/</span>
           <span>New</span>
         </div>
-        <h2 className="text-2xl font-bold text-slate-900">New Experiment</h2>
+        <h2 className="text-2xl font-bold text-stone-900">New Experiment</h2>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Farm */}
         <div className="bg-white border rounded-lg p-6 space-y-4">
-          <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Farm</h3>
+          <h3 className="text-sm font-semibold text-stone-900 pb-2 border-b">Farm</h3>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label>Farm <span className="text-red-500">*</span></Label>
@@ -171,7 +171,7 @@ export default function ExperimentNewClient({ farms, allTests, allDrones, allTre
 
         {/* Experiment Card */}
         <div className="bg-white border rounded-lg p-6 space-y-4">
-          <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Experiment Card</h3>
+          <h3 className="text-sm font-semibold text-stone-900 pb-2 border-b">Experiment Card</h3>
           <div className="space-y-1.5">
             <Label>Experiment Name <span className="text-red-500">*</span></Label>
             <Input value={expName} onChange={(e) => setExpName(e.target.value)} required />
@@ -219,7 +219,7 @@ export default function ExperimentNewClient({ farms, allTests, allDrones, allTre
 
         {/* Lab Design */}
         <div className="bg-white border rounded-lg p-6 space-y-4">
-          <h3 className="text-sm font-semibold text-slate-900 pb-2 border-b">Lab Design</h3>
+          <h3 className="text-sm font-semibold text-stone-900 pb-2 border-b">Lab Design</h3>
           <div className="space-y-1.5">
             <Label>Description</Label>
             <textarea rows={3} className={TEXTAREA} value={labDesc} onChange={(e) => setLabDesc(e.target.value)} />
@@ -375,7 +375,7 @@ export default function ExperimentNewClient({ farms, allTests, allDrones, allTre
           <div className="space-y-2">
             <Label>Farm Level Treatments</Label>
             {treatmentRows.map((row, i) => (
-              <div key={i} className="flex gap-2 items-center flex-wrap border rounded-md p-2 bg-slate-50">
+              <div key={i} className="flex gap-2 items-center flex-wrap border rounded-md p-2 bg-stone-50">
                 <select
                   className={`flex-1 min-w-36 ${SELECT}`}
                   value={row.treatment_id}

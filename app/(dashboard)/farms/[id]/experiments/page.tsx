@@ -31,17 +31,17 @@ export default async function FarmExperimentsListPage({ params }: { params: Prom
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-          <Link href="/farms" className="hover:text-slate-900">Farms</Link>
+        <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+          <Link href="/farms" className="hover:text-stone-900">Farms</Link>
           <span>/</span>
-          <Link href={`/farms/${farmId}`} className="hover:text-slate-900">
+          <Link href={`/farms/${farmId}`} className="hover:text-stone-900">
             {farm.Farm_Name ?? `Farm #${farmId}`}
           </Link>
           <span>/</span>
           <span>Experiments</span>
         </div>
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-slate-900">Experiments</h2>
+          <h2 className="text-2xl font-bold text-stone-900">Experiments</h2>
           <Link
             href={`/farms/${farmId}/experiments/new`}
             className={cn(buttonVariants({ size: "sm" }))}
@@ -53,7 +53,7 @@ export default async function FarmExperimentsListPage({ params }: { params: Prom
 
       {experiments.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-slate-500 text-sm italic">
+          <CardContent className="py-8 text-center text-stone-500 text-sm italic">
             No experiments yet.{" "}
             <Link href={`/farms/${farmId}/experiments/new`} className="text-blue-600 hover:underline">
               Add one
@@ -66,10 +66,10 @@ export default async function FarmExperimentsListPage({ params }: { params: Prom
             <Card key={exp.id}>
               <CardContent className="py-4 flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-slate-900">
+                  <p className="font-medium text-stone-900">
                     {exp.experiment_name ?? `Experiment #${exp.id}`}
                   </p>
-                  <p className="text-sm text-slate-500 mt-0.5">
+                  <p className="text-sm text-stone-500 mt-0.5">
                     {exp.start_date
                       ? `Started ${new Date(exp.start_date).toLocaleDateString()}`
                       : "No start date"}{" "}

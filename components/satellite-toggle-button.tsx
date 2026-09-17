@@ -13,7 +13,7 @@ export function SatelliteToggleButton({ satellite, onToggle, className = "" }: S
     <button
       type="button"
       onClick={onToggle}
-      className={`text-xs font-medium bg-white border border-slate-300 rounded px-2.5 py-1 shadow-sm hover:bg-slate-50 transition-colors ${className}`}
+      className={`text-xs font-medium bg-white border border-stone-300 rounded px-2.5 py-1 shadow-sm hover:bg-stone-50 transition-colors ${className}`}
     >
       {satellite ? "Map View" : "Satellite View"}
     </button>

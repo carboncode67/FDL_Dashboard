@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { ChevronRight } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -45,11 +44,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100">
+    <div className="min-h-screen flex items-center justify-center bg-stone-100">
       <div className="w-full max-w-sm">
         <div className="flex items-center justify-center gap-2 mb-8">
-          <ChevronRight className="h-6 w-6 text-emerald-600" />
-          <span className="text-2xl font-bold text-slate-900">Farmers Database</span>
+          <span className="text-2xl font-bold text-stone-900">Farmers Database</span>
         </div>
         <Card>
           <CardHeader>

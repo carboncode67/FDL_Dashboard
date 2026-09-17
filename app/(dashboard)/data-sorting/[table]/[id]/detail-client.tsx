@@ -35,22 +35,22 @@ function MediaPreview({ item }: { item: UploadItem }) {
       <img
         src={`/api/files/photos/${item.filename}`}
         alt="Upload preview"
-        className="w-full max-h-[480px] object-contain rounded-md border bg-slate-100"
+        className="w-full max-h-[480px] object-contain rounded-md border bg-stone-100"
         style={{ imageOrientation: "from-image" }}
       />
     );
   }
   if (item.media_type === "note" && item.content) {
     return (
-      <div className="rounded-md border bg-slate-50 p-4 text-sm text-slate-700 whitespace-pre-wrap min-h-[120px]">
+      <div className="rounded-md border bg-stone-50 p-4 text-sm text-stone-700 whitespace-pre-wrap min-h-[120px]">
         {item.content}
       </div>
     );
   }
   if (item.media_type === "recording" && item.filename) {
     return (
-      <div className="rounded-md border bg-slate-50 p-4 space-y-3">
-        <p className="text-sm text-slate-500 font-medium">Audio Recording</p>
+      <div className="rounded-md border bg-stone-50 p-4 space-y-3">
+        <p className="text-sm text-stone-500 font-medium">Audio Recording</p>
         <audio controls className="w-full" preload="metadata">
           <source src={`/api/files/recordings/${item.filename}`} />
           Your browser does not support audio playback.
@@ -60,10 +60,10 @@ function MediaPreview({ item }: { item: UploadItem }) {
   }
   if (item.media_type === "location") {
     return (
-      <div className="rounded-md border bg-slate-50 p-4 text-sm text-slate-500">
+      <div className="rounded-md border bg-stone-50 p-4 text-sm text-stone-500">
         GPS track{item.content ? `: ${item.content}` : ""}
         {item.date_collected && (
-          <span className="ml-2 text-slate-400">
+          <span className="ml-2 text-stone-400">
             — {new Date(item.date_collected).toLocaleString()}
           </span>
         )}
@@ -80,8 +80,8 @@ function MediaPreview({ item }: { item: UploadItem }) {
   }
   if (item.media_type === "document" && item.filename) {
     return (
-      <div className="rounded-md border bg-slate-50 p-4 space-y-2">
-        <p className="text-sm text-slate-500 font-medium">Document</p>
+      <div className="rounded-md border bg-stone-50 p-4 space-y-2">
+        <p className="text-sm text-stone-500 font-medium">Document</p>
         <a
           href={`/api/files/documents/${item.filename}`}
           target="_blank"
@@ -90,12 +90,12 @@ function MediaPreview({ item }: { item: UploadItem }) {
         >
           {item.filename}
         </a>
-        {item.content && <p className="text-sm text-slate-600 whitespace-pre-wrap">{item.content}</p>}
+        {item.content && <p className="text-sm text-stone-600 whitespace-pre-wrap">{item.content}</p>}
       </div>
     );
   }
   return (
-    <div className="rounded-md border bg-slate-50 p-4 text-sm text-slate-400 min-h-[80px] flex items-center justify-center">
+    <div className="rounded-md border bg-stone-50 p-4 text-sm text-stone-400 min-h-[80px] flex items-center justify-center">
       No preview available
     </div>
   );
@@ -303,10 +303,10 @@ export default function DetailClient({
   return (
     <div className="space-y-0">
       {/* Top action bar */}
-      <div className="flex items-center gap-3 pb-4 border-b border-slate-200 mb-6">
+      <div className="flex items-center gap-3 pb-4 border-b border-stone-200 mb-6">
         <Link
           href={backHref}
-          className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 transition-colors"
+          className="flex items-center gap-1 text-sm text-stone-500 hover:text-stone-800 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           Data Sorting
@@ -314,7 +314,7 @@ export default function DetailClient({
 
         <div className="flex items-center gap-2 ml-auto">
           {position !== null && (
-            <span className="text-sm text-slate-500">
+            <span className="text-sm text-stone-500">
               {position} of {total}
             </span>
           )}
@@ -500,28 +500,28 @@ export default function DetailClient({
           {/* Read-only metadata */}
           <div className="rounded-md border bg-white p-4 space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-slate-500">Uploaded by</span>
-              <span className="font-medium text-slate-800">{item.uploader ?? "Unknown"}</span>
+              <span className="text-stone-500">Uploaded by</span>
+              <span className="font-medium text-stone-800">{item.uploader ?? "Unknown"}</span>
             </div>
             {item.date_collected && (
               <div className="flex justify-between">
-                <span className="text-slate-500">Collected</span>
-                <span className="text-slate-700">{new Date(item.date_collected).toLocaleString()}</span>
+                <span className="text-stone-500">Collected</span>
+                <span className="text-stone-700">{new Date(item.date_collected).toLocaleString()}</span>
               </div>
             )}
             <div className="flex justify-between">
-              <span className="text-slate-500">Received</span>
-              <span className="text-slate-700">{new Date(item.received_at).toLocaleString()}</span>
+              <span className="text-stone-500">Received</span>
+              <span className="text-stone-700">{new Date(item.received_at).toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-500">Stage</span>
-              <span className="text-slate-700">{item.stage ?? "Unread"}</span>
+              <span className="text-stone-500">Stage</span>
+              <span className="text-stone-700">{item.stage ?? "Unread"}</span>
             </div>
           </div>
 
           {/* Editable fields */}
           <div className="rounded-md border bg-white p-4 space-y-4">
-            <p className="text-sm font-semibold text-slate-700">Edit</p>
+            <p className="text-sm font-semibold text-stone-700">Edit</p>
 
             <div className="space-y-1.5">
               <Label>Farm</Label>
@@ -555,7 +555,7 @@ export default function DetailClient({
               </Select>
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-stone-700 cursor-pointer">
               <input
                 type="checkbox"
                 checked={needsFurtherProcessing}
@@ -565,8 +565,8 @@ export default function DetailClient({
             </label>
 
             {activeMetrics.length > 0 && (
-              <div className="space-y-3 rounded-md border bg-slate-50 p-3">
-                <p className="text-xs font-semibold text-slate-600">Metrics</p>
+              <div className="space-y-3 rounded-md border bg-stone-50 p-3">
+                <p className="text-xs font-semibold text-stone-600">Metrics</p>
                 {activeMetrics.map((metric) => (
                   <div key={metric.id} className="space-y-1.5">
                     <Label>{metric.label}{metric.unit ? ` (${metric.unit})` : ""}</Label>
@@ -582,7 +582,7 @@ export default function DetailClient({
                         ))}
                       </select>
                     ) : metric.field_type === "boolean" ? (
-                      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                      <label className="flex items-center gap-2 text-sm text-stone-700 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={metricInputs[metric.id] === "true"}
@@ -644,7 +644,7 @@ export default function DetailClient({
       {/* Group members panel */}
       {groupMembers.length > 0 && (
         <div className="mt-6 space-y-3">
-          <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+          <p className="text-sm font-semibold text-stone-700 flex items-center gap-2">
             <GitMerge className="h-4 w-4 text-blue-500" />
             Others in this group ({groupMembers.length})
           </p>
@@ -657,7 +657,7 @@ export default function DetailClient({
               >
                 <div className="flex items-center gap-1.5">
                   <Badge variant="outline" className="text-xs">{MEDIA_LABEL[member.media_type] ?? member.media_type}</Badge>
-                  <span className="text-xs text-slate-500 ml-auto">
+                  <span className="text-xs text-stone-500 ml-auto">
                     {member.date_collected
                       ? new Date(member.date_collected).toLocaleDateString()
                       : new Date(member.received_at).toLocaleDateString()}
@@ -670,12 +670,12 @@ export default function DetailClient({
                   <img
                     src={`/api/files/photos/${member.filename}`}
                     alt="Group member"
-                    className="w-full h-28 object-cover rounded bg-slate-100"
+                    className="w-full h-28 object-cover rounded bg-stone-100"
                     style={{ imageOrientation: "from-image" }}
                   />
                 )}
                 {member.media_type === "note" && member.content && (
-                  <p className="text-xs text-slate-600 line-clamp-3 bg-slate-50 rounded p-2">
+                  <p className="text-xs text-stone-600 line-clamp-3 bg-stone-50 rounded p-2">
                     {member.content}
                   </p>
                 )}
@@ -685,7 +685,7 @@ export default function DetailClient({
                   </audio>
                 )}
 
-                <p className="text-xs text-slate-500">{member.uploader ?? "Unknown"}</p>
+                <p className="text-xs text-stone-500">{member.uploader ?? "Unknown"}</p>
               </Link>
             ))}
           </div>

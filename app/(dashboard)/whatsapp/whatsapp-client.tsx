@@ -33,9 +33,9 @@ function LastSubmissionBadge({ days }: { days: number | null }) {
   if (days === null)
     return <Badge variant="destructive" className="text-xs">No submissions</Badge>;
   if (days === 0)
-    return <Badge className="bg-emerald-100 text-emerald-800 text-xs">Today</Badge>;
+    return <Badge className="bg-green-100 text-green-800 text-xs">Today</Badge>;
   if (days <= 3)
-    return <Badge className="bg-emerald-100 text-emerald-800 text-xs">{days}d ago</Badge>;
+    return <Badge className="bg-green-100 text-green-800 text-xs">{days}d ago</Badge>;
   if (days <= 7)
     return <Badge className="bg-amber-100 text-amber-800 text-xs">{days}d ago</Badge>;
   return <Badge variant="destructive" className="text-xs">{days}d ago</Badge>;
@@ -121,38 +121,38 @@ function MessageModal({
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg flex flex-col gap-4 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-semibold text-slate-900">{farmer.name}</p>
-            <p className="text-xs text-slate-500">{farmer.phone}</p>
+            <p className="font-semibold text-stone-900">{farmer.name}</p>
+            <p className="text-xs text-stone-500">{farmer.phone}</p>
             <p className="text-xs mt-0.5">
               <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                 channel === "sms"
                   ? "bg-blue-100 text-blue-700"
-                  : "bg-emerald-100 text-emerald-700"
+                  : "bg-green-100 text-green-700"
               }`}>
                 {channel === "sms" ? "SMS" : "WhatsApp"}
               </span>
             </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-600">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {templates.length > 0 && (
           <div className="space-y-1">
-            <label className="text-xs text-slate-500">Saved messages</label>
-            <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-32 overflow-y-auto">
+            <label className="text-xs text-stone-500">Saved messages</label>
+            <div className="border border-stone-200 rounded-lg divide-y divide-stone-100 max-h-32 overflow-y-auto">
               {templates.map((t) => (
-                <div key={t.id} className="flex items-center justify-between px-3 py-1.5 hover:bg-slate-50">
+                <div key={t.id} className="flex items-center justify-between px-3 py-1.5 hover:bg-stone-50">
                   <button
-                    className="text-sm text-slate-700 text-left truncate flex-1"
+                    className="text-sm text-stone-700 text-left truncate flex-1"
                     onClick={() => setMessage(t.content)}
                   >
                     {t.name}
                   </button>
                   <button
                     onClick={() => deleteTemplate(t.id)}
-                    className="ml-2 text-slate-300 hover:text-red-500 flex-shrink-0"
+                    className="ml-2 text-stone-300 hover:text-red-500 flex-shrink-0"
                     title="Delete template"
                   >
                     <X className="h-3 w-3" />
@@ -164,7 +164,7 @@ function MessageModal({
         )}
 
         <textarea
-          className="w-full border border-slate-200 rounded-lg p-3 text-sm text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="w-full border border-stone-200 rounded-lg p-3 text-sm text-stone-800 resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
           rows={12}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -179,7 +179,7 @@ function MessageModal({
               value={templateName}
               onChange={(e) => setTemplateName(e.target.value)}
               placeholder="Template name"
-              className="flex-1 h-9 rounded-lg border border-slate-200 px-2 text-sm"
+              className="flex-1 h-9 rounded-lg border border-stone-200 px-2 text-sm"
             />
             <Button size="sm" onClick={saveTemplate} disabled={savingTemplate || !templateName.trim() || !message.trim()}>
               {savingTemplate ? "Saving..." : "Save"}
@@ -190,7 +190,7 @@ function MessageModal({
           <button
             onClick={() => setSaveMode(true)}
             disabled={!message.trim()}
-            className="self-start inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 disabled:opacity-40"
+            className="self-start inline-flex items-center gap-1 text-xs text-stone-500 hover:text-stone-800 disabled:opacity-40"
           >
             <Plus className="h-3 w-3" /> Save as template
           </button>
@@ -203,7 +203,7 @@ function MessageModal({
           <Button
             onClick={handleSend}
             disabled={sending || !message.trim()}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="bg-green-600 hover:bg-green-700 text-white"
           >
             <Send className="h-4 w-4 mr-2" />
             {sending ? "Sending..." : "Send"}
@@ -292,25 +292,25 @@ function AssignExperimentModal({
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md flex flex-col gap-4 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-semibold text-slate-900">{farmer.name}</p>
-            <p className="text-xs text-slate-500">{farmer.phone}</p>
+            <p className="font-semibold text-stone-900">{farmer.name}</p>
+            <p className="text-xs text-stone-500">{farmer.phone}</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-600">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {!farmer.farm_id ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-stone-500">
             This farmer has no farm assigned, so there are no experiments to choose from.
             Assign a farm first.
           </p>
         ) : (
           <>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Experiment</label>
+              <label className="text-sm font-medium text-stone-700">Experiment</label>
               <select
-                className="w-full border border-slate-200 rounded-lg p-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full border border-stone-200 rounded-lg p-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-green-500"
                 value={selectedId}
                 onChange={(e) => setSelectedId(e.target.value)}
                 disabled={loading}
@@ -322,22 +322,22 @@ function AssignExperimentModal({
                   </option>
                 ))}
               </select>
-              {loading && <p className="text-xs text-slate-400">Loading experiments...</p>}
+              {loading && <p className="text-xs text-stone-400">Loading experiments...</p>}
               {!loading && experiments.length === 0 && (
-                <p className="text-xs text-slate-400">No experiments exist for this farm yet.</p>
+                <p className="text-xs text-stone-400">No experiments exist for this farm yet.</p>
               )}
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Nickname for the farmer</label>
+              <label className="text-sm font-medium text-stone-700">Nickname for the farmer</label>
               <input
                 type="text"
-                className="w-full border border-slate-200 rounded-lg p-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full border border-stone-200 rounded-lg p-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-green-500"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
                 placeholder="e.g. Your Cover Crop Trial"
               />
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-stone-400">
                 Shown to the farmer in message receipts instead of the internal experiment name.
                 Leave blank to show the real experiment name.
               </p>
@@ -354,7 +354,7 @@ function AssignExperimentModal({
           <Button
             onClick={handleSave}
             disabled={saving || !farmer.farm_id}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="bg-green-600 hover:bg-green-700 text-white"
           >
             {saving ? "Saving..." : "Save"}
           </Button>
@@ -447,7 +447,7 @@ export function WhatsAppClient({ data, onboardingMessage }: { data: WhatsAppRow[
       header: "Farm",
       render: (row: Record<string, unknown>) => {
         const r = row as unknown as WhatsAppRow;
-        return r.farm_name ?? <span className="text-slate-400">—</span>;
+        return r.farm_name ?? <span className="text-stone-400">—</span>;
       },
     },
     {
@@ -457,8 +457,8 @@ export function WhatsAppClient({ data, onboardingMessage }: { data: WhatsAppRow[
         const r = row as unknown as WhatsAppRow;
         const label = r.experiment_nickname || r.experiment_name;
         return label
-          ? <span className="text-slate-700">{label}</span>
-          : <span className="text-slate-400">—</span>;
+          ? <span className="text-stone-700">{label}</span>
+          : <span className="text-stone-400">—</span>;
       },
     },
     {
@@ -475,7 +475,7 @@ export function WhatsAppClient({ data, onboardingMessage }: { data: WhatsAppRow[
               e.stopPropagation();
               updateChannel(r.id, e.target.value || null);
             }}
-            className="h-7 rounded border border-slate-200 bg-white px-1.5 text-xs text-slate-700"
+            className="h-7 rounded border border-stone-200 bg-white px-1.5 text-xs text-stone-700"
           >
             <option value="">— None —</option>
             <option value="whatsapp">WhatsApp</option>
@@ -500,7 +500,7 @@ export function WhatsAppClient({ data, onboardingMessage }: { data: WhatsAppRow[
         return (
           <div className="flex items-center gap-1">
             {onboarded.has(r.id) ? (
-              <span className="inline-flex items-center gap-1 text-xs h-7 px-2 rounded border border-slate-200 text-slate-400 bg-slate-50">
+              <span className="inline-flex items-center gap-1 text-xs h-7 px-2 rounded border border-stone-200 text-stone-400 bg-stone-50">
                 <UserCheck className="h-3 w-3" />
                 Onboarded
               </span>
@@ -508,7 +508,7 @@ export function WhatsAppClient({ data, onboardingMessage }: { data: WhatsAppRow[
               <Button
                 size="sm"
                 variant="outline"
-                className="text-xs h-7 px-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                className="text-xs h-7 px-2 border-green-300 text-green-700 hover:bg-green-50"
                 title="Send onboarding message"
                 onClick={(e) => { e.stopPropagation(); openOnboarding(r); }}
               >
@@ -522,7 +522,7 @@ export function WhatsAppClient({ data, onboardingMessage }: { data: WhatsAppRow[
               title="Assign experiment"
               onClick={(e) => { e.stopPropagation(); openAssignExperiment(r); }}
             >
-              <Tag className="h-4 w-4 text-slate-500" />
+              <Tag className="h-4 w-4 text-stone-500" />
             </Button>
             <Button
               size="icon"
@@ -530,7 +530,7 @@ export function WhatsAppClient({ data, onboardingMessage }: { data: WhatsAppRow[
               title="Send custom message"
               onClick={(e) => { e.stopPropagation(); openCustomMessage(r); }}
             >
-              <MessageCircle className="h-4 w-4 text-slate-500" />
+              <MessageCircle className="h-4 w-4 text-stone-500" />
             </Button>
           </div>
         );
@@ -544,23 +544,23 @@ export function WhatsAppClient({ data, onboardingMessage }: { data: WhatsAppRow[
   return (
     <div className="space-y-4">
       {sentNotice && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-2 rounded-lg">
+        <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-2 rounded-lg">
           {sentNotice}
         </div>
       )}
 
       <div className="flex gap-4">
-        <div className="bg-white border border-slate-200 rounded-lg px-5 py-3">
-          <div className="text-2xl font-semibold text-slate-900">{data.length}</div>
-          <div className="text-xs text-slate-500 mt-0.5">Messaging farmers</div>
+        <div className="bg-white border border-stone-200 rounded-lg px-5 py-3">
+          <div className="text-2xl font-semibold text-stone-900">{data.length}</div>
+          <div className="text-xs text-stone-500 mt-0.5">Messaging farmers</div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-lg px-5 py-3">
-          <div className="text-2xl font-semibold text-emerald-600">{active}</div>
-          <div className="text-xs text-slate-500 mt-0.5">Active (last 7 days)</div>
+        <div className="bg-white border border-stone-200 rounded-lg px-5 py-3">
+          <div className="text-2xl font-semibold text-green-600">{active}</div>
+          <div className="text-xs text-stone-500 mt-0.5">Active (last 7 days)</div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-lg px-5 py-3">
+        <div className="bg-white border border-stone-200 rounded-lg px-5 py-3">
           <div className="text-2xl font-semibold text-red-500">{inactive}</div>
-          <div className="text-xs text-slate-500 mt-0.5">Inactive / no submissions</div>
+          <div className="text-xs text-stone-500 mt-0.5">Inactive / no submissions</div>
         </div>
       </div>
 

@@ -29,14 +29,14 @@ export function EditModeToggle({ initialEditMode }: EditModeToggleProps) {
   return (
     <div className="flex items-center gap-4">
       <div>
-        <p className="text-sm font-medium text-slate-900">
+        <p className="text-sm font-medium text-stone-900">
           Status: {editMode ? (
             <span className="text-red-600 font-semibold">ON</span>
           ) : (
-            <span className="text-slate-500">OFF</span>
+            <span className="text-stone-500">OFF</span>
           )}
         </p>
-        <p className="text-xs text-slate-500 mt-0.5">
+        <p className="text-xs text-stone-500 mt-0.5">
           {editMode
             ? "Members can currently delete records."
             : "Only admins can delete records."}
@@ -45,8 +45,8 @@ export function EditModeToggle({ initialEditMode }: EditModeToggleProps) {
       <button
         onClick={toggle}
         disabled={loading}
-        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 ${
-          editMode ? "bg-red-500" : "bg-slate-200"
+        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 ${
+          editMode ? "bg-red-500" : "bg-stone-200"
         }`}
       >
         <span

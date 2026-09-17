@@ -54,14 +54,14 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <Link href="/contacts" className="hover:text-slate-900">Contacts</Link>
+          <div className="flex items-center gap-2 text-sm text-stone-500 mb-1">
+            <Link href="/contacts" className="hover:text-stone-900">Contacts</Link>
             <span>/</span>
             <span>{contact.name}</span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900">{contact.name}</h2>
+          <h2 className="text-2xl font-bold text-stone-900">{contact.name}</h2>
           {contact.Farm && (
-            <p className="text-slate-500">
+            <p className="text-stone-500">
               Farm:{" "}
               <Link href={`/farms/${contact.Farm.id}`} className="text-blue-600 hover:underline">
                 {contact.Farm.Farm_Name ?? `Farm #${contact.Farm.id}`}
@@ -94,10 +94,10 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               <CardHeader><CardTitle className="text-base">Contact Details</CardTitle></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 gap-3 text-sm">
-                  <div><span className="text-slate-500">Phone</span><p className="font-medium mt-0.5">{contact.phone ?? "—"}</p></div>
-                  <div><span className="text-slate-500">Email</span><p className="font-medium mt-0.5">{contact.email ?? "—"}</p></div>
+                  <div><span className="text-stone-500">Phone</span><p className="font-medium mt-0.5">{contact.phone ?? "—"}</p></div>
+                  <div><span className="text-stone-500">Email</span><p className="font-medium mt-0.5">{contact.email ?? "—"}</p></div>
                   <div>
-                    <span className="text-slate-500">WhatsApp</span>
+                    <span className="text-stone-500">WhatsApp</span>
                     <p className="font-medium mt-0.5">
                       <Badge variant={contact.whatsapp ? "default" : "outline"}>
                         {contact.whatsapp ? "Yes" : "No"}
@@ -105,7 +105,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                     </p>
                   </div>
                   <div>
-                    <span className="text-slate-500">Linked Farm</span>
+                    <span className="text-stone-500">Linked Farm</span>
                     <p className="font-medium mt-0.5">
                       {contact.Farm ? (
                         <Link href={`/farms/${contact.Farm.id}`} className="text-blue-600 hover:underline">
@@ -115,7 +115,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                     </p>
                   </div>
                   <div>
-                    <span className="text-slate-500">Added</span>
+                    <span className="text-stone-500">Added</span>
                     <p className="font-medium mt-0.5">
                       {contact.created_at.toLocaleDateString()}
                     </p>
@@ -129,7 +129,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               <CardContent>
                 {contact.token ? (
                   <>
-                    <p className="text-sm text-slate-500 mb-3">
+                    <p className="text-sm text-stone-500 mb-3">
                       Scan this QR code with the FarmerDataLogger app to connect {contact.name}.
                     </p>
                     <QrDisplay key={contact.token} contactId={contact.id} name={contact.name} />
@@ -143,16 +143,16 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                         />
                       </div>
                     )}
-                    <p className="text-xs text-slate-400 mt-1">Regenerating invalidates the old code.</p>
+                    <p className="text-xs text-stone-400 mt-1">Regenerating invalidates the old code.</p>
                     {contact.onboarded_at && (
-                      <p className="text-xs text-slate-400 mt-1">
+                      <p className="text-xs text-stone-400 mt-1">
                         Onboarding email sent on {contact.onboarded_at.toLocaleDateString()}
                       </p>
                     )}
                   </>
                 ) : (
                   <>
-                    <p className="text-sm text-slate-500 mb-4">
+                    <p className="text-sm text-stone-500 mb-4">
                       No app access token yet — one is generated automatically the first time an onboarding
                       email is sent, or generate one now to preview the QR code.
                     </p>
@@ -178,7 +178,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             <CardHeader><CardTitle className="text-base">Photos</CardTitle></CardHeader>
             <CardContent>
               {contact.Photos.length === 0 ? (
-                <p className="text-sm text-slate-500">No photos uploaded</p>
+                <p className="text-sm text-stone-500">No photos uploaded</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -194,12 +194,12 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                       <TableRow key={p.id}>
                         <TableCell className="font-mono text-xs">{p.filename}</TableCell>
                         <TableCell>{p.note ?? "—"}</TableCell>
-                        <TableCell className="text-xs text-slate-500">
+                        <TableCell className="text-xs text-stone-500">
                           {p.latitude != null && p.longitude != null
                             ? `${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}`
                             : "—"}
                         </TableCell>
-                        <TableCell className="text-xs text-slate-500">
+                        <TableCell className="text-xs text-stone-500">
                           {p.received_at.toLocaleString()}
                         </TableCell>
                       </TableRow>
@@ -216,7 +216,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             <CardHeader><CardTitle className="text-base">Recordings</CardTitle></CardHeader>
             <CardContent>
               {contact.Recordings.length === 0 ? (
-                <p className="text-sm text-slate-500">No recordings uploaded</p>
+                <p className="text-sm text-stone-500">No recordings uploaded</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -239,7 +239,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                             {r.gps_filename ? "Yes" : "No"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-xs text-slate-500">
+                        <TableCell className="text-xs text-stone-500">
                           {r.received_at.toLocaleString()}
                         </TableCell>
                       </TableRow>
@@ -256,13 +256,13 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             <CardHeader><CardTitle className="text-base">Notes</CardTitle></CardHeader>
             <CardContent>
               {contact.Notes.length === 0 ? (
-                <p className="text-sm text-slate-500">No notes uploaded</p>
+                <p className="text-sm text-stone-500">No notes uploaded</p>
               ) : (
                 <div className="space-y-3">
                   {contact.Notes.map((n) => (
                     <div key={n.id} className="border rounded-md p-3">
                       <p className="text-sm">{n.content}</p>
-                      <div className="flex gap-4 mt-2 text-xs text-slate-500">
+                      <div className="flex gap-4 mt-2 text-xs text-stone-500">
                         {n.latitude != null && n.longitude != null && (
                           <span>{n.latitude.toFixed(5)}, {n.longitude.toFixed(5)}</span>
                         )}
@@ -281,7 +281,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             <CardHeader><CardTitle className="text-base">GPS Tracks</CardTitle></CardHeader>
             <CardContent>
               {contact.Locations.length === 0 ? (
-                <p className="text-sm text-slate-500">No location tracks uploaded</p>
+                <p className="text-sm text-stone-500">No location tracks uploaded</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -300,7 +300,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                         <TableCell className="text-xs">{l.start_time?.toLocaleString() ?? "—"}</TableCell>
                         <TableCell className="text-xs">{l.end_time?.toLocaleString() ?? "—"}</TableCell>
                         <TableCell className="font-mono text-xs">{l.track_filename ?? "—"}</TableCell>
-                        <TableCell className="text-xs text-slate-500">
+                        <TableCell className="text-xs text-stone-500">
                           {l.received_at.toLocaleString()}
                         </TableCell>
                       </TableRow>

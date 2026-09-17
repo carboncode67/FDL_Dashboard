@@ -44,7 +44,7 @@ export function ExperimentsClient({
       header: "Treatments",
       render: (row: Record<string, unknown>) => {
         const treatments = (row as unknown as ExperimentRow).treatments;
-        if (!treatments.length) return <span className="text-slate-400 text-xs">—</span>;
+        if (!treatments.length) return <span className="text-stone-400 text-xs">—</span>;
         return (
           <div className="flex flex-wrap gap-1">
             {treatments.map((t) => (

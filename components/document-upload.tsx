@@ -77,8 +77,8 @@ export function DocumentUpload({ farmId, projectId, testId }: Props) {
           <div
             className={cn(
               "border-2 border-dashed rounded-lg px-4 py-6 text-center cursor-pointer transition-colors",
-              dragging ? "border-blue-500 bg-blue-50" : "border-slate-200 hover:border-slate-400",
-              selectedFile ? "bg-slate-50" : "",
+              dragging ? "border-blue-500 bg-blue-50" : "border-stone-200 hover:border-stone-400",
+              selectedFile ? "bg-stone-50" : "",
             )}
             onClick={() => fileRef.current?.click()}
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -101,11 +101,11 @@ export function DocumentUpload({ farmId, projectId, testId }: Props) {
               }}
             />
             {selectedFile ? (
-              <p className="text-sm font-medium text-slate-700">{selectedFile.name}</p>
+              <p className="text-sm font-medium text-stone-700">{selectedFile.name}</p>
             ) : (
               <div>
-                <p className="text-sm text-slate-500">Drop a file here or click to browse</p>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-sm text-stone-500">Drop a file here or click to browse</p>
+                <p className="text-xs text-stone-400 mt-1">
                   Supported: .pdf, .csv, .docx, .doc, .xlsx, .txt
                 </p>
               </div>
@@ -117,7 +117,7 @@ export function DocumentUpload({ farmId, projectId, testId }: Props) {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Description (optional)"
-            className="w-full rounded-md border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-md border border-stone-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
 
           {status === "success" && (
@@ -133,8 +133,8 @@ export function DocumentUpload({ farmId, projectId, testId }: Props) {
             className={cn(
               "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
               !selectedFile || status === "uploading"
-                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                : "bg-slate-900 text-white hover:bg-slate-700",
+                ? "bg-stone-100 text-stone-400 cursor-not-allowed"
+                : "bg-stone-900 text-white hover:bg-stone-700",
             )}
           >
             {status === "uploading" && (

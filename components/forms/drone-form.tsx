@@ -145,15 +145,15 @@ export function DroneForm({ onSuccess, droneId, initialData }: DroneFormProps) {
       <div className="space-y-1.5">
         <Label>Quantity Owned</Label>
         <Input type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
-        <p className="text-xs text-slate-500">How many physical units of this item the lab owns.</p>
+        <p className="text-xs text-stone-500">How many physical units of this item the lab owns.</p>
       </div>
       <div className="space-y-1.5"><Label>Cost Per Acre ($)</Label><Input type="number" step="0.01" value={costAcre} onChange={(e) => setCostAcre(e.target.value)} /></div>
       <div className="space-y-1.5"><Label>Mobilization Cost ($)</Label><Input type="number" step="0.01" value={mobCost} onChange={(e) => setMobCost(e.target.value)} /></div>
 
       <div className="space-y-1.5">
-        <Label>Methodology <span className="font-normal text-slate-400">(optional)</span></Label>
+        <Label>Methodology <span className="font-normal text-stone-400">(optional)</span></Label>
         <MethodologySelect value={methodologyId} onChange={setMethodologyId} placeholder="— none linked —" />
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-stone-500">
           The procedure usually run with this instrument. A test that requires this equipment keeps
           its own methodology — these don&apos;t have to match.
         </p>
@@ -166,29 +166,29 @@ export function DroneForm({ onSuccess, droneId, initialData }: DroneFormProps) {
             <button
               type="button"
               onClick={openLibrary}
-              className="text-xs text-slate-600 hover:text-slate-900 font-medium underline underline-offset-2"
+              className="text-xs text-stone-600 hover:text-stone-900 font-medium underline underline-offset-2"
             >
               Pick from library
             </button>
             <button
               type="button"
               onClick={addTemplate}
-              className="text-xs text-emerald-700 hover:text-emerald-900 font-medium"
+              className="text-xs text-green-700 hover:text-green-900 font-medium"
             >
               + Add Template
             </button>
           </div>
         </div>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-stone-500">
           Tasks auto-created from these templates when this drone is assigned to an experiment.
         </p>
 
         {libraryOpen && (
-          <div className="border rounded-lg p-3 bg-slate-50 space-y-2">
-            <p className="text-xs font-medium text-slate-700">Select from library:</p>
-            {libraryLoading && <p className="text-xs text-slate-400">Loading...</p>}
+          <div className="border rounded-lg p-3 bg-stone-50 space-y-2">
+            <p className="text-xs font-medium text-stone-700">Select from library:</p>
+            {libraryLoading && <p className="text-xs text-stone-400">Loading...</p>}
             {!libraryLoading && library.length === 0 && (
-              <p className="text-xs text-slate-400 italic">No library templates yet. Create some at Advanced → Task Templates.</p>
+              <p className="text-xs text-stone-400 italic">No library templates yet. Create some at Advanced → Task Templates.</p>
             )}
             {library.map((t) => (
               <label key={t.id} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -199,8 +199,8 @@ export function DroneForm({ onSuccess, droneId, initialData }: DroneFormProps) {
                   className="rounded"
                 />
                 <span className="flex-1">{t.description}</span>
-                {t.classification && <span className="text-xs text-slate-400">{t.classification}</span>}
-                <span className="text-xs text-slate-400">{t.priority}</span>
+                {t.classification && <span className="text-xs text-stone-400">{t.classification}</span>}
+                <span className="text-xs text-stone-400">{t.priority}</span>
               </label>
             ))}
             <div className="flex gap-2 pt-1">
@@ -208,14 +208,14 @@ export function DroneForm({ onSuccess, droneId, initialData }: DroneFormProps) {
                 type="button"
                 onClick={addFromLibrary}
                 disabled={selected.size === 0}
-                className="text-xs bg-emerald-600 text-white px-3 py-1 rounded-md disabled:opacity-40 hover:bg-emerald-700"
+                className="text-xs bg-green-600 text-white px-3 py-1 rounded-md disabled:opacity-40 hover:bg-green-700"
               >
                 Add selected ({selected.size})
               </button>
               <button
                 type="button"
                 onClick={() => { setLibraryOpen(false); setSelected(new Set()); }}
-                className="text-xs text-slate-500 hover:text-slate-800 px-2"
+                className="text-xs text-stone-500 hover:text-stone-800 px-2"
               >
                 Cancel
               </button>
@@ -224,7 +224,7 @@ export function DroneForm({ onSuccess, droneId, initialData }: DroneFormProps) {
         )}
 
         {templates.length === 0 && (
-          <p className="text-xs text-slate-400 italic">No templates yet.</p>
+          <p className="text-xs text-stone-400 italic">No templates yet.</p>
         )}
         {templates.map((t, i) => (
           <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center">
@@ -252,7 +252,7 @@ export function DroneForm({ onSuccess, droneId, initialData }: DroneFormProps) {
             <button
               type="button"
               onClick={() => removeTemplate(i)}
-              className="text-slate-400 hover:text-red-500 text-sm leading-none px-1"
+              className="text-stone-400 hover:text-red-500 text-sm leading-none px-1"
               aria-label="Remove"
             >
               ✕
