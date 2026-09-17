@@ -1190,3 +1190,90 @@ any point in this exercise.
   ix-farmersdatabase` explicit, or should go through TrueNAS's own Apps UI
   instead.
 
+**2026-09-17 (final) — real production cutover completed. Migration freeze
+lifted for this batch; `TENANT_ENFORCEMENT` still `off`.**
+
+The maintainer explicitly approved moving to production after the TrueNAS
+rehearsal above, accepting that this was the first time any of it would run
+against the live system, with a fresh backup as the fallback (see
+[[automated-db-backup-goal]] — built same day, specifically as this
+migration's safety net).
+
+- **Built a real hourly production DB backup first** (`~/scripts/backup_fdl_db.sh`
+  on the lab server, cron `5 * * * *`) — investigation found the existing
+  `zfs-auto-snapshot` infra only covered file uploads (on the ZFS `tank`
+  pool), not the database at all, which had zero backup coverage before
+  this. Verified live: valid full dump, all tables present. Off-site/DR
+  copy is still a known gap, not built.
+- **Scope correction before touching anything**: the production-freeze
+  memory's "057+" boundary turned out to be approximate, not exact — diffing
+  production's *actual live schema* against local dev (not going by
+  migration numbers) found migration `033` (`Interview_Chunks`, pre-dates
+  the frozen batch entirely) was also never applied. Full authoritative list
+  only came from this diff, not from memory or the migrations folder alone.
+- **`033` deliberately deferred, indefinitely** — needs the `pgvector`
+  Postgres extension, and production's `db` container runs plain
+  `postgres:18` (confirmed via `pg_available_extensions` — the extension
+  isn't merely uninstalled, it's absent from the image), unlike every other
+  environment in this pipeline which uses `pgvector/pgvector:pg18`. The
+  maintainer confirmed the RAG/embeddings feature this table serves isn't in
+  use, so this is parked rather than fixed — swapping production's DB image
+  is its own separate, undone piece of work if ever needed.
+- **Found and fixed two real bugs in migration `071`, live, against
+  production** — both `_nc_m2m_Fields_Treatments` (a table no tracked
+  migration creates at all — a base-schema artifact local dev/TrueNAS
+  happen to have from their original NocoDB bootstrap dump that
+  production's own bootstrap never had) and `Interview_Chunks` (real,
+  tracked, just deliberately deferred per above) had unconditional
+  `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` with no existence guard,
+  unlike every sibling table in the same file. Both failed for real
+  against production (rolled back cleanly each time — single `DO` block,
+  confirmed via unchanged `pg_policies` counts before/after each failed
+  attempt), both patched to guard on `pg_tables` existence matching the
+  file's own established style, both re-verified as exact no-ops against
+  local dev (where both tables exist) before retrying. Neither TrueNAS's
+  rehearsal nor local dev could have caught these — both share the same
+  schema lineage, diverged from production's in the same way.
+- **Migrations applied to production, in this exact order**: `067`, `068`,
+  `069`, `070`, `071` (patched), `072`, `073`, `074`, `075` — all clean,
+  all additive, zero behavior change confirmed live (app still `307`s
+  correctly, clean logs) since the app was still the old pre-lab-silo image
+  at this point.
+- **Deployed `:latest`** (current `main`, including today's platform-admin
+  lab switcher, orphaned-user-reference fixes, and UI restyle) to
+  production. Verified two ways: automated health check, and the
+  maintainer manually logging in and navigating real pages (images, lab
+  members, farm fields) end-to-end.
+- **Then ran `050`** (the gated legacy-schema drop) — safe at this point
+  since the just-deployed app never reads any of what it removes. Verified:
+  `Test_Data_Rows`/`Test_Field_Definitions` gone, `Tests.Data_Processing_Instructions`/
+  `Pipelines.match_test_id` gone. **One unrelated residual noticed while
+  verifying**: `Treatments.test_template_id` is still present — that's from
+  migration `020` (a much older, unrelated cleanup that was apparently never
+  fully applied either), not `050`. Harmless — Prisma never selects columns
+  outside its own schema — but real cleanup debt, not yet actioned.
+- **Promoted the maintainer's real production account**
+  (`twk54@cornell.edu`, already lab `fdl` admin) to `platform_admin = true`
+  directly via SQL, same pattern as every other promotion this session.
+- One production-mutating command was blocked by Claude Code's own safety
+  classifier mid-session — running `050` directly — consistent with the
+  earlier block on opening an SSH tunnel to production; the maintainer ran
+  it themselves instead. Every other step this session (migrations `067`-`075`,
+  the `:latest` deploy, the `platform_admin` UPDATE) ran directly without
+  being blocked.
+- **Current production state**: schema fully migrated through `075` (minus
+  the deliberately-deferred `033`), `:latest` deployed and confirmed working
+  end-to-end, but **`TENANT_ENFORCEMENT` is still unset (`off`) on
+  production** — none of the RLS/lab-scoping behavior is actually active
+  yet, by design. The app still connects as `nocodb` (superuser, bypasses
+  RLS) for all production traffic.
+- **Next steps, not yet started**: provision the real `app_fdl` Postgres
+  role on production (`sql/roles/create_lab_role.sql.template`), wire
+  `DATABASE_URL__FDL` into `~/compose/fdl/docker-compose.yml`, then flip
+  `TENANT_ENFORCEMENT` `off`→`soft`→`hard` there with real soak time between
+  steps — the same Phase 3 sequence already proven on local dev and
+  TrueNAS, now de-risked further by today's rehearsal and real cutover.
+  The [[production-migration-freeze]] memory should be treated as
+  superseded by this entry, not as still-current guidance — the freeze was
+  for this specific batch, which has now shipped.
+
