@@ -26,12 +26,25 @@ import { KeyRound, LogOut, SlidersHorizontal } from "lucide-react";
 import { ChangePasswordForm } from "@/components/forms/change-password-form";
 import { GlobalSearch } from "@/components/global-search";
 import { MobileNav } from "@/components/mobile-nav";
+import { LabSwitcher } from "@/components/lab-switcher";
+import { Building2 } from "lucide-react";
 import type { Role } from "@/lib/roles";
+
+interface LabOption {
+  id: number;
+  name: string;
+  slug: string;
+}
 
 interface HeaderProps {
   title: string;
   editMode?: boolean;
   role?: Role;
+  labName?: string;
+  platformAdmin?: boolean;
+  labs?: LabOption[];
+  activeLabSlug?: string | null;
+  homeLabSlug?: string | null;
 }
 
 interface ProjectOption {
@@ -51,7 +64,16 @@ const roleLabels: Record<Role, string> = {
   viewer: "Viewer",
 };
 
-export function Header({ title, editMode, role }: HeaderProps) {
+export function Header({
+  title,
+  editMode,
+  role,
+  labName,
+  platformAdmin,
+  labs,
+  activeLabSlug,
+  homeLabSlug,
+}: HeaderProps) {
   const { data: session } = useSession();
   const router = useRouter();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -137,6 +159,21 @@ export function Header({ title, editMode, role }: HeaderProps) {
           <span className="rounded px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
             Edit Mode
           </span>
+        )}
+        {platformAdmin && labs && labName ? (
+          <LabSwitcher
+            labs={labs}
+            activeLabSlug={activeLabSlug ?? null}
+            homeLabSlug={homeLabSlug ?? null}
+            activeLabName={labName}
+          />
+        ) : (
+          labName && (
+            <span className="hidden sm:flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+              <Building2 className="h-3.5 w-3.5" />
+              {labName}
+            </span>
+          )
         )}
       </div>
       <div className="flex items-center gap-3">

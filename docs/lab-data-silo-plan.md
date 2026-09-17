@@ -277,6 +277,36 @@ already calling `getEffectiveScope` / `getUserFilters` are the starting worklist
 
 ## 6. Platform-admin tier
 
+> **Superseded 2026-09-17** — the maintainer explicitly chose full data access
+> over the stats-only design originally written below, when asked directly
+> (see §13's 2026-09-17 entry). `getPlatformPrisma()` / `app_platform` /
+> `lib/platform-stats.ts` and the counts-only `/platform/*` route group
+> described in this section were **never built** and are not currently
+> planned — kept here only as the rejected alternative, in case a future
+> "usage dashboard without row access" need revives it. What *was* built: a
+> **lab switcher**. A platform admin picks any active lab from a header
+> dropdown; that choice is stored in a cookie
+> (`fdh_platform_active_lab`, `lib/lab-db.ts`) and overrides their own
+> `lab_slug` everywhere `runWithTenant()` is used — i.e. every existing
+> session-scoped page and API route, unchanged. They browse that lab through
+> its own `app_<slug>` RLS-scoped connection, exactly as an ordinary admin of
+> that lab would (full read **and** write — Edit Mode / role rules of the lab
+> being viewed still apply). No separate stats-only tier, no bypass role.
+>
+> - `app/api/platform/labs` (GET) — lists active labs for the switcher.
+> - `app/api/platform/active-lab` (POST `{ slug }`) — sets/clears the cookie;
+>   403s any non-`platform_admin` caller, so the cookie can't be set by a
+>   crafted request from an ordinary user.
+> - `lib/lab-db.ts`'s `effectiveLabSlug(session)` is the one place this
+>   resolution happens; `runWithTenant()` calls it instead of reading
+>   `session.user.lab_slug` directly.
+> - `components/lab-switcher.tsx` + `components/header.tsx` / `app/(dashboard)/layout.tsx` —
+>   UI. Non-platform-admins see a plain read-only lab-name badge in the same
+>   spot instead (item 2 of the 2026-09-17 session — "lab label at the top of
+>   the page").
+>
+> Original (unbuilt) design, for reference:
+
 - `users.platform_admin = true`. A platform admin still has a home `lab_id` and a
   normal `role` for their own lab work.
 - New route group `app/(dashboard)/platform/*`, guarded in `proxy.ts` the same
@@ -950,4 +980,78 @@ applied and verified on local dev:**
     on the TrueNAS box should also be cleaned up.
   - Still true: **no production migration, role, or deploy of any kind**
     anywhere in 072/073's rollout either.
+
+**2026-09-17 — Platform-admin lab switcher (superseding §6's original design)
++ lab label + a real stale-session bug fixed, local dev only:**
+
+- Asked the maintainer directly whether the platform-admin tier should be
+  §6's original stats/structure-only design or full data access with a lab
+  switcher — chose **full access**. §6 rewritten to record this; the
+  stats-only `getPlatformPrisma()`/`app_platform`/`/platform/*` design was
+  never built.
+- Built instead: `lib/lab-db.ts`'s `effectiveLabSlug(session)` — a platform
+  admin's cookie-stored "viewing as" lab (`ACTIVE_LAB_COOKIE =
+  fdh_platform_active_lab`, httpOnly, `secure` set from the *request's own*
+  scheme/`x-forwarded-proto`, not `NODE_ENV` — caught this the hard way, see
+  below) overrides `session.user.lab_slug` for every existing
+  `runWithTenant()` call site, unchanged. `app/api/platform/labs` (list) +
+  `app/api/platform/active-lab` (set/clear, 403s non-platform-admins) back a
+  header dropdown (`components/lab-switcher.tsx`); non-platform-admins get a
+  plain lab-name badge instead (`components/header.tsx`,
+  `app/(dashboard)/layout.tsx` — this is also item 2 from today's session,
+  "lab label at the top of the page").
+- **Bug caught by testing against the actual running local container, not
+  just `tsc`:** first cut of `active-lab/route.ts` set the cookie's `secure`
+  flag from `process.env.NODE_ENV === "production"` — true in *every*
+  deployed image including local dev's plain-http Docker container (the
+  standalone build always sets `NODE_ENV=production`), so a real browser
+  would silently never send the cookie back over `http://localhost:3000`.
+  Fixed to derive `secure` from the request's actual protocol /
+  `x-forwarded-proto` instead (same signal NextAuth's own session cookie
+  uses). Verified end-to-end with a real minted session JWT
+  (`next-auth/jwt`'s `encode`, using the container's actual
+  `NEXTAUTH_SECRET`) against the running `dashboard-ui-app-1`: `POST
+  active-lab` → `Set-Cookie` with no stray `Secure`, then `GET /` correctly
+  rendered the switched lab's name. Promoted `twk54@cornell.edu` to
+  `platform_admin = true` on local dev for this and future testing; a
+  throwaway second lab used for the test was removed afterward.
+- **Separately, found and fixed a real production-bound bug while
+  investigating "page loads in a private window but not a normal one":**
+  `proxy.ts` let a logged-in request straight through to the page/route
+  layer even when the session's JWT predates `lab_slug` (a cookie issued
+  before an account had lab data, e.g. surviving a redeploy that flips
+  `TENANT_ENFORCEMENT` to `"hard"`). `runWithLab()`'s hard-mode guard then
+  throws mid-render — the exception reaches the browser as a broken/empty
+  page load rather than a clean error screen, and only for browsers holding
+  the stale cookie (a fresh private window never does). Fixed at the
+  middleware layer, before any page runs a query: `proxy.ts` now checks
+  `tenantEnforcement() === "hard" && !hasUsableLab` (platform admins exempt,
+  since they can legitimately have no home lab) and redirects to
+  `/login?reason=session-expired`, clearing any `authjs`/`next-auth` cookie
+  first. Verified against the real container with two minted JWTs under a
+  temporary `TENANT_ENFORCEMENT=hard` (reverted immediately after): a
+  no-`lab_slug` non-platform-admin session got the clean `307` redirect; a
+  `platform_admin: true` session with a null `lab_slug` was correctly let
+  through (and then hit the *expected*, unrelated `500` from
+  `DATABASE_URL__FDL` being unset locally — local dev has no per-lab role
+  provisioned, matching every prior entry in this log). Also added
+  `app/(dashboard)/error.tsx` and `app/global-error.tsx` — previously this
+  repo had **no error boundaries at all**, so *any* uncaught exception
+  anywhere in a page tree produced the same kind of broken page load; these
+  give a recoverable "try again / sign out" screen instead, independent of
+  root cause.
+- `docker-compose.yml` was only touched transiently, for the
+  `TENANT_ENFORCEMENT=hard` test above — reverted before finishing, confirmed
+  via `git status`/`git diff` showing zero net change to that file.
+- `tsc --noEmit`, `eslint`, and a full production `next build` all clean.
+  Local dev app container rebuilt and confirmed still serving `200`s
+  end-to-end after every change in this entry.
+- **Not done, deliberately out of scope for this session:** nothing was
+  touched on TrueNAS dev or production (per the standing migration freeze —
+  see root `CLAUDE.md` / memory). Promoting a real account to
+  `platform_admin = true` on TrueNAS (where the 3 real labs actually live) is
+  the natural next step for the maintainer to run themselves — same
+  `UPDATE public.users SET platform_admin = true WHERE email = '...'` pattern
+  as the existing admin-recovery runbook — since TrueNAS is a password-auth
+  box this session has no credentials for.
 

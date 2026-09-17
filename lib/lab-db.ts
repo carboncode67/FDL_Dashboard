@@ -1,6 +1,18 @@
 import { PrismaClient } from "@prisma/client";
+import type { Session } from "next-auth";
+import { cookies } from "next/headers";
 import { basePrisma, tenantContext } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+
+/**
+ * Cookie a platform admin's browser carries while "viewing as" a lab other
+ * than their own home lab (the lab switcher in the header). Only ever read
+ * for a session with `platform_admin: true` — see runWithTenant() below.
+ * httpOnly + sameSite=lax; not a trust boundary on its own (the value is
+ * re-validated against `public.labs` every time it's set, in
+ * app/api/platform/active-lab/route.ts), just a per-browser preference.
+ */
+export const ACTIVE_LAB_COOKIE = "fdh_platform_active_lab";
 
 /**
  * Planned Changes #10/#13 — lab data silo. See docs/lab-data-silo-plan.md,
@@ -213,10 +225,26 @@ export async function runWithLab<T>(labSlug: string | null, fn: () => Promise<T>
   return tenantContext.run(client, fn);
 }
 
+/**
+ * Resolves the lab slug a session-authed request should run against: the
+ * user's own `lab_slug`, unless they're a platform admin with an active
+ * "viewing as" lab selected in the header switcher, in which case that lab
+ * wins. Non-platform-admins can never set this cookie in the first place
+ * (enforced in app/api/platform/active-lab/route.ts), so this is safe to
+ * trust for any session.
+ */
+export async function effectiveLabSlug(session: Session | null): Promise<string | null> {
+  const homeSlug = session?.user?.lab_slug ?? null;
+  if (!session?.user?.platform_admin) return homeSlug;
+
+  const active = (await cookies()).get(ACTIVE_LAB_COOKIE)?.value;
+  return active || homeSlug;
+}
+
 /** Convenience wrapper for session-authed pages/routes that haven't already
- *  called auth() themselves. Prefer `runWithLab(session.user.lab_slug, fn)`
+ *  called auth() themselves. Prefer `runWithLab(await effectiveLabSlug(session), fn)`
  *  directly when you already have `session`, to avoid resolving it twice. */
 export async function runWithTenant<T>(fn: () => Promise<T>): Promise<T> {
   const session = await auth();
-  return runWithLab(session?.user?.lab_slug ?? null, fn);
+  return runWithLab(await effectiveLabSlug(session), fn);
 }

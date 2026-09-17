@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { tenantEnforcement } from "@/lib/lab-db";
 import { NextResponse } from "next/server";
 
 export default auth((req) => {
@@ -31,6 +32,29 @@ export default auth((req) => {
 
   if (!isLoggedIn) {
     return NextResponse.redirect(new URL("/login", nextUrl));
+  }
+
+  // A cookie issued before this account had lab data (e.g. it survives a
+  // redeploy that flips TENANT_ENFORCEMENT to "hard", or predates the lab
+  // feature entirely) carries a JWT with no lab_slug. Every tenant-scoped
+  // page/route wraps its body in runWithLab(), whose hard-mode guard throws
+  // rather than silently falling back — that exception reaches the browser
+  // mid-render as a broken/empty page load, not a clean error screen. This
+  // is exactly the "works in a fresh private window, breaks in my normal
+  // browser" symptom: a private window never carries the stale cookie.
+  // Catch it here, before any page tries to run a query, and bounce to a
+  // fresh sign-in instead. Harmless in "off"/"soft" mode, where a null
+  // lab_slug is expected and never crashes anything.
+  const user = req.auth?.user;
+  const hasUsableLab = user?.platform_admin === true || !!user?.lab_slug;
+  if (tenantEnforcement() === "hard" && !hasUsableLab) {
+    const res = NextResponse.redirect(new URL("/login?reason=session-expired", nextUrl));
+    for (const c of req.cookies.getAll()) {
+      if (c.name.includes("authjs") || c.name.includes("next-auth")) {
+        res.cookies.delete(c.name);
+      }
+    }
+    return res;
   }
 
   const isAdminRoute = nextUrl.pathname.startsWith("/admin");
