@@ -23,7 +23,13 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - /mnt/tank/backups/fdl_dashboard:/app/upload-data
+      # Confirmed 2026-09-17 via `docker inspect` on the running container —
+      # this file had drifted from what's actually deployed (previously read
+      # /mnt/tank/backups/fdl_dashboard, the *lab server's* path, copy-pasted
+      # from the production compose rather than reflecting this box's own
+      # storage layout). Verify the basemap-intake mount below the same way
+      # before trusting it; it wasn't re-checked this pass.
+      - /mnt/Lap/Custom_Apps/FarmersDataHub/FDB/upload-data:/app/upload-data
       # Optional — only present on TrueNAS dev as of 2026-09-15, not the lab
       # server. Basemap sideload intake share (see BASEMAP_INTAKE_DIR in
       # sample_compose.yaml and docs/raster-tiling-plan.md); read-only, the

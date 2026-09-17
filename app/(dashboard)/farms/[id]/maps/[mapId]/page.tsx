@@ -120,7 +120,7 @@ export default async function SamplingMapDetailRoute({
       assignments={assignments.map((a) => ({
         id: a.id,
         user_id: a.user_id,
-        user_label: a.User.name ?? a.User.email,
+        user_label: a.User?.name ?? a.User?.email ?? "Unknown user",
       }))}
       users={users}
       forms={forms}

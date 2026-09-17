@@ -111,7 +111,7 @@ export function TasksClient({
           id: data.id, description: data.description, classification: data.classification,
           status: data.status, priority: data.priority, due_date: data.due_date,
           experiment_id: data.experiment_id, experiment_name: null, farm_name: null,
-          assignees: data.Assignees?.map((a: { User: { id: string; name: string | null; email: string } }) => ({
+          assignees: data.Assignees?.filter((a: { User: { id: string; name: string | null; email: string } | null }) => a.User != null).map((a: { User: { id: string; name: string | null; email: string } }) => ({
             id: a.User.id, name: a.User.name, email: a.User.email,
           })) ?? [],
           upload_count: 0, created_at: data.created_at,

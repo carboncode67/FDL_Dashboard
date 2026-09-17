@@ -22,7 +22,7 @@ export async function GET(_req: Request, { params }: Params) {
     assignments.map((a) => ({
       id: a.id,
       user_id: a.user_id,
-      user_label: a.User.name ?? a.User.email,
+      user_label: a.User?.name ?? a.User?.email ?? "Unknown user",
     }))
   );
   });
@@ -48,7 +48,7 @@ export async function POST(req: Request, { params }: Params) {
     include: ASSIGNMENT_INCLUDE,
   });
   return NextResponse.json(
-    { id: assignment.id, user_id: assignment.user_id, user_label: assignment.User.name ?? assignment.User.email },
+    { id: assignment.id, user_id: assignment.user_id, user_label: assignment.User?.name ?? assignment.User?.email ?? "Unknown user" },
     { status: 201 }
   );
   });

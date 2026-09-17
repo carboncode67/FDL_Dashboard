@@ -58,7 +58,7 @@ export default async function TasksPage() {
         experiment_id: t.experiment_id,
         experiment_name: t.Experiment?.experiment_name ?? null,
         farm_name: t.Experiment?.Farm?.Farm_Name ?? null,
-        assignees: t.Assignees.map((a) => ({ id: a.User.id, name: a.User.name, email: a.User.email })),
+        assignees: t.Assignees.filter((a) => a.User != null).map((a) => ({ id: a.User.id, name: a.User.name, email: a.User.email })),
         upload_count: t._count.UploadLinks,
         created_at: t.created_at.toISOString(),
       }))}

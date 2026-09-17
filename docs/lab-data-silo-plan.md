@@ -1055,3 +1055,110 @@ applied and verified on local dev:**
   as the existing admin-recovery runbook — since TrueNAS is a password-auth
   box this session has no credentials for.
 
+**2026-09-17 (later) — full production-scale rehearsal run on `fdl.casata.org`,
+real bugs found and fixed:**
+
+Motivation: the maintainer judged the existing 3-lab TrueNAS dev data too
+small to trust the RLS/lab_id migration against real production volume and
+shape. Rather than a synthetic load test, the decision was to treat this as a
+dry run of the actual eventual production cutover — restore a real copy of
+production's data as lab `fdl` on TrueNAS, keeping Goebel/cbg's own roles and
+DB config intact. `pg_dump` only reads; production was never written to at
+any point in this exercise.
+
+- **Wiped all 3 labs' data first** (`TRUNCATE ... RESTART IDENTITY CASCADE`
+  across every table in `pgntarg2udzj1f3`, `public.users`/`public.labs`/roles
+  untouched) — decided to be simpler and safer than reconciling ID/sequence
+  collisions between production's dump and Goebel/cbg's existing rows, since
+  all three labs share the same physical tables and PK sequences (row-level
+  tenancy's known tradeoff — see §3). Goebel/cbg are dummy/test accounts, so
+  losing their data was acceptable; re-populating them for a real isolation
+  re-test is still open (see below).
+- **`pg_dump --data-only --schema=pgntarg2udzj1f3` from production**, restored
+  with `SET app.current_lab_id = '1';` prepended to the file — the same
+  migration-069 column `DEFAULT` mechanism the app relies on at runtime tags
+  every row as lab `fdl` with zero explicit `lab_id` in the dump itself.
+- **Found real, previously-unknown schema drift**: production still has
+  `Test_Data_Rows`, `Test_Field_Definitions`, `Tests.Data_Processing_Instructions`,
+  `Pipelines.match_test_id`, and `Treatments.test_template_id` — all
+  explicitly deprecated (see migrations `020` and `050`'s own comments,
+  superseded by `Treatment_Field_Definitions` and `Tables`/
+  `Data_Table_Field_Definitions`/`Data_Table_Rows` respectively) but never
+  actually dropped from production, because migration `050` is deliberately
+  gated behind deploying the app build that stops reading them — and
+  production is still on its frozen, pre-multi-lab build. **This means
+  production's migration history has a real gap older than the "057+ frozen"
+  batch** — the eventual cutover must run `050` (and confirm the new app
+  build is live first) before/alongside `067`-`073`, not just resume from
+  where the freeze started. Verified before excluding them that nothing of
+  value would be lost: `Test_Data_Rows` had 0 rows; `Test_Field_Definitions`'s
+  4 rows were already superseded by `Data_Table_Field_Definitions`'s 13; all
+  three orphaned columns were `NULL` on every row. Stripped these 2
+  tables/3 columns out of the dump file directly (a small Python pass over
+  the `COPY` blocks) rather than resurrecting dead schema on the target, then
+  re-verified every remaining `COPY` block's columns against the target
+  schema before restoring. Restore succeeded clean; row/`lab_id` sanity
+  counts matched exactly (e.g. Farms 30/30, Photos 7/7).
+- **Migrated the actual upload files too** (5.2 GB — photos/recordings/
+  documents/pipeline artifacts), production → maintainer's Mac (over the
+  existing SSH tunnel) → TrueNAS, via `rsync`, since there's no direct network
+  path between the lab server and TrueNAS. Landed at the *wrong* host path on
+  the first attempt — `docker-compose.lab.yml` in this repo had drifted from
+  what's actually deployed (see the fix in that file, confirmed via
+  `docker inspect`'s `.Mounts` rather than trusting any compose file).
+  Files were also unreadable by the app container after transfer — the
+  destination directory was `drwx------` owned by the SSH login user, not the
+  container's `user: "1000:1000"`; fixed with a recursive `chown`, and this
+  pre-existing restrictive permission predates today's work (directory
+  timestamp from Sep 11), so it may have been silently broken for any
+  earlier dummy-lab uploads too.
+- **A real, reproduced app bug**: `/` (the dashboard home page) crashed after
+  the restore. Root cause — the restore deliberately excluded `public.users`
+  (production's real staff/lab-member accounts), so every FK reference to a
+  production user ID (`Task_Assignees.user_id`, `Farm_Experiments.created_by_id`,
+  etc.) pointed nowhere, and several places in the app (found via full grep
+  sweep: `app/(dashboard)/page.tsx`, `tasks/page.tsx`, `tasks/[id]/page.tsx`,
+  `tasks/tasks-client.tsx`, `farms/[id]/experiments/[experimentId]/page.tsx`,
+  `farms/[id]/maps/[mapId]/page.tsx`, `api/tasks/route.ts`,
+  `api/tasks/[id]/assignees/route.ts`, `api/sampling-maps/[id]/assignments/route.ts`)
+  assumed a `User` relation always resolves and never null-checked it. This
+  is a real, narrow app bug independent of anything specific to this
+  rehearsal — `--disable-triggers` (used for the `pgntarg2udzj1f3` restore to
+  avoid FK-ordering issues) suppresses constraint checking, and several of
+  these relations turned out to have no real DB-level FK at all to begin with
+  (same NocoDB-era gap noted for `071`'s child-table policies) — so orphaned
+  references can exist silently any time an underlying user row is removed,
+  on production too, not just here. Fixed all 9 call sites with
+  `?.`/`.filter(a => a.User != null)`. Found via a from-scratch,
+  Prisma-schema-derived sweep of every column referencing `public.users`
+  (`information_schema` FK metadata alone missed most of them, confirming
+  again that this schema's DB-level FKs are incomplete) — 534 orphaned rows
+  total across 14 columns, `Lab_Member_Uploads.lab_member_id` alone
+  accounting for 417.
+- **Then imported production's real `public.users` rows** (24 accounts) to
+  resolve the display-level gap properly instead of leaving every reference
+  as a permanent "Unknown user" placeholder — deliberately **not** a blind
+  restore: `password` was reset to a locked placeholder bcrypt hash for every
+  account except the maintainer's own (`twk54@cornell.edu`, kept working
+  since it's their own credential and they wanted to log in with it),
+  `bearer_token` and `contact_phone` were nulled for all 24. `id` is a
+  `cuid()` string so there's no PK collision risk with existing accounts the
+  way there was for the integer-keyed `pgntarg2udzj1f3` tables; `email`'s
+  unique constraint was the only real collision risk, sidestepped by
+  deleting TrueNAS's existing 4 dummy accounts first (maintainer's call —
+  they're disposable test setups) rather than a merge. Promoted
+  `twk54@cornell.edu` to `platform_admin = true` afterward on the real,
+  imported row.
+- All temporary dump files (`prod_fdl_data*.sql`, `prod_schema_only.sql`,
+  `local_schema_only.sql`, `prod_users_data*.sql`) deleted from every machine
+  they touched (Mac, lab server, TrueNAS) once each step was verified — they
+  carry real production PII and credentials-adjacent data.
+- **Still open**: re-populate Goebel/cbg with fresh test data and re-run the
+  actual two-lab isolation check now that real production-scale data lives
+  in lab `fdl` (the real point of this whole exercise — not yet done, since
+  Goebel/cbg are currently empty from the wipe); a few uploads still show
+  "Unknown user" (real accounts already gone from production itself, judged
+  acceptable by the maintainer); the basemap-intake mount in
+  `docker-compose.lab.yml` wasn't re-verified against the live container
+  the way the upload-data mount was.
+

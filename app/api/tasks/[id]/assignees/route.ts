@@ -29,7 +29,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (vikunjaConfigured() && task?.vikunja_task_id) {
     const vikunjaTaskId = task.vikunja_task_id;
     const addedEmails = task.Assignees
-      .filter((a) => user_ids.includes(a.user_id))
+      .filter((a) => user_ids.includes(a.user_id) && a.User != null)
       .map((a) => a.User.email);
     try {
       await Promise.allSettled(

@@ -173,7 +173,7 @@ export default async function EditExperimentPage({
         status:         t.status,
         priority:       t.priority,
         due_date:       t.due_date?.toISOString().slice(0, 10) ?? null,
-        assignees:      t.Assignees.map((a) => ({ id: a.User.id, name: a.User.name, email: a.User.email })),
+        assignees:      t.Assignees.filter((a) => a.User != null).map((a) => ({ id: a.User.id, name: a.User.name, email: a.User.email })),
         created_at:     t.created_at.toISOString(),
       }))}
       taskTemplates={taskTemplates}

@@ -410,7 +410,7 @@ export default async function DashboardPage() {
                     medium: "default",
                     low: "secondary",
                   };
-                  const assigneeNames = task.Assignees.map((a) => a.User.name ?? a.User.id).join(", ");
+                  const assigneeNames = task.Assignees.map((a) => a.User?.name ?? a.User?.id ?? "Unknown user").join(", ");
                   return (
                     <TableRow key={task.id}>
                       <TableCell className={isUrgent ? "text-amber-600 font-medium" : "text-slate-500"}>
