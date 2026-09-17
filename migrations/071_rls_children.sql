@@ -140,9 +140,17 @@ BEGIN
     EXECUTE $sql$CREATE POLICY tenant_isolation ON "pgntarg2udzj1f3"."Geofence_Zones" USING ("farm_id" IN (SELECT id FROM "pgntarg2udzj1f3"."Farms")) WITH CHECK ("farm_id" IN (SELECT id FROM "pgntarg2udzj1f3"."Farms"))$sql$;
   END IF;
 
-  EXECUTE $sql$ALTER TABLE "pgntarg2udzj1f3"."Interview_Chunks" ENABLE ROW LEVEL SECURITY$sql$;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'pgntarg2udzj1f3' AND tablename = 'Interview_Chunks' AND policyname = 'tenant_isolation') THEN
-    EXECUTE $sql$CREATE POLICY tenant_isolation ON "pgntarg2udzj1f3"."Interview_Chunks" USING ("farm_id" IN (SELECT id FROM "pgntarg2udzj1f3"."Farms")) WITH CHECK ("farm_id" IN (SELECT id FROM "pgntarg2udzj1f3"."Farms"))$sql$;
+  -- Guarded: migration 033 (which creates this table, for the pgvector-based
+  -- RAG feature) is deliberately postponed on production -- that feature
+  -- isn't in use there and production's db image doesn't have the pgvector
+  -- extension available at all (discovered 2026-09-17 running this exact
+  -- migration). If 033 is ever applied later, this block also needs
+  -- re-running to add its RLS policy at that time.
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'pgntarg2udzj1f3' AND tablename = 'Interview_Chunks') THEN
+    EXECUTE $sql$ALTER TABLE "pgntarg2udzj1f3"."Interview_Chunks" ENABLE ROW LEVEL SECURITY$sql$;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'pgntarg2udzj1f3' AND tablename = 'Interview_Chunks' AND policyname = 'tenant_isolation') THEN
+      EXECUTE $sql$CREATE POLICY tenant_isolation ON "pgntarg2udzj1f3"."Interview_Chunks" USING ("farm_id" IN (SELECT id FROM "pgntarg2udzj1f3"."Farms")) WITH CHECK ("farm_id" IN (SELECT id FROM "pgntarg2udzj1f3"."Farms"))$sql$;
+    END IF;
   END IF;
 
   EXECUTE $sql$ALTER TABLE "pgntarg2udzj1f3"."Pipeline_Output_Rasters" ENABLE ROW LEVEL SECURITY$sql$;
