@@ -227,7 +227,7 @@ export function TestForm({ onSuccess, testId, initialData }: TestFormProps) {
             <p className="text-xs font-medium text-slate-700">Select from library:</p>
             {libraryLoading && <p className="text-xs text-slate-400">Loading...</p>}
             {!libraryLoading && library.length === 0 && (
-              <p className="text-xs text-slate-400 italic">No library templates yet. Create some at Reference Data → Task Templates.</p>
+              <p className="text-xs text-slate-400 italic">No library templates yet. Create some at Advanced → Task Templates.</p>
             )}
             {library.map((t) => (
               <label key={t.id} className="flex items-center gap-2 text-sm cursor-pointer">

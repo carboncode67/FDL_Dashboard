@@ -416,7 +416,7 @@ export function DataSortingClient({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-slate-900">Data Sorting</h2>
+      <h2 className="text-2xl font-bold text-slate-900">Incoming Data</h2>
 
       {activeFilter && (activeFilter.projectCount > 0 || activeFilter.farmCount > 0) && (
         <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">

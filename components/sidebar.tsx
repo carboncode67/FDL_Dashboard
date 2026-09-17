@@ -7,16 +7,9 @@ import {
   LayoutDashboard,
   FolderKanban,
   Building2,
-  Map,
-  Layers,
-  TestTube,
-  Plane,
-  Wheat,
   Users,
   Beaker,
   ChevronRight,
-  BookUser,
-  Upload,
   SlidersHorizontal,
   Settings2,
   MessageCircle,
@@ -24,47 +17,50 @@ import {
   Microscope,
   ClipboardList,
   LayoutTemplate,
-  FileText,
   Cpu,
   BookOpen,
-  Table2,
   Tag,
-  MapPin,
-  Crosshair,
+  Smartphone,
+  Boxes,
+  BookUser,
+  Wrench,
+  type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/lib/roles";
 
-const dataNav = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+const managementNav: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/contacts", label: "Farmers", icon: BookUser },
-  { href: "/lab-members", label: "Lab Members", icon: Users },
-  { href: "/data-sorting", label: "Data Sorting", icon: SlidersHorizontal },
-  { href: "/data-categories", label: "Data Categories", icon: Tag },
-  { href: "/whatsapp", label: "Messaging", icon: MessageCircle },
-  { href: "/activity-report", label: "Activity Report", icon: BarChart2 },
-  { href: "/forms", label: "Custom Forms", icon: FileText },
-  { href: "/geofences", label: "Geofences", icon: MapPin },
-];
-
-const fieldOpsNav = [
   { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/tasks", label: "Tasks", icon: ClipboardList },
+  { href: "/contacts", label: "Farmers", icon: BookUser },
   { href: "/farms", label: "Farms", icon: Building2 },
-  { href: "/experiments", label: "Experiments", icon: Microscope },
-  { href: "/fields", label: "Fields", icon: Map },
-  { href: "/experiment-zones", label: "Experiment Zones", icon: Layers },
-  { href: "/sampling-maps", label: "Sampling Maps", icon: Crosshair },
+  { href: "/data-sorting", label: "Incoming Data", icon: SlidersHorizontal },
 ];
 
-const referenceNav = [
-  { href: "/treatments", label: "Treatment Types", icon: Beaker },
-  { href: "/tests", label: "Tests", icon: TestTube },
-  { href: "/drones", label: "Equipment", icon: Plane },
-  { href: "/drones/flights", label: "Drone Flights", icon: Plane },
-  { href: "/crops", label: "Crops", icon: Wheat },
-  { href: "/task-templates", label: "Task Templates", icon: LayoutTemplate },
+const dataCollectionNav: NavItem[] = [
+  { href: "/send-to-mobile-app", label: "Send to Mobile App", icon: Smartphone },
   { href: "/methodologies", label: "Methodologies", icon: BookOpen },
-  { href: "/data-tables", label: "Data Tables", icon: Table2 },
+  { href: "/drones", label: "Equipment", icon: Wrench },
+  { href: "/experiments", label: "Experiments", icon: Microscope },
+];
+
+const advancedNav: NavItem[] = [
+  { href: "/inventory", label: "Inventory", icon: Boxes },
+  { href: "/treatments", label: "Treatment Types", icon: Beaker },
+  { href: "/task-templates", label: "Task Templates", icon: LayoutTemplate },
+  { href: "/tasks", label: "Tasks", icon: ClipboardList },
+];
+
+const adminNav: NavItem[] = [
+  { href: "/activity-report", label: "Activity Report", icon: BarChart2 },
+  { href: "/data-categories", label: "Data Categories", icon: Tag },
+  { href: "/lab-members", label: "Lab Members", icon: Users },
+  { href: "/whatsapp", label: "Messaging", icon: MessageCircle },
 ];
 
 interface SidebarProps {
@@ -77,9 +73,9 @@ export function Sidebar({ role, className, onNavigate }: SidebarProps) {
   const pathname = usePathname();
 
   const sections = [
-    { label: "Data Management", items: dataNav },
-    { label: "Field Operations", items: fieldOpsNav },
-    { label: "Reference Data", items: referenceNav },
+    { label: "Management", items: managementNav },
+    { label: "Data Collection", items: dataCollectionNav },
+    { label: "Advanced", items: advancedNav },
   ];
 
   return (
@@ -124,45 +120,64 @@ export function Sidebar({ role, className, onNavigate }: SidebarProps) {
           </div>
         ))}
 
-        {role === "admin" && (
-          <div>
-            <p className="px-2 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Admin
-            </p>
-            <ul className="space-y-0.5">
-              <li>
+        <div>
+          <p className="px-2 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Admin
+          </p>
+          <ul className="space-y-0.5">
+            {adminNav.map(({ href, label: itemLabel, icon: Icon }) => (
+              <li key={href}>
                 <Link
-                  href="/admin"
+                  href={href}
                   onClick={onNavigate}
                   className={cn(
                     "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
-                    pathname === "/admin"
+                    pathname === href
                       ? "bg-emerald-600 text-white"
                       : "text-slate-300 hover:bg-slate-800 hover:text-white"
                   )}
                 >
-                  <Settings2 className="h-4 w-4 shrink-0" />
-                  Admin Panel
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {itemLabel}
                 </Link>
               </li>
-              <li>
-                <Link
-                  href="/pipelines"
-                  onClick={onNavigate}
-                  className={cn(
-                    "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
-                    pathname.startsWith("/pipelines")
-                      ? "bg-emerald-600 text-white"
-                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                  )}
-                >
-                  <Cpu className="h-4 w-4 shrink-0" />
-                  Pipelines
-                </Link>
-              </li>
-            </ul>
-          </div>
-        )}
+            ))}
+            {role === "admin" && (
+              <>
+                <li>
+                  <Link
+                    href="/admin"
+                    onClick={onNavigate}
+                    className={cn(
+                      "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
+                      pathname === "/admin"
+                        ? "bg-emerald-600 text-white"
+                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                    )}
+                  >
+                    <Settings2 className="h-4 w-4 shrink-0" />
+                    Admin Panel
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/pipelines"
+                    onClick={onNavigate}
+                    className={cn(
+                      "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
+                      pathname.startsWith("/pipelines")
+                        ? "bg-emerald-600 text-white"
+                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                    )}
+                  >
+                    <Cpu className="h-4 w-4 shrink-0" />
+                    Pipelines
+                  </Link>
+                </li>
+              </>
+            )}
+          </ul>
+        </div>
       </nav>
     </aside>
   );

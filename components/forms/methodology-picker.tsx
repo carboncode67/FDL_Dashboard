@@ -34,7 +34,7 @@ export function MethodologyPicker({
       />
       {linked && (
         <p className="text-xs text-slate-500">
-          Linked to shared library entry &quot;{linked.title}&quot; (Reference Data → Methodologies). Text
+          Linked to shared library entry &quot;{linked.title}&quot; (Data Collection → Methodologies). Text
           below overrides it when filled in; leave blank to use the library text as-is.
         </p>
       )}
