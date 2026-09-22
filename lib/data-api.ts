@@ -2,13 +2,14 @@ import { prisma } from "@/lib/prisma";
 
 export const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 
-export type UploadTable = "photos" | "notes" | "recordings" | "locations" | "lab-member-uploads";
+export type UploadTable = "photos" | "notes" | "recordings" | "locations" | "lab-member-uploads" | "videos";
 export const UPLOAD_TABLES = [
   "photos",
   "notes",
   "recordings",
   "locations",
   "lab-member-uploads",
+  "videos",
 ] as const;
 
 export function isUploadTable(t: string): t is UploadTable {
@@ -120,7 +121,7 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
     farmToProject.set(pf.Farms_id, { id: pf.Projects_id, name: pName(pf.Project) });
   }
 
-  const [photos, notes, recordings, locations, labUploads] = await Promise.all([
+  const [photos, notes, recordings, locations, labUploads, videos] = await Promise.all([
     typesToInclude.includes("photos")
       ? prisma.photo.findMany({ where: baseWhere, include: { Farm: true, Project: true } })
       : Promise.resolve([]),
@@ -135,6 +136,9 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       : Promise.resolve([]),
     typesToInclude.includes("lab-member-uploads")
       ? prisma.labMemberUpload.findMany({ where: baseWhere, include: { Farm: true, Project: true } })
+      : Promise.resolve([]),
+    typesToInclude.includes("videos")
+      ? prisma.video.findMany({ where: baseWhere, include: { Farm: true, Project: true } })
       : Promise.resolve([]),
   ]);
 
@@ -241,6 +245,32 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       longitude: null,
       suggested_path: buildSuggestedPath(proj, farm, row.category, filename),
       download_url: `/api/data/files/locations/${row.id}`,
+      depth_filename: null,
+      depth_download_url: null,
+    });
+  }
+
+  for (const row of videos) {
+    const { project_id, project_name: proj } = resolveProject(row.project_id, row.Project, row.farm_id, farmToProject);
+    const farm = fName(row.Farm);
+    results.push({
+      id: row.id,
+      table: "videos",
+      type: "video",
+      filename: row.filename,
+      content: null,
+      project_id,
+      project_name: proj,
+      farm_id: row.farm_id,
+      farm_name: farm,
+      category: row.category,
+      description: row.description,
+      status: row.status,
+      received_at: row.received_at,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      suggested_path: buildSuggestedPath(proj, farm, row.category, row.filename),
+      download_url: `/api/data/files/videos/${row.id}`,
       depth_filename: null,
       depth_download_url: null,
     });

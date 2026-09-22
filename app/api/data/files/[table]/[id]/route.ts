@@ -87,12 +87,19 @@ export async function GET(
         return serveText(row.content ?? "", `note_${row.id}.txt`);
       }
       if (!row.filename) return NextResponse.json({ error: "No file" }, { status: 404 });
-      const dir =
-        row.media_type === "photo"
-          ? "photos"
-          : row.media_type === "recording"
-          ? "recordings"
-          : "locations";
+      // Maps media_type -> the directory that upload route actually wrote the file to
+      // (see app/api/upload/{photo,recording,location,video,document}/route.ts — every
+      // one of them writes to its own DATA_DIR subfolder regardless of auth.kind). Missing
+      // "video"/"document" here used to silently fall through to "locations", 404ing any
+      // lab-member video or document download even though the row itself was found fine.
+      const dirByMediaType: Record<string, string> = {
+        photo: "photos",
+        recording: "recordings",
+        location: "locations",
+        video: "videos",
+        document: "documents",
+      };
+      const dir = dirByMediaType[row.media_type] ?? "locations";
       return serveFile(path.join(DATA_DIR, dir, path.basename(row.filename)), row.filename);
     }
 
@@ -101,6 +108,12 @@ export async function GET(
       if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
       if (!row.filename) return NextResponse.json({ error: "No file" }, { status: 404 });
       return serveFile(path.join(DATA_DIR, "documents", path.basename(row.filename)), row.filename);
+    }
+
+    case "videos": {
+      const row = await prisma.video.findUnique({ where: { id: numId } });
+      if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return serveFile(path.join(DATA_DIR, "videos", path.basename(row.filename)), row.filename);
     }
   }
   });
