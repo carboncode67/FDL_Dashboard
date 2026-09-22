@@ -41,6 +41,9 @@ model User {
   faa_part_107   Boolean  @default(false)
   status         String?
   onboarded_at   DateTime?
+  // Forgot-password flow (lib/password-reset.ts) — hash only, never the raw token.
+  password_reset_token_hash String?
+  password_reset_expires_at DateTime?
   // Tenant scope (Planned Changes #10). Nullable for now — see Lab model comment.
   lab_id         Int?
   platform_admin Boolean  @default(false)
@@ -60,6 +63,7 @@ model User {
   CreatedGeofences   Geofence[]          @relation("GeofenceCreatedBy")
   GeofenceAssignments GeofenceAssignment[]
   GeofenceEvents     GeofenceEvent[]
+  GeofenceZoneTimeSessions GeofenceZoneTimeSession[]
   CreatedPipelines   Pipeline[]
   EquipmentLoansSignedOut EquipmentLoan[]
   ContextFetchJobs   ContextFetchJob[]
@@ -517,6 +521,7 @@ model Contact {
   FormResponses   FormResponse[]
   GeofenceAssignments GeofenceAssignment[]
   GeofenceEvents  GeofenceEvent[]
+  GeofenceZoneTimeSessions GeofenceZoneTimeSession[]
   EquipmentLoans  EquipmentLoan[]
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
@@ -1276,6 +1281,7 @@ model Form {
   Assignments      FormAssignment[]
   Responses        FormResponse[]
   SamplingMaps     SamplingMap[]
+  LinkedGeofences  Geofence[]            @relation("GeofenceLinkedForm")
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
@@ -1390,28 +1396,48 @@ model FormResponse {
 // zone) and replace the old action_type — both are just "fire a notification," the type
 // distinction that mattered was WHICH geometry triggers it, now modeled directly by these
 // two flags instead of a string enum.
+// Phase 3 (migration 078): geofence_type splits the feature into two mutually-exclusive,
+// not-editable-after-creation types ("delete and recreate to change", same precedent as
+// GeofenceZone immutability) — 'duration' (circle-level entry/exit is timed, see
+// GeofenceZoneTimeSession; notify_on_field_entry is always false) and 'notification' (today's
+// existing notify_on_circle_entry/notify_on_field_entry behavior, optionally deep-linking to
+// one LinkedForm or one LinkedSamplingMap). circle_repeat_interval_days/
+// field_repeat_interval_days replace the old flat client-hardcoded 30-minute debounce with a
+// real per-geofence minimum repeat interval (days) per trigger kind — enforced entirely
+// client-side, same as every other timing/detection decision here; a re-entry within the
+// window still gets logged, only the notification is suppressed.
 model Geofence {
   id                     Int      @id @default(autoincrement())
   title                  String
   description            String?
   is_active              Boolean  @default(true)
+  geofence_type          String   @default("notification") // 'duration' | 'notification'
   notify_on_circle_entry Boolean  @default(true)  // fire on entering a zone's circle ("near fields")
   notify_on_field_entry  Boolean  @default(false) // fire on entering one of a zone's exact Field boundaries
+  circle_repeat_interval_days Int @default(1) // min days between repeat circle-entry notifications
+  field_repeat_interval_days  Int @default(1) // min days between repeat field-entry notifications
   action_message         String?  // optional override notification body; null => client generates
                                    // per-event text ("You're near {Farm}" / "You've entered {Field}")
+  linked_form_id         Int?     // 'notification' type only; mutually exclusive with linked_sampling_map_id
+  linked_sampling_map_id Int?     // 'notification' type only; mutually exclusive with linked_form_id
   created_by_id          String?
   created_at             DateTime @default(now())
   updated_at             DateTime @updatedAt
 
-  CreatedBy   User?                @relation("GeofenceCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
-  Zones       GeofenceZone[]
-  Assignments GeofenceAssignment[]
-  Events      GeofenceEvent[]
+  CreatedBy         User?                    @relation("GeofenceCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
+  Zones             GeofenceZone[]
+  Assignments       GeofenceAssignment[]
+  Events            GeofenceEvent[]
+  TimeSessions      GeofenceZoneTimeSession[]
+  LinkedForm        Form?        @relation("GeofenceLinkedForm", fields: [linked_form_id], references: [id], onDelete: SetNull)
+  LinkedSamplingMap SamplingMap? @relation("GeofenceLinkedSamplingMap", fields: [linked_sampling_map_id], references: [id], onDelete: SetNull)
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
   lab_id      Int?
 
+  @@index([linked_form_id])
+  @@index([linked_sampling_map_id])
   @@map("Geofences")
   @@schema("pgntarg2udzj1f3")
 }
@@ -1428,9 +1454,10 @@ model GeofenceZone {
   radius_meters Float
   created_at    DateTime @default(now())
 
-  Geofence Geofence            @relation(fields: [geofence_id], references: [id], onDelete: Cascade)
-  Farm     Farm                @relation(fields: [farm_id], references: [id], onDelete: Cascade)
-  Fields   GeofenceZoneField[]
+  Geofence     Geofence                  @relation(fields: [geofence_id], references: [id], onDelete: Cascade)
+  Farm         Farm                      @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  Fields       GeofenceZoneField[]
+  TimeSessions GeofenceZoneTimeSession[]
 
   @@index([geofence_id])
   @@index([farm_id])
@@ -1507,6 +1534,37 @@ model GeofenceEvent {
   @@index([user_id])
   @@index([content_hash])
   @@map("Geofence_Events")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Server-side counterpart of the Swift app's local GeofenceZoneTimeSession table (migration
+// 079) — one row per confirmed circle entry/exit pair for a 'duration' type Geofence, POSTed
+// by the device after it closes the session locally. Same additive/informational relationship
+// to Geofence as GeofenceEvent — no completion semantics, no server-side re-validation of the
+// reported duration.
+model GeofenceZoneTimeSession {
+  id               Int      @id @default(autoincrement())
+  geofence_id      Int
+  zone_id          Int
+  contact_id       Int?
+  user_id          String?
+  entered_at       DateTime
+  exited_at        DateTime
+  duration_seconds Int
+  content_hash     String?                     // client dedup key, same pattern as GeofenceEvent
+  received_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  Geofence Geofence     @relation(fields: [geofence_id], references: [id], onDelete: Cascade)
+  Zone     GeofenceZone @relation(fields: [zone_id], references: [id], onDelete: Cascade)
+  Contact  Contact?     @relation(fields: [contact_id], references: [id], onDelete: SetNull)
+  User     User?        @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([geofence_id])
+  @@index([zone_id])
+  @@index([contact_id])
+  @@index([user_id])
+  @@index([content_hash])
+  @@map("Geofence_Zone_Time_Sessions")
   @@schema("pgntarg2udzj1f3")
 }
 
@@ -1763,6 +1821,7 @@ model SamplingMap {
   Polygons   SamplingMapPolygon[]
   Points     SamplingPoint[]
   Assignments SamplingMapAssignment[]
+  LinkedGeofences Geofence[]            @relation("GeofenceLinkedSamplingMap")
 
   @@index([farm_id])
   @@index([experiment_id])

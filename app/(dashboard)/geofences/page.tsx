@@ -13,6 +13,7 @@ export default async function GeofencesPage() {
     id: g.id,
     title: g.title,
     is_active: g.is_active,
+    geofence_type: g.geofence_type,
     zone_count: g._count.Zones,
     assignment_count: g._count.Assignments,
     event_count: g._count.Events,

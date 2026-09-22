@@ -1,13 +1,14 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import GeofenceZoneMap, { type ZoneCircle } from "@/components/geofence-zone-map"
+import { GeofenceLinkPicker } from "@/components/geofence-link-picker"
 import { boundingCircleForFields } from "@/lib/geo-zone"
 
 interface FarmField {
@@ -24,6 +25,14 @@ interface Farm {
   Fields: FarmField[]
 }
 
+interface LinkOption {
+  id: number
+  title?: string
+  name?: string
+}
+
+type GeofenceType = "duration" | "notification"
+
 interface WizardZone {
   tempId: string
   farm_id: number
@@ -39,12 +48,17 @@ type Step = "basics" | "farm" | "zone-map" | "notify"
 
 // Replaces Phase 1's single freehand-polygon draw overlay with a multi-step wizard: name/
 // description -> pick a farm -> select fields on that farm's map and confirm an (adjustable)
-// bounding circle as a zone -> repeat across farms -> two notification-mode checkboxes ->
-// submit. All zone data accumulates in this component's state; nothing is persisted until the
-// single final POST /api/geofences, matching this repo's existing "full-page overlay, internal
-// state" convention (see draw-field-client.tsx) rather than draft-persisting mid-wizard.
-export function NewGeofencePage({ farms }: { farms: Farm[] }) {
+// bounding circle as a zone -> repeat across farms -> a type-conditional final step -> submit.
+// geofence_type comes from which of the two landing-page boxes was clicked (?type= query
+// param) and is fixed for the life of the wizard — it is never editable after creation (same
+// "delete and recreate to change" precedent as zones), so there is no in-wizard type picker.
+// All zone data accumulates in this component's state; nothing is persisted until the single
+// final POST /api/geofences, matching this repo's existing "full-page overlay, internal state"
+// convention (see draw-field-client.tsx) rather than draft-persisting mid-wizard.
+export function NewGeofencePage({ farms, forms, samplingMaps }: { farms: Farm[]; forms: LinkOption[]; samplingMaps: LinkOption[] }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const geofenceType: GeofenceType = searchParams.get("type") === "duration" ? "duration" : "notification"
   const [step, setStep] = useState<Step>("basics")
 
   const [title, setTitle] = useState("")
@@ -59,6 +73,10 @@ export function NewGeofencePage({ farms }: { farms: Farm[] }) {
 
   const [notifyCircle, setNotifyCircle] = useState(true)
   const [notifyField, setNotifyField] = useState(false)
+  const [circleIntervalDays, setCircleIntervalDays] = useState(1)
+  const [fieldIntervalDays, setFieldIntervalDays] = useState(1)
+  const [linkedFormId, setLinkedFormId] = useState<number | null>(null)
+  const [linkedSamplingMapId, setLinkedSamplingMapId] = useState<number | null>(null)
   const [actionMessage, setActionMessage] = useState("")
   const [showMessageOverride, setShowMessageOverride] = useState(false)
 
@@ -138,8 +156,13 @@ export function NewGeofencePage({ farms }: { farms: Farm[] }) {
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim() || null,
-          notify_on_circle_entry: notifyCircle,
-          notify_on_field_entry: notifyField,
+          geofence_type: geofenceType,
+          notify_on_circle_entry: geofenceType === "duration" ? true : notifyCircle,
+          notify_on_field_entry: geofenceType === "duration" ? false : notifyField,
+          circle_repeat_interval_days: circleIntervalDays,
+          field_repeat_interval_days: fieldIntervalDays,
+          linked_form_id: geofenceType === "notification" ? linkedFormId : null,
+          linked_sampling_map_id: geofenceType === "notification" ? linkedSamplingMapId : null,
           action_message: actionMessage.trim() || null,
           zones: zones.map((z) => ({
             farm_id: z.farm_id,
@@ -169,7 +192,9 @@ export function NewGeofencePage({ farms }: { farms: Farm[] }) {
           ← Geofences
         </Link>
         <span className="text-stone-300 shrink-0">/</span>
-        <span className="text-sm font-medium text-stone-700 shrink-0">New Geofence</span>
+        <span className="text-sm font-medium text-stone-700 shrink-0">
+          New {geofenceType === "duration" ? "Track Duration" : "Notification"} Geofence
+        </span>
         {error && <span className="text-sm text-red-500 shrink-0">{error}</span>}
         <div className="ml-auto flex items-center gap-2 shrink-0">
           <Button variant="outline" size="sm" render={<Link href="/geofences" />}>
@@ -290,7 +315,9 @@ export function NewGeofencePage({ farms }: { farms: Farm[] }) {
 
           {step === "notify" && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-stone-900">Notifications</h3>
+              <h3 className="text-lg font-semibold text-stone-900">
+                {geofenceType === "duration" ? "Duration Tracking" : "Notifications"}
+              </h3>
 
               <div className="border rounded-lg p-3 space-y-2">
                 <p className="text-xs font-medium text-stone-500">
@@ -304,20 +331,76 @@ export function NewGeofencePage({ farms }: { farms: Farm[] }) {
                 </ul>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <Checkbox id="notify-circle" checked={notifyCircle} onCheckedChange={(v) => setNotifyCircle(v === true)} />
-                  <Label htmlFor="notify-circle" className="cursor-pointer font-normal">
-                    Notify when near fields (entering a zone)
-                  </Label>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Checkbox id="notify-field" checked={notifyField} onCheckedChange={(v) => setNotifyField(v === true)} />
-                  <Label htmlFor="notify-field" className="cursor-pointer font-normal">
-                    Notify when a specific field is entered
-                  </Label>
-                </div>
-              </div>
+              {geofenceType === "duration" ? (
+                <>
+                  <p className="text-sm text-stone-600">
+                    Time spent inside each zone is logged automatically. Entering a zone prompts the
+                    assignee to open the app to record their time.
+                  </p>
+                  <div className="space-y-1.5 max-w-xs">
+                    <Label>Minimum days between repeat reminders</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={circleIntervalDays}
+                      onChange={(e) => setCircleIntervalDays(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    />
+                    <p className="text-xs text-stone-500">
+                      Re-entering within this window is still logged — only the repeat reminder is suppressed.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Checkbox id="notify-circle" checked={notifyCircle} onCheckedChange={(v) => setNotifyCircle(v === true)} />
+                      <Label htmlFor="notify-circle" className="cursor-pointer font-normal">
+                        Notify when near fields (entering a zone)
+                      </Label>
+                    </div>
+                    {notifyCircle && (
+                      <div className="space-y-1.5 max-w-xs ml-7">
+                        <Label className="text-xs">Minimum days between repeat zone notifications</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={circleIntervalDays}
+                          onChange={(e) => setCircleIntervalDays(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                        />
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3">
+                      <Checkbox id="notify-field" checked={notifyField} onCheckedChange={(v) => setNotifyField(v === true)} />
+                      <Label htmlFor="notify-field" className="cursor-pointer font-normal">
+                        Notify when a specific field is entered
+                      </Label>
+                    </div>
+                    {notifyField && (
+                      <div className="space-y-1.5 max-w-xs ml-7">
+                        <Label className="text-xs">Minimum days between repeat field notifications</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={fieldIntervalDays}
+                          onChange={(e) => setFieldIntervalDays(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <GeofenceLinkPicker
+                    forms={forms}
+                    samplingMaps={samplingMaps}
+                    linkedFormId={linkedFormId}
+                    linkedSamplingMapId={linkedSamplingMapId}
+                    onChange={(formId, mapId) => { setLinkedFormId(formId); setLinkedSamplingMapId(mapId) }}
+                  />
+                </>
+              )}
 
               {!showMessageOverride ? (
                 <button type="button" onClick={() => setShowMessageOverride(true)} className="text-xs text-green-700 hover:text-green-900">
@@ -337,13 +420,13 @@ export function NewGeofencePage({ farms }: { farms: Farm[] }) {
               <div className="flex items-center gap-2">
                 <Button variant="outline" onClick={() => setStep("farm")}>← Add More Zones</Button>
                 <Button
-                  disabled={saving || (!notifyCircle && !notifyField)}
+                  disabled={saving || (geofenceType === "notification" && !notifyCircle && !notifyField)}
                   onClick={handleSubmit}
                 >
                   {saving ? "Saving…" : "Add Geofence"}
                 </Button>
               </div>
-              {!notifyCircle && !notifyField && (
+              {geofenceType === "notification" && !notifyCircle && !notifyField && (
                 <p className="text-xs text-amber-600">Select at least one notification mode.</p>
               )}
             </div>

@@ -27,6 +27,8 @@ export async function GET(request: Request) {
           Fields: { include: { Field: { select: { id: true, Name: true, geometry: true } } } },
         },
       },
+      LinkedForm: { select: { id: true, title: true } },
+      LinkedSamplingMap: { select: { id: true, name: true } },
     },
   });
 
@@ -36,8 +38,13 @@ export async function GET(request: Request) {
       title: g.title,
       description: g.description,
       action_message: g.action_message,
+      geofence_type: g.geofence_type,
       notify_on_circle_entry: g.notify_on_circle_entry,
       notify_on_field_entry: g.notify_on_field_entry,
+      circle_repeat_interval_days: g.circle_repeat_interval_days,
+      field_repeat_interval_days: g.field_repeat_interval_days,
+      linked_form: g.LinkedForm ? { id: g.LinkedForm.id, title: g.LinkedForm.title } : null,
+      linked_sampling_map: g.LinkedSamplingMap ? { id: g.LinkedSamplingMap.id, name: g.LinkedSamplingMap.name } : null,
       zones: g.Zones.map((z) => ({
         id: z.id,
         farm_id: z.farm_id,

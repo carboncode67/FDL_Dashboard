@@ -14,17 +14,21 @@ export default async function NewGeofenceRoute() {
   // Fetched once, up front, and passed down whole — the farm list (with each farm's fields) is
   // small enough to ship in the initial page load, so the wizard needs no client-side farm/
   // field fetching at all, matching this repo's server-component-queries-Prisma-directly rule.
-  const farms = await prisma.farm.findMany({
-    orderBy: { Farm_Name: "asc" },
-    select: {
-      id: true,
-      Farm_Name: true,
-      latitude: true,
-      longitude: true,
-      Fields: { select: { id: true, Name: true, geometry: true } },
-    },
-  });
+  const [farms, forms, samplingMaps] = await Promise.all([
+    prisma.farm.findMany({
+      orderBy: { Farm_Name: "asc" },
+      select: {
+        id: true,
+        Farm_Name: true,
+        latitude: true,
+        longitude: true,
+        Fields: { select: { id: true, Name: true, geometry: true } },
+      },
+    }),
+    prisma.form.findMany({ where: { is_active: true }, orderBy: { title: "asc" }, select: { id: true, title: true } }),
+    prisma.samplingMap.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  ]);
 
-  return <NewGeofencePage farms={farms} />;
+  return <NewGeofencePage farms={farms} forms={forms} samplingMaps={samplingMaps} />;
   });
 }

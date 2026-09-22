@@ -46,9 +46,11 @@ export const RESTRICTED_ALLOWED_ROUTES: RouteScope[] = [
   { method: "GET", pattern: "/api/data/sampling-maps/:id/points/status" },
   { method: "POST", pattern: "/api/data/sampling-maps/points/:pointId/collections" },
 
-  // Geofences — pull assigned zones, report entry events (spatial notifications).
+  // Geofences — pull assigned zones, report entry events and duration time sessions
+  // (spatial notifications).
   { method: "GET", pattern: "/api/data/geofences" },
   { method: "POST", pattern: "/api/data/geofences/:id/events" },
+  { method: "POST", pattern: "/api/data/geofences/:id/time-sessions" },
 ];
 
 function patternToRegExp(pattern: string): RegExp {

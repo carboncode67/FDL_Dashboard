@@ -9,7 +9,7 @@ export default async function EditGeofencePage({ params }: { params: Promise<{ i
   const { id } = await params;
   const geofenceId = parseInt(id);
 
-  const [geofence, assignments, contacts, users, farms, experiments] = await Promise.all([
+  const [geofence, assignments, contacts, users, farms, experiments, forms, samplingMaps] = await Promise.all([
     prisma.geofence.findUnique({
       where: { id: geofenceId },
       include: {
@@ -30,6 +30,8 @@ export default async function EditGeofencePage({ params }: { params: Promise<{ i
     prisma.user.findMany({ select: { id: true, name: true, email: true }, orderBy: { name: "asc" } }),
     prisma.farm.findMany({ select: { id: true, Farm_Name: true }, orderBy: { Farm_Name: "asc" } }),
     prisma.farmExperiment.findMany({ select: { id: true, experiment_name: true }, orderBy: { experiment_name: "asc" } }),
+    prisma.form.findMany({ where: { is_active: true }, orderBy: { title: "asc" }, select: { id: true, title: true } }),
+    prisma.samplingMap.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
   if (!geofence) notFound();
@@ -42,8 +44,13 @@ export default async function EditGeofencePage({ params }: { params: Promise<{ i
         description: geofence.description,
         action_message: geofence.action_message,
         is_active: geofence.is_active,
+        geofence_type: geofence.geofence_type,
         notify_on_circle_entry: geofence.notify_on_circle_entry,
         notify_on_field_entry: geofence.notify_on_field_entry,
+        circle_repeat_interval_days: geofence.circle_repeat_interval_days,
+        field_repeat_interval_days: geofence.field_repeat_interval_days,
+        linked_form_id: geofence.linked_form_id,
+        linked_sampling_map_id: geofence.linked_sampling_map_id,
       }}
       zones={geofence.Zones.map((z) => ({
         id: z.id,
@@ -63,6 +70,8 @@ export default async function EditGeofencePage({ params }: { params: Promise<{ i
       users={users}
       farms={farms}
       experiments={experiments}
+      forms={forms}
+      samplingMaps={samplingMaps}
     />
   );
   });

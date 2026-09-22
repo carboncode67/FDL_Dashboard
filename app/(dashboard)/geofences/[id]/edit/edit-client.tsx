@@ -28,8 +28,13 @@ interface Props {
     description: string | null;
     action_message: string | null;
     is_active: boolean;
+    geofence_type: string;
     notify_on_circle_entry: boolean;
     notify_on_field_entry: boolean;
+    circle_repeat_interval_days: number;
+    field_repeat_interval_days: number;
+    linked_form_id: number | null;
+    linked_sampling_map_id: number | null;
   };
   zones: ZoneSummary[];
   assignments: Assignment[];
@@ -37,9 +42,11 @@ interface Props {
   users: { id: string; name: string | null; email: string }[];
   farms: { id: number; Farm_Name: string | null }[];
   experiments: { id: number; experiment_name: string | null }[];
+  forms: { id: number; title: string }[];
+  samplingMaps: { id: number; name: string }[];
 }
 
-export default function EditGeofenceClient({ geofence, zones, assignments, contacts, users, farms, experiments }: Props) {
+export default function EditGeofenceClient({ geofence, zones, assignments, contacts, users, farms, experiments, forms, samplingMaps }: Props) {
   const router = useRouter();
 
   // Zones auto-derive a Whole-Farm assignment per farm on creation — filter those farms out of
@@ -60,7 +67,13 @@ export default function EditGeofenceClient({ geofence, zones, assignments, conta
       </div>
 
       <div className="bg-white border rounded-lg p-6">
-        <GeofenceBasicsForm geofenceId={geofence.id} initialData={geofence} onSuccess={() => router.refresh()} />
+        <GeofenceBasicsForm
+          geofenceId={geofence.id}
+          initialData={geofence}
+          forms={forms}
+          samplingMaps={samplingMaps}
+          onSuccess={() => router.refresh()}
+        />
       </div>
 
       <div className="bg-white border rounded-lg p-6 space-y-3">
@@ -96,9 +109,15 @@ export default function EditGeofenceClient({ geofence, zones, assignments, conta
       </div>
 
       <div className="bg-white border rounded-lg p-6">
-        <Link href={`/geofences/${geofence.id}/events`} className="text-sm font-medium text-green-700 hover:text-green-900">
-          View Events →
-        </Link>
+        {geofence.geofence_type === "duration" ? (
+          <Link href={`/geofences/${geofence.id}/time-sessions`} className="text-sm font-medium text-green-700 hover:text-green-900">
+            View Time Sessions →
+          </Link>
+        ) : (
+          <Link href={`/geofences/${geofence.id}/events`} className="text-sm font-medium text-green-700 hover:text-green-900">
+            View Events →
+          </Link>
+        )}
       </div>
     </div>
   );
