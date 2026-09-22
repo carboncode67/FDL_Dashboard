@@ -1,0 +1,21 @@
+-- Closes a gap left by migration 069: every app_<slug> role gets its own
+-- app.current_lab_id GUC baked in via ALTER ROLE (sql/roles/
+-- create_lab_role.sql.template), but the plain `nocodb` role -- what every
+-- app connection actually uses while TENANT_ENFORCEMENT=off, the default
+-- everywhere until the per-lab roles are fully wired in -- never got one.
+-- Since 069 made lab_id NOT NULL with that GUC as its DEFAULT, every insert
+-- into a root table (Forms, Sampling_Maps, Farms, Projects, ...) done through
+-- `nocodb` was failing with a silent "null value in column lab_id violates
+-- not-null constraint", surfaced to end users as "the form/map didn't save"
+-- with no visible error (reproduced live 2026-09-18, see CLAUDE.md/memory).
+--
+-- lab 1 = fdl, the only lab that existed before multi-tenancy -- this makes
+-- TENANT_ENFORCEMENT=off behave exactly like the pre-lab-silo single-tenant
+-- world, which is what "off" is supposed to mean. Once TENANT_ENFORCEMENT is
+-- flipped to soft/hard with real per-lab roles wired in, this stops mattering
+-- (the app stops connecting as `nocodb` for tenant-scoped requests at all).
+--
+-- Safe to re-run: ALTER ROLE ... SET is idempotent (always overwrites to the
+-- given value, never errors on a pre-existing setting).
+
+ALTER ROLE nocodb SET app.current_lab_id = 1;
