@@ -22,7 +22,6 @@ import {
   Smartphone,
   Boxes,
   BookUser,
-  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/lib/roles";
@@ -44,7 +43,6 @@ const managementNav: NavItem[] = [
 const dataCollectionNav: NavItem[] = [
   { href: "/send-to-mobile-app", label: "Send to Mobile App", icon: Smartphone },
   { href: "/methodologies", label: "Methodologies", icon: BookOpen },
-  { href: "/drones", label: "Equipment", icon: Wrench },
   { href: "/experiments", label: "Experiments", icon: Microscope },
 ];
 
@@ -53,11 +51,11 @@ const advancedNav: NavItem[] = [
   { href: "/treatments", label: "Treatment Types", icon: Beaker },
   { href: "/task-templates", label: "Task Templates", icon: LayoutTemplate },
   { href: "/tasks", label: "Tasks", icon: ClipboardList },
+  { href: "/data-categories", label: "Data Categories", icon: Tag },
 ];
 
 const adminNav: NavItem[] = [
   { href: "/activity-report", label: "Activity Report", icon: BarChart2 },
-  { href: "/data-categories", label: "Data Categories", icon: Tag },
   { href: "/lab-members", label: "Lab Members", icon: Users },
   { href: "/whatsapp", label: "Messaging", icon: MessageCircle },
 ];
@@ -66,6 +64,42 @@ interface SidebarProps {
   role: Role;
   className?: string;
   onNavigate?: () => void;
+}
+
+function isActive(pathname: string, href: string) {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
+
+function NavLink({
+  href,
+  label,
+  icon: Icon,
+  active,
+  onNavigate,
+}: {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  active: boolean;
+  onNavigate?: () => void;
+}) {
+  return (
+    <li>
+      <Link
+        href={href}
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
+          active
+            ? "bg-green-600 text-white"
+            : "text-stone-300 hover:bg-stone-800 hover:text-white"
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {label}
+      </Link>
+    </li>
+  );
 }
 
 export function Sidebar({ role, className, onNavigate }: SidebarProps) {
@@ -97,23 +131,25 @@ export function Sidebar({ role, className, onNavigate }: SidebarProps) {
               {label}
             </p>
             <ul className="space-y-0.5">
-              {items.map(({ href, label: itemLabel, icon: Icon }) => (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    onClick={onNavigate}
-                    className={cn(
-                      "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
-                      pathname === href
-                        ? "bg-green-600 text-white"
-                        : "text-stone-300 hover:bg-stone-800 hover:text-white"
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {itemLabel}
-                  </Link>
-                </li>
+              {items.map(({ href, label: itemLabel, icon }) => (
+                <NavLink
+                  key={href}
+                  href={href}
+                  label={itemLabel}
+                  icon={icon}
+                  active={pathname === href}
+                  onNavigate={onNavigate}
+                />
               ))}
+              {role === "admin" && label === "Advanced" && (
+                <NavLink
+                  href="/pipelines"
+                  label="Pipelines"
+                  icon={Cpu}
+                  active={isActive(pathname, "/pipelines")}
+                  onNavigate={onNavigate}
+                />
+              )}
             </ul>
           </div>
         ))}
@@ -123,56 +159,24 @@ export function Sidebar({ role, className, onNavigate }: SidebarProps) {
             Admin
           </p>
           <ul className="space-y-0.5">
-            {adminNav.map(({ href, label: itemLabel, icon: Icon }) => (
-              <li key={href}>
-                <Link
-                  href={href}
-                  onClick={onNavigate}
-                  className={cn(
-                    "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
-                    pathname === href
-                      ? "bg-green-600 text-white"
-                      : "text-stone-300 hover:bg-stone-800 hover:text-white"
-                  )}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {itemLabel}
-                </Link>
-              </li>
+            {adminNav.map(({ href, label: itemLabel, icon }) => (
+              <NavLink
+                key={href}
+                href={href}
+                label={itemLabel}
+                icon={icon}
+                active={pathname === href}
+                onNavigate={onNavigate}
+              />
             ))}
             {role === "admin" && (
-              <>
-                <li>
-                  <Link
-                    href="/admin"
-                    onClick={onNavigate}
-                    className={cn(
-                      "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
-                      pathname === "/admin"
-                        ? "bg-green-600 text-white"
-                        : "text-stone-300 hover:bg-stone-800 hover:text-white"
-                    )}
-                  >
-                    <Settings2 className="h-4 w-4 shrink-0" />
-                    Admin Panel
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/pipelines"
-                    onClick={onNavigate}
-                    className={cn(
-                      "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
-                      pathname.startsWith("/pipelines")
-                        ? "bg-green-600 text-white"
-                        : "text-stone-300 hover:bg-stone-800 hover:text-white"
-                    )}
-                  >
-                    <Cpu className="h-4 w-4 shrink-0" />
-                    Pipelines
-                  </Link>
-                </li>
-              </>
+              <NavLink
+                href="/admin"
+                label="Admin Panel"
+                icon={Settings2}
+                active={pathname === "/admin"}
+                onNavigate={onNavigate}
+              />
             )}
           </ul>
         </div>
