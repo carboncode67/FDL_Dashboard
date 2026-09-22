@@ -32,6 +32,12 @@ services:
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       FARMER_SERVER_URL: ${FARMER_SERVER_URL:-}
       DATA_DIR: /app/upload-data
+      # Optional. Cache directory for generated image thumbnails (Incoming
+      # Data > Images grid). Defaults to ./thumbnail-cache inside the
+      # container if unset. Kept separate from DATA_DIR so production can
+      # mount it on a faster volume (e.g. NVMe) than wherever uploads
+      # themselves live.
+      THUMBNAIL_DIR: /app/thumbnail-cache
       # Optional. A directory the server already has mounted (e.g. an SMB/NFS
       # share) where large rasters can be dropped directly, bypassing the
       # POST /api/basemaps HTTP upload — see the "Register" flow on the
@@ -85,6 +91,7 @@ services:
       BEARER_SCOPE_ENFORCEMENT: ${BEARER_SCOPE_ENFORCEMENT:-log}
     volumes:
       - upload-data:/app/upload-data
+      - thumbnail-cache:/app/thumbnail-cache
     depends_on:
       db:
         condition: service_healthy
@@ -98,4 +105,5 @@ services:
 
 volumes:
   upload-data:
+  thumbnail-cache:
   db-data:

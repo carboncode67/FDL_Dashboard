@@ -4,7 +4,18 @@ import type { NextConfig } from "next";
 const nextConfig = {
   output: "standalone",
   outputFileTracingIncludes: {
-    "/**": ["./node_modules/.prisma/client/**"],
+    "/**": [
+      "./node_modules/.prisma/client/**",
+      // sharp's native binding is resolved at runtime by platform/libc
+      // (same class of problem as the Prisma engine binary above) — Next's
+      // static tracer doesn't follow that and drops it from the standalone
+      // build otherwise, so sharp silently throws on every call. Every
+      // caller happens to catch that (duplicate-detection's phash, the
+      // thumbnails route's fallback-to-original-file branch), so this was
+      // failing invisibly in production rather than erroring loudly.
+      "./node_modules/@img/sharp-linuxmusl-x64/**",
+      "./node_modules/@img/sharp-libvips-linuxmusl-x64/**",
+    ],
     "app/api/farms/**": ["./node_modules/better-sqlite3/build/Release/*.node"],
   },
   experimental: {

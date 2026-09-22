@@ -26,6 +26,7 @@ __pycache__/
 
 # Uploaded files (PII) — stored on disk, not in the repo
 upload-data/
+thumbnail-cache/
 
 # macOS / IDE
 .DS_Store
