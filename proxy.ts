@@ -6,7 +6,10 @@ export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
 
-  const isAuthPage = nextUrl.pathname.startsWith("/login");
+  const isAuthPage =
+    nextUrl.pathname.startsWith("/login") ||
+    nextUrl.pathname.startsWith("/forgot-password") ||
+    nextUrl.pathname.startsWith("/reset-password");
   const isApiAuth  = nextUrl.pathname.startsWith("/api/auth");
 
   // Endpoints called by external services (mobile app, OFEDashBot) that must
