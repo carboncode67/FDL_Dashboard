@@ -18,9 +18,11 @@ export function FormBasicsForm({ onSuccess, formId, initialData }: FormBasicsFor
   const [title, setTitle] = useState(initialData?.title ?? "");
   const [description, setDescription] = useState(initialData?.description ?? "");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError("");
     setSaving(true);
     try {
       const res = await fetch(formId ? `/api/forms/${formId}` : "/api/forms", {
@@ -28,7 +30,11 @@ export function FormBasicsForm({ onSuccess, formId, initialData }: FormBasicsFor
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, description: description || null }),
       });
-      const form = await res.json();
+      const form = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(form.error ?? "Failed to save form");
+        return;
+      }
       onSuccess?.(form);
     } finally {
       setSaving(false);
@@ -45,6 +51,7 @@ export function FormBasicsForm({ onSuccess, formId, initialData }: FormBasicsFor
         <Label>Description</Label>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
+      {error && <p className="text-sm text-red-500">{error}</p>}
       <Button type="submit" disabled={saving} className="w-full">
         {saving ? "Saving..." : formId ? "Update" : "Create"}
       </Button>
