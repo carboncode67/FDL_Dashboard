@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ChevronDown, ChevronRight, FolderKanban, Search, Trash2, GitMerge, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderKanban, Search, Trash2, GitMerge, AlertTriangle, Download } from "lucide-react";
 import { isFlaggedDuplicate } from "@/lib/upload-item-utils";
 
 export interface UploadItem {
@@ -412,6 +412,60 @@ export function DataSortingClient({
     await bulkPatch({ needs_further_processing: true });
   }
 
+  async function handleBulkDownload() {
+    if (selected.size === 0) return;
+    setBulkBusy(true);
+    setActionError(null);
+    const items = Array.from(selected).map((key) => {
+      const lastDash = key.lastIndexOf("-");
+      return { table: key.slice(0, lastDash), id: Number(key.slice(lastDash + 1)) };
+    });
+    try {
+      const res = await fetch("/api/uploads/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setActionError(body.error ?? "Download failed.");
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="([^"]+)"/);
+      const filename = match ? match[1] : items.length === 1 ? "download" : `incoming-data-${Date.now()}.zip`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      const skipped = Number(res.headers.get("X-Download-Skipped-Count") ?? "0");
+      if (skipped > 0) {
+        setActionError(
+          `Download complete, but ${skipped} of ${items.length} item${items.length !== 1 ? "s" : ""} could not be found and were left out of the zip.`
+        );
+      }
+    } catch (err) {
+      // A large selection has to be fully buffered in the browser's memory
+      // (fetch's res.blob()) before it can be saved — on a big enough batch
+      // (many recordings/videos, or several GB total) a slow connection or
+      // low-memory device can drop the request or run out of RAM mid-transfer.
+      // Surface that instead of leaving the user staring at a button that just
+      // stopped spinning with no explanation.
+      console.error("Bulk download failed", err);
+      setActionError(
+        `Download failed${items.length > 1 ? " — this can happen with large selections, since the browser has to hold the whole download in memory before saving it. Try downloading a smaller batch." : ", possibly due to a network interruption. Try again."}`
+      );
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   const selectedCount = selected.size;
 
   return (
@@ -584,6 +638,11 @@ export function DataSortingClient({
               <Button size="sm" variant="outline" disabled={selectedCount < 2 || bulkBusy} onClick={handleBulkGroup}>
                 <GitMerge className="h-3.5 w-3.5 mr-1" />
                 Group
+              </Button>
+
+              <Button size="sm" variant="outline" disabled={bulkBusy} onClick={handleBulkDownload}>
+                <Download className="h-3.5 w-3.5 mr-1" />
+                Download
               </Button>
 
               {canDelete && (
@@ -759,10 +818,12 @@ function ImagesGrid({
                 {item.filename ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={`/api/files/photos/${item.filename}`}
+                    src={`/api/files/thumbnails/photos/${item.filename}`}
                     alt="Upload thumbnail"
                     className="w-full h-full object-cover"
                     style={{ imageOrientation: "from-image" }}
+                    loading="lazy"
+                    decoding="async"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs">
