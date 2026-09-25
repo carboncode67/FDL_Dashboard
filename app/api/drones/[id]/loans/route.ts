@@ -11,10 +11,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const droneId = parseInt(id);
   const body = await req.json();
-  const { contact_id, signed_out_at, due_at } = body;
+  const { contact_id, renter_user_id, signed_out_at, due_at } = body;
 
-  if (!contact_id || !due_at) {
-    return NextResponse.json({ error: "contact_id and due_at are required" }, { status: 400 });
+  if (!due_at || (!contact_id && !renter_user_id) || (contact_id && renter_user_id)) {
+    return NextResponse.json(
+      { error: "due_at and exactly one of contact_id or renter_user_id are required" },
+      { status: 400 }
+    );
   }
 
   const drone = await prisma.drone.findUnique({ where: { id: droneId } });
@@ -30,12 +33,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const loan = await prisma.equipmentLoan.create({
     data: {
       drone_id: droneId,
-      contact_id: parseInt(contact_id),
+      contact_id: contact_id ? parseInt(contact_id) : null,
+      renter_user_id: renter_user_id ?? null,
       signed_out_by: session.user.id,
       signed_out_at: signed_out_at ? new Date(signed_out_at) : new Date(),
       due_at: new Date(due_at),
     },
-    include: { Contact: true },
+    include: { Contact: true, RenterUser: true },
   });
   return NextResponse.json(loan, { status: 201 });
   });

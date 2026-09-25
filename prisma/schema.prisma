@@ -65,7 +65,8 @@ model User {
   GeofenceEvents     GeofenceEvent[]
   GeofenceZoneTimeSessions GeofenceZoneTimeSession[]
   CreatedPipelines   Pipeline[]
-  EquipmentLoansSignedOut EquipmentLoan[]
+  EquipmentLoansSignedOut EquipmentLoan[] @relation("EquipmentLoanSignedOutBy")
+  EquipmentLoansRented    EquipmentLoan[] @relation("EquipmentLoanRenter")
   ContextFetchJobs   ContextFetchJob[]
   UploadedBasemaps   Basemap[]
   CreatedSamplingMaps SamplingMap[]
@@ -397,18 +398,23 @@ model TestEquipment {
 }
 
 model EquipmentLoan {
-  id            Int       @id @default(autoincrement())
-  drone_id      Int
-  contact_id    Int
-  signed_out_by String?
-  signed_out_at DateTime  @default(now())
-  due_at        DateTime
-  returned_at   DateTime?
-  created_at    DateTime  @default(now())
+  id             Int       @id @default(autoincrement())
+  drone_id       Int
+  contact_id     Int?
+  renter_user_id String?
+  signed_out_by  String?
+  signed_out_at  DateTime  @default(now())
+  due_at         DateTime
+  returned_at    DateTime?
+  created_at     DateTime  @default(now())
 
   Drone       Drone   @relation(fields: [drone_id], references: [id], onDelete: Cascade)
-  Contact     Contact @relation(fields: [contact_id], references: [id], onDelete: Cascade)
-  SignedOutBy User?   @relation(fields: [signed_out_by], references: [id], onDelete: SetNull)
+  // Renter is exactly one of Contact (farmer) or RenterUser (lab member/agronomist) —
+  // same "dedicated nullable FK per target kind" idiom as Form_Assignments, enforced
+  // by a DB CHECK constraint (migration 080).
+  Contact     Contact? @relation(fields: [contact_id], references: [id], onDelete: Cascade)
+  RenterUser  User?    @relation("EquipmentLoanRenter", fields: [renter_user_id], references: [id], onDelete: Cascade)
+  SignedOutBy User?    @relation("EquipmentLoanSignedOutBy", fields: [signed_out_by], references: [id], onDelete: SetNull)
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).

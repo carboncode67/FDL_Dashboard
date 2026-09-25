@@ -6,11 +6,11 @@ import { SlideOverForm } from "@/components/slide-over-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { EquipmentSignoutForm, type SignoutContact } from "@/components/forms/equipment-signout-form";
+import { EquipmentSignoutForm, type SignoutContact, type SignoutUser } from "@/components/forms/equipment-signout-form";
 
 interface ActiveLoan {
   id: number;
-  contactName: string;
+  renterName: string;
   signedOutAt: string;
   dueAt: string;
 }
@@ -25,6 +25,7 @@ interface EquipmentDetailPanelProps {
   requiredByTests: string[];
   methodology: { id: number; title: string } | null;
   contacts: SignoutContact[];
+  users: SignoutUser[];
 }
 
 function formatDate(iso: string) {
@@ -32,7 +33,7 @@ function formatDate(iso: string) {
 }
 
 export function EquipmentDetailPanel({
-  open, onClose, droneId, droneName, quantity, activeLoans, requiredByTests, methodology, contacts,
+  open, onClose, droneId, droneName, quantity, activeLoans, requiredByTests, methodology, contacts, users,
 }: EquipmentDetailPanelProps) {
   const router = useRouter();
   const [returningId, setReturningId] = useState<number | null>(null);
@@ -79,7 +80,7 @@ export function EquipmentDetailPanel({
                   return (
                     <li key={loan.id} className="flex items-center justify-between gap-2 px-3 py-2">
                       <div className="text-sm">
-                        <div className="font-medium">{loan.contactName}</div>
+                        <div className="font-medium">{loan.renterName}</div>
                         <div className="text-xs text-stone-500">
                           Out {formatDate(loan.signedOutAt)} ·{" "}
                           <Badge variant="outline" className={`text-xs ${overdue ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
@@ -128,6 +129,7 @@ export function EquipmentDetailPanel({
         droneId={droneId}
         droneName={droneName}
         contacts={contacts}
+        users={users}
       />
     </>
   );

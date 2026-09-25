@@ -6,10 +6,10 @@ import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil } from "lucide-react";
-import { EquipmentSignoutForm, type SignoutContact } from "@/components/forms/equipment-signout-form";
+import { EquipmentSignoutForm, type SignoutContact, type SignoutUser } from "@/components/forms/equipment-signout-form";
 import { EquipmentDetailPanel } from "./equipment-detail-panel";
 
-interface ActiveLoan { id: number; contactName: string; signedOutAt: string; dueAt: string }
+interface ActiveLoan { id: number; renterName: string; signedOutAt: string; dueAt: string }
 interface DroneRow {
   id: number;
   Name: string | null;
@@ -22,7 +22,7 @@ interface DroneRow {
   methodology: { id: number; title: string } | null;
 }
 
-export function DronesClient({ data, contacts }: { data: DroneRow[]; contacts: SignoutContact[] }) {
+export function DronesClient({ data, contacts, users }: { data: DroneRow[]; contacts: SignoutContact[]; users: SignoutUser[] }) {
   const router = useRouter();
   const [signoutForId, setSignoutForId] = useState<number | null>(null);
   const [detailForId, setDetailForId] = useState<number | null>(null);
@@ -114,6 +114,7 @@ export function DronesClient({ data, contacts }: { data: DroneRow[]; contacts: S
           droneId={signoutFor.id}
           droneName={signoutFor.Name}
           contacts={contacts}
+          users={users}
         />
       )}
 
@@ -128,6 +129,7 @@ export function DronesClient({ data, contacts }: { data: DroneRow[]; contacts: S
           requiredByTests={detailFor.requiredByTests}
           methodology={detailFor.methodology}
           contacts={contacts}
+          users={users}
         />
       )}
     </>

@@ -4,13 +4,13 @@ import { runWithTenant } from "@/lib/lab-db";
 
 export default async function DronesPage() {
   return runWithTenant(async () => {
-  const [drones, contacts] = await Promise.all([
+  const [drones, contacts, users] = await Promise.all([
     prisma.drone.findMany({
       orderBy: { id: "asc" },
       include: {
         EquipmentLoans: {
           where: { returned_at: null },
-          include: { Contact: true },
+          include: { Contact: true, RenterUser: true },
           orderBy: { due_at: "asc" },
         },
         RequiredByTests: { include: { Test: true } },
@@ -19,6 +19,10 @@ export default async function DronesPage() {
     }),
     prisma.contact.findMany({
       select: { id: true, name: true, phone: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.user.findMany({
+      select: { id: true, name: true, email: true, category: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -32,7 +36,7 @@ export default async function DronesPage() {
     quantity: d.quantity,
     activeLoans: d.EquipmentLoans.map((loan) => ({
       id: loan.id,
-      contactName: loan.Contact.name,
+      renterName: loan.Contact?.name ?? loan.RenterUser?.name ?? loan.RenterUser?.email ?? "Unknown",
       signedOutAt: loan.signed_out_at.toISOString(),
       dueAt: loan.due_at.toISOString(),
     })),
@@ -40,6 +44,6 @@ export default async function DronesPage() {
     methodology: d.MethodologyLibrary ? { id: d.MethodologyLibrary.id, title: d.MethodologyLibrary.title } : null,
   }));
 
-  return <DronesClient data={data} contacts={contacts} />;
+  return <DronesClient data={data} contacts={contacts} users={users} />;
   });
 }
