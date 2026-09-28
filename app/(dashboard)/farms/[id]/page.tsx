@@ -30,7 +30,6 @@ import { BasemapUpload } from "@/components/basemap-upload";
 import { DocumentUpload } from "@/components/document-upload";
 import { AddContactButton } from "@/components/add-contact-button";
 import { DrawFieldButton } from "@/components/draw-field-button";
-import { AddFieldsButton } from "@/components/add-fields-button";
 import { SpatialContextCard } from "@/components/spatial-context-card";
 import { SamplingMapsTab } from "@/components/sampling-maps-tab";
 import { serializeContextJob } from "@/lib/context-types";
@@ -536,12 +535,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             farmId={farm.id}
             fieldCount={farm.Fields.length}
             drawButton={
-              showCreate ? (
-                <div className="flex items-center gap-2">
-                  <AddFieldsButton farmId={farm.id} />
-                  <DrawFieldButton farmId={farm.id} />
-                </div>
-              ) : undefined
+              showCreate ? <DrawFieldButton farmId={farm.id} /> : undefined
             }
           />
 

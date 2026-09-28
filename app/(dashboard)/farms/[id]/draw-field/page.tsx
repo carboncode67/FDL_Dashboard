@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { canCreate, type Role } from "@/lib/roles";
+import { canCreate, canDelete, type Role } from "@/lib/roles";
+import { getEditMode } from "@/lib/edit-mode";
 import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import { DrawFieldPage } from "./draw-field-client";
 import { runWithTenant } from "@/lib/lab-db";
@@ -11,7 +12,7 @@ export default async function DrawFieldRoute({ params }: { params: Promise<{ id:
   const { id } = await params;
   const farmId = parseInt(id);
 
-  const session = await auth();
+  const [session, editMode] = await Promise.all([auth(), getEditMode()]);
   const role = (session?.user?.role ?? "viewer") as Role;
   if (!canCreate(role)) notFound();
 
@@ -34,6 +35,7 @@ export default async function DrawFieldRoute({ params }: { params: Promise<{ id:
       }))}
       farmLat={farm.latitude ?? undefined}
       farmLng={farm.longitude ?? undefined}
+      canDeleteFields={canDelete(role, editMode)}
     />
   );
   });

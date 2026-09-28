@@ -228,7 +228,9 @@ async function searchFields(q: string): Promise<SearchHit[]> {
     context: r.Farm?.Farm_Name || r.Farm?.title || null,
     matched_field: "Name",
     snippet: r.Name ?? "",
-    url: `/fields/${r.id}`,
+    // Fields no longer have their own page — boundary/name editing lives on
+    // the farm's draw-field map now, so route there instead.
+    url: r.Farms_id ? `/farms/${r.Farms_id}/draw-field` : "/farms",
     farm_id: r.Farms_id,
     project_id: null,
   }));
