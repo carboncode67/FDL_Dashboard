@@ -37,6 +37,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       label: f.label,
       required: f.required,
       options: f.options,
+      show_when_label: f.show_when_label,
+      show_when_value: f.show_when_value,
     })),
   });
   });

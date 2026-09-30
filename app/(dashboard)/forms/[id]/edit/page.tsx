@@ -34,6 +34,8 @@ export default async function EditFormPage({ params }: { params: Promise<{ id: s
         label: d.label,
         required: d.required,
         options: (d.options as string[] | null) ?? null,
+        show_when_label: d.show_when_label,
+        show_when_value: d.show_when_value,
       }))}
       assignments={assignments.map((a) => ({
         id: a.id,

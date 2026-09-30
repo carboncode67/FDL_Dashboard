@@ -187,8 +187,25 @@ export async function POST(request: Request, { params }: Params) {
             : String(v);
     }
 
+    // Conditional fields: a field whose show_when_label/value isn't met by
+    // the submitted answers is neither required nor kept — mirrors the
+    // builder/mobile UIs hiding it, so a stale answer from before the
+    // condition flipped (or a client that ignores show_when entirely)
+    // doesn't get persisted or block submission.
+    const isVisible = (d: (typeof defs)[number]): boolean => {
+      if (!d.show_when_label) return true;
+      const parent = defByNorm.get(normalizeLabel(d.show_when_label));
+      if (!parent) return true; // parent field no longer exists — fail open
+      const parentValue = data[String(parent.col_index)];
+      if (parentValue === undefined || parentValue === null) return false;
+      return String(parentValue) === d.show_when_value;
+    };
+    for (const d of defs) {
+      if (!isVisible(d)) delete data[String(d.col_index)];
+    }
+
     const missing = defs
-      .filter((d) => d.required && !matchedColIndexes.has(d.col_index))
+      .filter((d) => d.required && isVisible(d) && !matchedColIndexes.has(d.col_index))
       .map((d) => d.label);
     if (missing.length > 0) {
       return NextResponse.json(

@@ -1310,6 +1310,16 @@ model FormFieldDefinition {
   required   Boolean @default(false)
   options    Json?                     // string[] — only used when field_type = "select"
 
+  // Conditional display: this field is only shown once `show_when_label`'s
+  // answer equals `show_when_value` (single equality check, no AND/OR chains).
+  // References the parent by label, not col_index — labels are already this
+  // feature's effective identity (see the schema route's dup-label check and
+  // the mobile response-matching route), and col_index gets renumbered on
+  // every reorder/add/remove in the builder, which a positional reference
+  // would not survive.
+  show_when_label String?
+  show_when_value String?
+
   Form Form @relation(fields: [form_id], references: [id], onDelete: Cascade)
 
   @@unique([form_id, col_index])

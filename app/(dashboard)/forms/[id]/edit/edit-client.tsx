@@ -12,6 +12,8 @@ type Column = {
   label: string;
   required: boolean;
   options: string[] | null;
+  show_when_label: string | null;
+  show_when_value: string | null;
 };
 
 type Assignment = {

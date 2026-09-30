@@ -20,6 +20,8 @@ type Column = {
   label: string;
   required: boolean;
   options: string[] | null;
+  show_when_label: string | null;
+  show_when_value: string | null;
   optionsText?: string; // raw text of the options input — kept separate from
   // `options` so the displayed value is never re-derived (and silently
   // stripped of spaces/trailing commas) from the already-parsed array
@@ -47,17 +49,41 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
     labelCounts.set(norm, (labelCounts.get(norm) ?? 0) + 1);
   }
   const hasDuplicateLabels = Array.from(labelCounts.values()).some((n) => n > 1);
+  const hasIncompleteConditions = columns.some((c) => c.show_when_label !== null && !c.show_when_value);
 
   function addColumn() {
     setColumns((prev) => [
       ...prev,
-      { col_index: prev.length, field_type: "text", label: "", required: false, options: null, optionsText: "" },
+      {
+        col_index: prev.length,
+        field_type: "text",
+        label: "",
+        required: false,
+        options: null,
+        show_when_label: null,
+        show_when_value: null,
+        optionsText: "",
+      },
     ]);
     setSaved(false);
   }
 
+  // A removed or renamed field can leave other fields' show_when_label
+  // pointing at a label that no longer exists in the list — clear those
+  // rather than let them silently reference a ghost field.
+  function clearDanglingConditions(cols: Column[]): Column[] {
+    const labels = new Set(cols.map((c) => normalizeLabel(c.label)));
+    return cols.map((c) =>
+      c.show_when_label && !labels.has(normalizeLabel(c.show_when_label))
+        ? { ...c, show_when_label: null, show_when_value: null }
+        : c
+    );
+  }
+
   function removeColumn(i: number) {
-    const next = columns.filter((_, idx) => idx !== i).map((c, idx) => ({ ...c, col_index: idx }));
+    const next = clearDanglingConditions(
+      columns.filter((_, idx) => idx !== i).map((c, idx) => ({ ...c, col_index: idx }))
+    );
     setColumns(next);
     setSaved(false);
   }
@@ -67,16 +93,31 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
     if (j < 0 || j >= columns.length) return;
     const next = [...columns];
     [next[i], next[j]] = [next[j], next[i]];
-    setColumns(next.map((c, idx) => ({ ...c, col_index: idx })));
+    // A field can only depend on an earlier one — reordering can invalidate
+    // an existing condition either direction, so re-clear against the new order.
+    const reindexed = next.map((c, idx) => ({ ...c, col_index: idx }));
+    setColumns(
+      reindexed.map((c) => {
+        if (!c.show_when_label) return c;
+        const parent = reindexed.find((p) => normalizeLabel(p.label) === normalizeLabel(c.show_when_label!));
+        return parent && parent.col_index < c.col_index ? c : { ...c, show_when_label: null, show_when_value: null };
+      })
+    );
     setSaved(false);
   }
 
   function updateColumn(i: number, patch: Partial<Column>) {
     const next = [...columns];
     next[i] = { ...next[i], ...patch };
-    setColumns(next);
+    setColumns("label" in patch ? clearDanglingConditions(next) : next);
     setSaved(false);
     setError(null);
+  }
+
+  // Fields eligible as field `i`'s condition parent: earlier in order,
+  // labeled, and not themselves conditional (no chained conditions).
+  function eligibleParents(i: number): Column[] {
+    return columns.filter((c, idx) => idx < i && c.label.trim().length > 0 && !c.show_when_label);
   }
 
   async function handleSave() {
@@ -181,6 +222,74 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
                   Duplicate label — recipients&apos; answers for these fields will collide. Rename one.
                 </p>
               )}
+              {(() => {
+                const parents = eligibleParents(i);
+                if (parents.length === 0) return null;
+                const parent = col.show_when_label
+                  ? parents.find((p) => normalizeLabel(p.label) === normalizeLabel(col.show_when_label!)) ?? null
+                  : null;
+                return (
+                  <div className="ml-[calc(6rem+0.5rem)] flex flex-wrap items-center gap-1.5 text-xs text-stone-600">
+                    <label className="flex items-center gap-1.5 shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={col.show_when_label !== null}
+                        onChange={(e) =>
+                          updateColumn(i, {
+                            show_when_label: e.target.checked ? parents[0].label : null,
+                            show_when_value: null,
+                          })
+                        }
+                        className="rounded"
+                      />
+                      Only show when
+                    </label>
+                    {col.show_when_label !== null && (
+                      <>
+                        <select
+                          className="h-7 rounded-md border border-input bg-transparent px-1.5 text-xs"
+                          value={parent?.label ?? parents[0].label}
+                          onChange={(e) => updateColumn(i, { show_when_label: e.target.value, show_when_value: null })}
+                        >
+                          {parents.map((p) => (
+                            <option key={p.label} value={p.label}>{p.label}</option>
+                          ))}
+                        </select>
+                        <span>is</span>
+                        {parent?.field_type === "boolean" ? (
+                          <select
+                            className="h-7 rounded-md border border-input bg-transparent px-1.5 text-xs"
+                            value={col.show_when_value ?? ""}
+                            onChange={(e) => updateColumn(i, { show_when_value: e.target.value || null })}
+                          >
+                            <option value="" disabled>Choose...</option>
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                          </select>
+                        ) : parent?.field_type === "select" ? (
+                          <select
+                            className="h-7 rounded-md border border-input bg-transparent px-1.5 text-xs"
+                            value={col.show_when_value ?? ""}
+                            onChange={(e) => updateColumn(i, { show_when_value: e.target.value || null })}
+                          >
+                            <option value="" disabled>Choose...</option>
+                            {(parent.options ?? []).map((o) => (
+                              <option key={o} value={o}>{o}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <Input
+                            placeholder="value"
+                            value={col.show_when_value ?? ""}
+                            onChange={(e) => updateColumn(i, { show_when_value: e.target.value || null })}
+                            className="h-7 w-32 text-xs"
+                          />
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             );
           })}
@@ -193,7 +302,7 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
         <Button type="button" variant="outline" size="sm" onClick={addColumn}>
           <Plus className="h-3.5 w-3.5 mr-1" /> Add Field
         </Button>
-        <Button type="button" size="sm" onClick={handleSave} disabled={saving || hasDuplicateLabels}>
+        <Button type="button" size="sm" onClick={handleSave} disabled={saving || hasDuplicateLabels || hasIncompleteConditions}>
           {saving ? "Saving..." : saved ? "Saved" : "Save Fields"}
         </Button>
       </div>
