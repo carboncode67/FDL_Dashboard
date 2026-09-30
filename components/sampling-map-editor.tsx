@@ -2,6 +2,8 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { MapContainer, CircleMarker, GeoJSON, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
@@ -50,8 +52,11 @@ export interface ExperimentTestOption {
 
 export interface SamplingMapAssignmentData {
   id: number
-  user_id: string
-  user_label: string
+  contact_id: number | null
+  user_id: string | null
+  farm_id: number | null
+  farm_experiment_id: number | null
+  target_label: string
 }
 
 const PURPOSES = [
@@ -267,6 +272,9 @@ export interface SamplingMapEditorProps {
   hasExperiment: boolean
   assignments: SamplingMapAssignmentData[]
   users: { id: string; name: string | null; email: string }[]
+  contacts: { id: number; name: string }[]
+  farms: { id: number; Farm_Name: string | null }[]
+  experiments: { id: number; experiment_name: string | null }[]
   forms: { id: number; title: string }[]
   formId: number | null
   proximityRadiusM: number | null
@@ -293,6 +301,9 @@ export default function SamplingMapEditor({
   hasExperiment,
   assignments,
   users,
+  contacts,
+  farms,
+  experiments,
   forms,
   formId,
   proximityRadiusM,
@@ -301,6 +312,7 @@ export default function SamplingMapEditor({
   basemapBufferM,
   basemapMaxZoom,
 }: SamplingMapEditorProps) {
+  const router = useRouter()
   const [polygons, setPolygons] = useState<SamplingMapPolygonData[]>(initialPolygons)
   const [points, setPoints] = useState<SamplingPointData[]>(initialPoints)
   const [isSatellite, setIsSatellite] = useState(false)
@@ -707,6 +719,16 @@ export default function SamplingMapEditor({
   const polygonLabel = (id: number | null) =>
     id == null ? null : polygons.find((p) => p.id === id)?.label ?? `Polygon #${id}`
 
+  // Every action in this editor (drawing a polygon, placing a point, importing a boundary,
+  // changing a toolbar setting) already saves itself immediately via its own API call — there's
+  // nothing left to persist here. This button exists purely for reassurance (Planned Changes
+  // item 26 follow-up): people expect a "Finish"/"Done" step that confirms the work is saved
+  // before they navigate away, the same role draw-field-client.tsx's "Done" button plays.
+  function handleFinish() {
+    toast.success(`"${mapName}" saved`)
+    router.push(`/farms/${farmId}`)
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
       <div className="flex items-center gap-3 px-4 h-14 border-b border-stone-200 bg-white shrink-0">
@@ -849,6 +871,9 @@ export default function SamplingMapEditor({
             </Button>
           )}
           <SatelliteToggleButton satellite={isSatellite} onToggle={() => setIsSatellite((v) => !v)} />
+          <Button size="sm" variant="success" onClick={handleFinish}>
+            Finish
+          </Button>
         </div>
       </div>
 
@@ -1147,6 +1172,7 @@ export default function SamplingMapEditor({
       <ImportBoundaryDialog
         open={importOpen}
         onOpenChange={setImportOpen}
+        farmId={farmId}
         fields={importableFields}
         zones={importableZones}
         onImport={handleImport}
@@ -1164,7 +1190,14 @@ export default function SamplingMapEditor({
           <DialogHeader>
             <DialogTitle>Send to Phone</DialogTitle>
           </DialogHeader>
-          <SamplingMapAssignmentPicker samplingMapId={samplingMapId} initialAssignments={assignments} users={users} />
+          <SamplingMapAssignmentPicker
+            samplingMapId={samplingMapId}
+            initialAssignments={assignments}
+            contacts={contacts}
+            users={users}
+            farms={farms}
+            experiments={experiments}
+          />
         </DialogContent>
       </Dialog>
     </div>

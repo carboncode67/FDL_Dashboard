@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ export function FarmForm({ onSuccess, initialData, farmId }: FarmFormProps) {
           longitude,
         }),
       });
+      toast.success(farmId ? "Farm updated" : "Farm created");
       onSuccess?.();
     } finally {
       setSaving(false);

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
-import { ASSIGNMENT_INCLUDE } from "@/lib/sampling-maps";
+import { ASSIGNMENT_INCLUDE, resolveTargetLabel } from "@/lib/sampling-maps";
 import { runWithTenant } from "@/lib/lab-db";
 
 type Params = { params: Promise<{ id: string }> };
@@ -21,14 +21,17 @@ export async function GET(_req: Request, { params }: Params) {
   return NextResponse.json(
     assignments.map((a) => ({
       id: a.id,
+      contact_id: a.contact_id,
       user_id: a.user_id,
-      user_label: a.User?.name ?? a.User?.email ?? "Unknown user",
+      farm_id: a.farm_id,
+      farm_experiment_id: a.farm_experiment_id,
+      target_label: resolveTargetLabel(a),
     }))
   );
   });
 }
 
-// Body: { user_id: string }
+// Body: exactly one of contact_id / user_id / farm_id / farm_experiment_id.
 export async function POST(req: Request, { params }: Params) {
   return runWithTenant(async () => {
   const session = await auth();
@@ -37,18 +40,35 @@ export async function POST(req: Request, { params }: Params) {
 
   const { id } = await params;
   const samplingMapId = parseInt(id);
-  const body = (await req.json()) as { user_id?: string };
+  const body = (await req.json()) as {
+    contact_id?: number | null;
+    user_id?: string | null;
+    farm_id?: number | null;
+    farm_experiment_id?: number | null;
+  };
 
-  if (!body.user_id) {
-    return NextResponse.json({ error: "user_id is required" }, { status: 400 });
+  const targets = [body.contact_id, body.user_id, body.farm_id, body.farm_experiment_id].filter(
+    (v) => v !== undefined && v !== null
+  );
+  if (targets.length !== 1) {
+    return NextResponse.json(
+      { error: "Exactly one of contact_id, user_id, farm_id, farm_experiment_id is required" },
+      { status: 400 }
+    );
   }
 
   const assignment = await prisma.samplingMapAssignment.create({
-    data: { sampling_map_id: samplingMapId, user_id: body.user_id },
+    data: {
+      sampling_map_id: samplingMapId,
+      contact_id: body.contact_id ?? null,
+      user_id: body.user_id ?? null,
+      farm_id: body.farm_id ?? null,
+      farm_experiment_id: body.farm_experiment_id ?? null,
+    },
     include: ASSIGNMENT_INCLUDE,
   });
   return NextResponse.json(
-    { id: assignment.id, user_id: assignment.user_id, user_label: assignment.User?.name ?? assignment.User?.email ?? "Unknown user" },
+    { ...assignment, target_label: resolveTargetLabel(assignment) },
     { status: 201 }
   );
   });

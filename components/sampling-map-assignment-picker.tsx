@@ -5,43 +5,69 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type TargetKind = "contact" | "user" | "farm" | "experiment";
+
 type Assignment = {
   id: number;
-  user_id: string;
-  user_label: string;
+  contact_id: number | null;
+  user_id: string | null;
+  farm_id: number | null;
+  farm_experiment_id: number | null;
+  target_label: string;
 };
 
 interface Props {
   samplingMapId: number;
   initialAssignments: Assignment[];
+  contacts: { id: number; name: string }[];
   users: { id: string; name: string | null; email: string }[];
+  farms: { id: number; Farm_Name: string | null }[];
+  experiments: { id: number; experiment_name: string | null }[];
 }
 
-// Simplified GeofenceAssignmentPicker (components/geofence-assignment-picker.tsx) with no
-// target-kind selector -- sampling maps are lab-member-only work (no farmer/Contact channel
-// involved), so there's only one thing to pick.
-export function SamplingMapAssignmentPicker({ samplingMapId, initialAssignments, users }: Props) {
+const KIND_LABELS: Record<TargetKind, string> = {
+  contact: "Farmer",
+  user: "Lab Member",
+  farm: "Whole Farm",
+  experiment: "Whole Experiment",
+};
+
+// Same shape as GeofenceAssignmentPicker (components/geofence-assignment-picker.tsx) — sampling
+// maps can now be sent to a farmer, a lab member, or broadly to a farm/experiment, same as
+// Forms/Geofences (Planned Changes item 15/16).
+export function SamplingMapAssignmentPicker({ samplingMapId, initialAssignments, contacts, users, farms, experiments }: Props) {
   const [assignments, setAssignments] = useState<Assignment[]>(initialAssignments);
-  const [userId, setUserId] = useState<string>("");
+  const [kind, setKind] = useState<TargetKind>("contact");
+  const [targetId, setTargetId] = useState<string>("");
   const [adding, setAdding] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
 
-  const assignedIds = new Set(assignments.map((a) => a.user_id));
-  const options = users.filter((u) => !assignedIds.has(u.id));
+  const optionsByKind: Record<TargetKind, { value: string; label: string }[]> = {
+    contact: contacts.map((c) => ({ value: String(c.id), label: c.name })),
+    user: users.map((u) => ({ value: u.id, label: u.name ?? u.email })),
+    farm: farms.map((f) => ({ value: String(f.id), label: f.Farm_Name ?? `Farm #${f.id}` })),
+    experiment: experiments.map((e) => ({ value: String(e.id), label: e.experiment_name ?? `Experiment #${e.id}` })),
+  };
 
   async function handleAdd() {
-    if (!userId) return;
+    if (!targetId) return;
     setAdding(true);
     try {
+      const body: Record<string, string | number> = {};
+      if (kind === "contact") body.contact_id = parseInt(targetId);
+      if (kind === "user") body.user_id = targetId;
+      if (kind === "farm") body.farm_id = parseInt(targetId);
+      if (kind === "experiment") body.farm_experiment_id = parseInt(targetId);
+
       const res = await fetch(`/api/sampling-maps/${samplingMapId}/assignments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         const created = await res.json();
         setAssignments((prev) => [...prev, created]);
-        setUserId("");
+        setTargetId("");
       }
     } finally {
       setAdding(false);
@@ -63,7 +89,8 @@ export function SamplingMapAssignmentPicker({ samplingMapId, initialAssignments,
   return (
     <div className="space-y-3">
       <p className="text-xs text-stone-500">
-        Send this sampling map to a lab member&apos;s phone. It appears in their app&apos;s Sampling Maps list.
+        Send this map to an individual farmer or lab member, or broadly to everyone tied to a farm or
+        experiment.
       </p>
 
       {assignments.length === 0 ? (
@@ -72,7 +99,12 @@ export function SamplingMapAssignmentPicker({ samplingMapId, initialAssignments,
         <ul className="divide-y">
           {assignments.map((a) => (
             <li key={a.id} className="flex items-center justify-between gap-2 py-1.5 text-sm">
-              <span>{a.user_label}</span>
+              <span>
+                {a.target_label}
+                <span className="text-xs text-stone-400 ml-2">
+                  ({KIND_LABELS[a.contact_id !== null ? "contact" : a.user_id !== null ? "user" : a.farm_id !== null ? "farm" : "experiment"]})
+                </span>
+              </span>
               <button
                 type="button"
                 onClick={() => handleRemove(a.id)}
@@ -88,13 +120,25 @@ export function SamplingMapAssignmentPicker({ samplingMapId, initialAssignments,
       )}
 
       <div className="flex gap-2 items-center pt-1">
-        <select className={cn("flex-1", selectClass)} value={userId} onChange={(e) => setUserId(e.target.value)}>
-          <option value="">— select a lab member —</option>
-          {options.map((u) => (
-            <option key={u.id} value={u.id}>{u.name ?? u.email}</option>
+        <select
+          className={selectClass}
+          value={kind}
+          onChange={(e) => {
+            setKind(e.target.value as TargetKind);
+            setTargetId("");
+          }}
+        >
+          {(Object.keys(KIND_LABELS) as TargetKind[]).map((k) => (
+            <option key={k} value={k}>{KIND_LABELS[k]}</option>
           ))}
         </select>
-        <Button type="button" size="sm" onClick={handleAdd} disabled={!userId || adding}>
+        <select className={cn("flex-1", selectClass)} value={targetId} onChange={(e) => setTargetId(e.target.value)}>
+          <option value="">— select —</option>
+          {optionsByKind[kind].map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <Button type="button" size="sm" onClick={handleAdd} disabled={!targetId || adding}>
           {adding ? "Adding..." : "Add"}
         </Button>
       </div>

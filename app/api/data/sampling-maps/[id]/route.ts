@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
 import { runWithLab } from "@/lib/lab-db";
-import { isSamplingMapVisibleToLabMember } from "@/lib/sampling-maps";
+import { isSamplingMapVisibleToContact, isSamplingMapVisibleToLabMember } from "@/lib/sampling-maps";
 
 const INCLUDE = {
   Farm: { select: { Farm_Name: true, latitude: true, longitude: true } },
@@ -25,18 +25,15 @@ export async function GET(
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
   return runWithLab(auth.labSlug, async () => {
-    if (auth.kind !== "labMember")
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-
     const { id } = await params;
     const mapId = parseInt(id);
     if (isNaN(mapId))
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
-    const visible = await isSamplingMapVisibleToLabMember(
-      mapId,
-      auth.labMember.id,
-    );
+    const visible =
+      auth.kind === "contact"
+        ? await isSamplingMapVisibleToContact(mapId, auth.contact)
+        : await isSamplingMapVisibleToLabMember(mapId, auth.labMember.id);
     if (!visible)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 

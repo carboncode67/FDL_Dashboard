@@ -22,6 +22,7 @@ import Link from "next/link";
 import { RelationPicker } from "@/components/relation-picker";
 import { DocumentUpload } from "@/components/document-upload";
 import { UnlinkExperimentButton } from "./unlink-experiment-button";
+import { UnlinkRelationButton } from "@/components/unlink-relation-button";
 import { AnnotationTab } from "./annotation-tab";
 import { runWithTenant } from "@/lib/lab-db";
 
@@ -35,7 +36,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const showEdit = canEdit(role);
   const showDelete = canDelete(role, editMode);
 
-  const [project, allExperiments, allLabMembers, cvatTasks, photoCount] = await Promise.all([
+  const [project, allExperiments, allLabMembers, allFarms, cvatTasks, photoCount] = await Promise.all([
     prisma.project.findUnique({
       where: { id: projectId },
       include: {
@@ -50,6 +51,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         TreatmentProtocols: { include: { Treatment: true } },
         ExperimentZones: { include: { Farm: true } },
         Documents: { orderBy: { uploaded_at: "desc" } },
+        // Not `{ include: { Farm: true } }` — some legacy _nc_m2m_Projects_Farms rows
+        // reference a farm that no longer exists (found live 2026-09-30: Prisma throws
+        // "Inconsistent query result: Field Farm is required to return data, got null
+        // instead" on a required-relation include the moment any dangling FK is hit, which
+        // is a page-level crash, not a per-row null). Farm_Name is joined client-side below
+        // against `allFarms` instead, which naturally drops any dangling reference.
+        ProjectFarms: { select: { Farms_id: true } },
       },
     }),
     prisma.farmExperiment.findMany({
@@ -58,6 +66,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       orderBy: { experiment_name: "asc" },
     }),
     prisma.user.findMany({ select: { id: true, name: true, email: true } }),
+    prisma.farm.findMany({ select: { id: true, Farm_Name: true }, orderBy: { Farm_Name: "asc" } }),
     prisma.cvatTask.findMany({ where: { project_id: projectId }, orderBy: { created_at: "desc" } }),
     prisma.photo.count({ where: { project_id: projectId, status: { gte: 2 } } }),
   ]);
@@ -76,6 +85,17 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const availableMembers = allLabMembers
     .filter((m) => !linkedMemberIds.has(m.id))
     .map((m) => ({ id: m.id, name: m.name ?? m.email }));
+
+  const linkedFarmIds = new Set(project.ProjectFarms.map((pf) => pf.Farms_id));
+  const availableFarms = allFarms
+    .filter((f) => !linkedFarmIds.has(f.id))
+    .map((f) => ({ id: f.id, name: f.Farm_Name ?? `Farm #${f.id}` }));
+  const allFarmsById = new Map(allFarms.map((f) => [f.id, f]));
+  // Drops any dangling Farms_id that no longer matches a real farm (see the ProjectFarms
+  // query comment above) instead of crashing on it.
+  const linkedFarms = project.ProjectFarms
+    .map((pf) => allFarmsById.get(pf.Farms_id))
+    .filter((f): f is NonNullable<typeof f> => f !== undefined);
 
   return (
     <div className="space-y-6">
@@ -125,6 +145,36 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                 <div><span className="text-stone-500">Total Budget</span><p className="font-medium mt-0.5">{project.Total_Budget ? `$${Number(project.Total_Budget).toLocaleString()}` : "—"}</p></div>
                 <div className="col-span-2"><span className="text-stone-500">Sponsors</span><p className="font-medium mt-0.5">{project.Project_Sponsors ?? "—"}</p></div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Linked Farms ({linkedFarms.length})</CardTitle>
+              {showEdit && (
+                <RelationPicker label="Farm" options={availableFarms} apiPath={`/api/projects/${project.id}/farms`} />
+              )}
+            </CardHeader>
+            <CardContent>
+              {linkedFarms.length === 0 ? (
+                <p className="text-sm text-stone-500">No farms linked directly — farms with an experiment assigned to this project also appear on the Experiments tab.</p>
+              ) : (
+                <Table>
+                  <TableHeader><TableRow><TableHead>Farm Name</TableHead>{showEdit && <TableHead></TableHead>}</TableRow></TableHeader>
+                  <TableBody>
+                    {linkedFarms.map((farm) => (
+                      <TableRow key={farm.id}>
+                        <TableCell><Link href={`/farms/${farm.id}`} className="text-blue-600 hover:underline">{farm.Farm_Name ?? `Farm #${farm.id}`}</Link></TableCell>
+                        {showEdit && (
+                          <TableCell>
+                            <UnlinkRelationButton deletePath={`/api/projects/${project.id}/farms?farmId=${farm.id}`} />
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

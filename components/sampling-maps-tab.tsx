@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,11 +29,12 @@ interface Props {
   farmId: number;
   maps: SamplingMapRow[];
   experiments: ExperimentOption[];
+  fieldCount: number;
   canCreate: boolean;
   canDelete: boolean;
 }
 
-export function SamplingMapsTab({ farmId, maps, experiments, canCreate, canDelete }: Props) {
+export function SamplingMapsTab({ farmId, maps, experiments, fieldCount, canCreate, canDelete }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -67,6 +69,7 @@ export function SamplingMapsTab({ farmId, maps, experiments, canCreate, canDelet
         return;
       }
       const created = await res.json();
+      toast.success(`"${name.trim()}" created`);
       router.push(`/farms/${farmId}/maps/${created.id}`);
     } finally {
       setSaving(false);
@@ -78,7 +81,10 @@ export function SamplingMapsTab({ farmId, maps, experiments, canCreate, canDelet
     setDeletingId(id);
     try {
       const res = await fetch(`/api/sampling-maps/${id}`, { method: "DELETE" });
-      if (res.ok) router.refresh();
+      if (res.ok) {
+        toast.success("Map deleted");
+        router.refresh();
+      }
     } finally {
       setDeletingId(null);
     }
@@ -149,6 +155,17 @@ export function SamplingMapsTab({ farmId, maps, experiments, canCreate, canDelet
             <DialogTitle>New Sampling Map</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {fieldCount === 0 && (
+              <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 space-y-2">
+                <p className="text-sm text-amber-800">
+                  This farm has no fields yet. You can still draw a map by hand, but adding a
+                  field first lets you import its boundary directly.
+                </p>
+                <Button variant="outline" size="sm" render={<Link href={`/farms/${farmId}/draw-field`} target="_blank" rel="noopener noreferrer" />}>
+                  Add a field →
+                </Button>
+              </div>
+            )}
             <Input
               value={name}
               onChange={(e) => { setName(e.target.value); setError(""); }}

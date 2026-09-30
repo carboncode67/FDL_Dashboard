@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { canEdit, type Role } from "@/lib/roles";
 import { matchDocumentToTemplate } from "@/lib/document-template-match";
 import { matchAndTriggerPipelines } from "@/lib/pipeline-match";
+import { receiveDocumentUpload } from "@/lib/document-upload";
 import { runWithTenant } from "@/lib/lab-db";
 
 export const runtime = "nodejs";
@@ -51,23 +52,17 @@ export async function POST(
   const test = await prisma.test.findUnique({ where: { id: testId } });
   if (!test) return NextResponse.json({ error: "Test not found" }, { status: 404 });
 
-  const formData = await req.formData();
-  const file = formData.get("file") as File | null;
-  const description = (formData.get("description") as string | null) ?? undefined;
+  const dir = path.join(DATA_DIR, "documents");
+  const received = await receiveDocumentUpload(req, dir);
+  if ("error" in received) return NextResponse.json({ error: received.error }, { status: received.status });
+  const { filename, originalName, buffer, size, fields } = received;
+  const description = fields.description?.trim() || undefined;
 
-  if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
-
-  const ext = path.extname(file.name).toLowerCase();
+  const ext = path.extname(originalName).toLowerCase();
   if (!ALLOWED_EXTS.has(ext)) {
+    fs.unlinkSync(path.join(dir, filename));
     return NextResponse.json({ error: `File type ${ext} not allowed` }, { status: 400 });
   }
-
-  const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const filename = `${Date.now()}_${sanitizedName}`;
-  const dir = path.join(DATA_DIR, "documents");
-  fs.mkdirSync(dir, { recursive: true });
-  const buffer = Buffer.from(await file.arrayBuffer());
-  fs.writeFileSync(path.join(dir, filename), buffer);
 
   // test_id comes from the page the lab member is already on — a template
   // match only fills in data_table_id (for pipeline scoping); it never
@@ -79,9 +74,9 @@ export async function POST(
     data: {
       test_id: testId,
       filename,
-      original_name: file.name,
+      original_name: originalName,
       file_type: ext.slice(1),
-      file_size: file.size,
+      file_size: size,
       category: "test_form",
       description: description ?? null,
       data_table_id: match?.dataTableId ?? null,

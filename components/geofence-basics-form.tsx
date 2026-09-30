@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,7 @@ export function GeofenceBasicsForm({ geofenceId, onSuccess, initialData, forms, 
           ...(isDuration ? {} : { linked_form_id: linkedFormId, linked_sampling_map_id: linkedSamplingMapId }),
         }),
       });
+      toast.success("Geofence saved");
       onSuccess?.();
     } finally {
       setSaving(false);

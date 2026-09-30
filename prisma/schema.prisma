@@ -187,6 +187,7 @@ model Farm {
   PipelineRuns     PipelineRun[]
   PipelineOutputRasters PipelineOutputRaster[]
   Basemaps         Basemap[]
+  SamplingMapAssignments SamplingMapAssignment[]
   SamplingMaps     SamplingMap[]
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
@@ -529,6 +530,7 @@ model Contact {
   GeofenceEvents  GeofenceEvent[]
   GeofenceZoneTimeSessions GeofenceZoneTimeSession[]
   EquipmentLoans  EquipmentLoan[]
+  SamplingMapAssignments SamplingMapAssignment[]
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
@@ -745,6 +747,7 @@ model FarmExperiment {
   FormAssignments        FormAssignment[]
   GeofenceAssignments    GeofenceAssignment[]
   SamplingMaps           SamplingMap[]
+  SamplingMapAssignments SamplingMapAssignment[]
 
   @@map("Farm_Experiments")
   @@schema("pgntarg2udzj1f3")
@@ -1914,16 +1917,25 @@ model SamplingPoint {
 // Sampling maps are lab-only work (no farmer/Contact channel involved, unlike Forms/Geofences),
 // so this is a straight user_id FK rather than the exactly-one-of-N target shape those two use.
 model SamplingMapAssignment {
-  id              Int      @id @default(autoincrement())
-  sampling_map_id Int
-  user_id         String
-  created_at      DateTime @default(now())
+  id                 Int      @id @default(autoincrement())
+  sampling_map_id    Int
+  contact_id         Int?
+  user_id            String?
+  farm_id            Int?
+  farm_experiment_id Int?
+  created_at         DateTime @default(now())
 
-  SamplingMap SamplingMap @relation(fields: [sampling_map_id], references: [id], onDelete: Cascade)
-  User        User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  SamplingMap    SamplingMap     @relation(fields: [sampling_map_id], references: [id], onDelete: Cascade)
+  Contact        Contact?        @relation(fields: [contact_id], references: [id], onDelete: Cascade)
+  User           User?           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  Farm           Farm?           @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  FarmExperiment FarmExperiment? @relation(fields: [farm_experiment_id], references: [id], onDelete: Cascade)
 
   @@index([sampling_map_id])
+  @@index([contact_id])
   @@index([user_id])
+  @@index([farm_id])
+  @@index([farm_experiment_id])
   @@map("Sampling_Map_Assignments")
   @@schema("pgntarg2udzj1f3")
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -13,6 +14,7 @@ export interface ImportableBoundary {
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
+  farmId: number
   fields: ImportableBoundary[]
   zones: ImportableBoundary[]
   onImport: (boundary: ImportableBoundary) => Promise<void> | void
@@ -21,7 +23,8 @@ interface Props {
 /** Lets a user copy an existing Field or ExperimentZone boundary in as a
  *  SamplingMapPolygon instead of redrawing it — see the "source" field on
  *  Sampling_Map_Polygons and POST /api/sampling-maps/[id]/polygons. */
-export function ImportBoundaryDialog({ open, onOpenChange, fields, zones, onImport }: Props) {
+export function ImportBoundaryDialog({ open, onOpenChange, farmId, fields, zones, onImport }: Props) {
+  const router = useRouter()
   const [importingKey, setImportingKey] = useState<string | null>(null)
 
   async function handleImport(boundary: ImportableBoundary) {
@@ -45,7 +48,22 @@ export function ImportBoundaryDialog({ open, onOpenChange, fields, zones, onImpo
           <div>
             <p className="text-xs font-semibold text-stone-500 uppercase mb-1.5">Fields</p>
             {fields.length === 0 ? (
-              <p className="text-sm text-stone-400 italic">No fields with a drawn boundary</p>
+              <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 space-y-2">
+                <p className="text-sm text-amber-800">No fields with a drawn boundary yet.</p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    render={<a href={`/farms/${farmId}/draw-field`} target="_blank" rel="noopener noreferrer" />}
+                  >
+                    Add a field →
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => router.refresh()}>
+                    I added one, refresh
+                  </Button>
+                </div>
+              </div>
             ) : (
               <div className="space-y-1">
                 {fields.map((f) => (

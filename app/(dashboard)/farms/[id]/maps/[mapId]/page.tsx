@@ -6,7 +6,7 @@ import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import SamplingMapEditorWrapper from "@/components/sampling-map-editor-wrapper";
 import type { ImportableBoundary } from "@/components/import-boundary-dialog";
 import { pipelineOutputToMapRaster, basemapToMapRaster } from "@/lib/map-rasters";
-import { ASSIGNMENT_INCLUDE } from "@/lib/sampling-maps";
+import { ASSIGNMENT_INCLUDE, resolveTargetLabel } from "@/lib/sampling-maps";
 import { runWithTenant } from "@/lib/lab-db";
 
 export default async function SamplingMapDetailRoute({
@@ -53,7 +53,7 @@ export default async function SamplingMapDetailRoute({
   const scope = await getEffectiveScope(session?.user?.id ?? null, session?.user?.category);
   if (!scopeIncludesFarm(scope, farmId)) notFound();
 
-  const [assignments, users, forms] = await Promise.all([
+  const [assignments, users, forms, contacts, farms, experiments] = await Promise.all([
     prisma.samplingMapAssignment.findMany({
       where: { sampling_map_id: map.id },
       include: ASSIGNMENT_INCLUDE,
@@ -65,6 +65,9 @@ export default async function SamplingMapDetailRoute({
       select: { id: true, title: true },
       orderBy: { title: "asc" },
     }),
+    prisma.contact.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.farm.findMany({ select: { id: true, Farm_Name: true }, orderBy: { Farm_Name: "asc" } }),
+    prisma.farmExperiment.findMany({ select: { id: true, experiment_name: true }, orderBy: { experiment_name: "asc" } }),
   ]);
 
   const importableFields: ImportableBoundary[] = map.Farm.Fields.map((f) => ({
@@ -119,10 +122,16 @@ export default async function SamplingMapDetailRoute({
       hasExperiment={map.experiment_id != null}
       assignments={assignments.map((a) => ({
         id: a.id,
+        contact_id: a.contact_id,
         user_id: a.user_id,
-        user_label: a.User?.name ?? a.User?.email ?? "Unknown user",
+        farm_id: a.farm_id,
+        farm_experiment_id: a.farm_experiment_id,
+        target_label: resolveTargetLabel(a),
       }))}
       users={users}
+      contacts={contacts}
+      farms={farms}
+      experiments={experiments}
       forms={forms}
       formId={map.form_id}
       proximityRadiusM={map.proximity_radius_m}

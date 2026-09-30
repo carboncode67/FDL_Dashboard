@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +14,10 @@ interface Props {
 
 type Status = "idle" | "uploading" | "success" | "error";
 
-const ALLOWED_EXTENSIONS = [".pdf", ".csv", ".docx", ".doc", ".xlsx", ".txt"];
+// Any file type is accepted (Planned Changes item 24) — the server enforces the 100MB cap
+// (lib/document-upload.ts's MAX_DOCUMENT_BYTES), checked here too so a too-large file is
+// rejected before spending time uploading it.
+const MAX_BYTES = 100 * 1024 * 1024;
 
 export function DocumentUpload({ farmId, projectId, testId }: Props) {
   const router = useRouter();
@@ -25,6 +29,12 @@ export function DocumentUpload({ farmId, projectId, testId }: Props) {
   const [message, setMessage] = useState("");
 
   function handleFile(f: File) {
+    if (f.size > MAX_BYTES) {
+      setSelectedFile(null);
+      setStatus("error");
+      setMessage(`"${f.name}" is larger than the 100MB limit`);
+      return;
+    }
     setSelectedFile(f);
     setStatus("idle");
     setMessage("");
@@ -53,9 +63,11 @@ export function DocumentUpload({ farmId, projectId, testId }: Props) {
       if (!res.ok) {
         setStatus("error");
         setMessage(json.error ?? "Upload failed");
+        toast.error(json.error ?? "Upload failed");
       } else {
         setStatus("success");
         setMessage(`Uploaded "${selectedFile.name}"`);
+        toast.success(`Uploaded "${selectedFile.name}"`);
         setSelectedFile(null);
         setDescription("");
         if (fileRef.current) fileRef.current.value = "";
@@ -93,7 +105,6 @@ export function DocumentUpload({ farmId, projectId, testId }: Props) {
             <input
               ref={fileRef}
               type="file"
-              accept={ALLOWED_EXTENSIONS.join(",")}
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -106,7 +117,7 @@ export function DocumentUpload({ farmId, projectId, testId }: Props) {
               <div>
                 <p className="text-sm text-stone-500">Drop a file here or click to browse</p>
                 <p className="text-xs text-stone-400 mt-1">
-                  Supported: .pdf, .csv, .docx, .doc, .xlsx, .txt
+                  Any file type, up to 100MB
                 </p>
               </div>
             )}

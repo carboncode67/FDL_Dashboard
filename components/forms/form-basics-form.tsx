@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ export function FormBasicsForm({ onSuccess, formId, initialData }: FormBasicsFor
         setError(form.error ?? "Failed to save form");
         return;
       }
+      toast.success(formId ? "Form updated" : "Form created");
       onSuccess?.(form);
     } finally {
       setSaving(false);

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import Link from "next/link";
 import { RelationPicker } from "@/components/relation-picker";
+import { UnlinkRelationButton } from "@/components/unlink-relation-button";
 import FarmMap from "@/components/farm-map-wrapper";
 import { pipelineOutputToMapRaster, basemapToMapRaster } from "@/lib/map-rasters";
 import ReactMarkdown from "react-markdown";
@@ -60,7 +61,12 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
       where: { id: farmId },
       include: {
         Fields: true,
-        ProjectFarms: { include: { Project: true } },
+        // Not `{ include: { Project: true } }` — a dangling Projects_id (legacy junction row
+        // pointing at a deleted project) makes Prisma throw on a required-relation include
+        // the moment it's hit, crashing the whole page (see the analogous fix + comment on
+        // ProjectFarms in app/(dashboard)/projects/[id]/page.tsx). Project_Name etc. are
+        // joined client-side below against `allProjects` instead.
+        ProjectFarms: { select: { Projects_id: true } },
         ExperimentZones: true,
         Contacts: {
           orderBy: { name: "asc" },
@@ -111,7 +117,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
         },
       },
     }),
-    prisma.project.findMany({ select: { id: true, Project_Name: true } }),
+    prisma.project.findMany({ select: { id: true, Project_Name: true, Status: true, Year_Started: true } }),
     prisma.farmExperiment.findMany({
       where: { farm_id: farmId },
       orderBy: { id: "asc" },
@@ -155,11 +161,24 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
     .filter((p) => !linkedProjectIds.has(p.id))
     .map((p) => ({ id: p.id, name: p.Project_Name ?? `Project #${p.id}` }));
 
+  // Merge direct links (farm.ProjectFarms — Planned Changes item 25) with projects inferred
+  // from an assigned experiment, deduped by project id. Joined against `allProjects` rather
+  // than a nested Prisma include (see the ProjectFarms query comment above); a dangling
+  // Projects_id with no match in allProjects is silently dropped. Only a direct link can be
+  // unlinked from here; an experiment-derived entry disappears on its own once the experiment
+  // is reassigned.
+  const allProjectsById = new Map(allProjects.map((p) => [p.id, p]));
   const linkedProjects = [
     ...new Map(
-      farmExperiments
-        .filter((e) => e.project_id && e.Project)
-        .map((e) => [e.project_id, e.Project!])
+      [
+        ...farm.ProjectFarms
+          .map((pf) => allProjectsById.get(pf.Projects_id))
+          .filter((p): p is NonNullable<typeof p> => p !== undefined)
+          .map((p) => [p.id, { ...p, direct: true }] as const),
+        ...farmExperiments
+          .filter((e) => e.project_id && e.Project)
+          .map((e) => [e.project_id!, { ...e.Project!, direct: linkedProjectIds.has(e.project_id!) }] as const),
+      ]
     ).values(),
   ];
 
@@ -386,21 +405,31 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             </Card>
 
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-base">Linked Projects ({linkedProjects.length})</CardTitle>
+                {showEdit && (
+                  <RelationPicker label="Project" options={availableProjects} apiPath={`/api/farms/${farm.id}/projects`} />
+                )}
               </CardHeader>
               <CardContent>
                 {linkedProjects.length === 0 ? (
-                  <p className="text-sm text-stone-500">No projects linked — assign an experiment to a project to link it here.</p>
+                  <p className="text-sm text-stone-500">No projects linked — link one directly, or assign an experiment to a project.</p>
                 ) : (
                   <Table>
-                    <TableHeader><TableRow><TableHead>Project Name</TableHead><TableHead>Status</TableHead><TableHead>Year Started</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead>Project Name</TableHead><TableHead>Status</TableHead><TableHead>Year Started</TableHead>{showEdit && <TableHead></TableHead>}</TableRow></TableHeader>
                     <TableBody>
                       {linkedProjects.map((proj) => (
                         <TableRow key={proj.id}>
                           <TableCell><Link href={`/projects/${proj.id}`} className="text-blue-600 hover:underline">{proj.Project_Name ?? `Project #${proj.id}`}</Link></TableCell>
                           <TableCell><Badge variant={proj.Status === "Active" ? "default" : "secondary"}>{proj.Status ?? "—"}</Badge></TableCell>
                           <TableCell>{proj.Year_Started ?? "—"}</TableCell>
+                          {showEdit && (
+                            <TableCell>
+                              {proj.direct && (
+                                <UnlinkRelationButton deletePath={`/api/farms/${farm.id}/projects?projectId=${proj.id}`} />
+                              )}
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -540,6 +569,8 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
           />
 
           {showCreate && <BasemapUpload farmId={farm.id} />}
+
+          {showCreate && <DocumentUpload farmId={farm.id} />}
 
           <SpatialContextCard
             farmId={farm.id}
@@ -770,6 +801,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
               _count: m._count,
             }))}
             experiments={farmExperiments.map((e) => ({ id: e.id, experiment_name: e.experiment_name }))}
+            fieldCount={farm.Fields.length}
             canCreate={showCreate}
             canDelete={showDelete}
           />

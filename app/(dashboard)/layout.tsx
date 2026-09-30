@@ -1,3 +1,4 @@
+import { Toaster } from "sonner";
 import { Sidebar } from "@/components/sidebar";
 import { Header } from "@/components/header";
 import { AuthSessionProvider } from "@/components/session-provider";
@@ -35,6 +36,7 @@ export default async function DashboardLayout({
 
   return (
     <AuthSessionProvider>
+      <Toaster position="bottom-right" richColors closeButton />
       <div className="flex min-h-screen bg-stone-50">
         <Sidebar role={role} className="hidden lg:flex" />
         <div className="flex flex-col flex-1 min-w-0">

@@ -27,6 +27,10 @@ export interface FieldDrawMapProps {
   farmLat?: number
   farmLng?: number
   fullscreen?: boolean
+  /** Point to fly the map to (e.g. from an address search), or null for none pending. */
+  flyToTarget?: { lat: number; lng: number } | null
+  /** Bump whenever `flyToTarget` should trigger a new fly-to. */
+  flyToToken?: number
 }
 
 function extractBounds(geojsonStr: string): L.LatLngBounds | null {
@@ -150,6 +154,22 @@ function DrawControls({
   return null
 }
 
+// Address search (Planned Changes item 17) — pans/zooms to a geocoded point on demand. Keyed
+// off `token` rather than the lat/lng values themselves so repeating the exact same search
+// twice (or an unrelated re-render) doesn't re-trigger the fly, matching BoundsAdjuster's
+// hasFit-once convention below.
+function FlyToTarget({ target, token }: { target: { lat: number; lng: number } | null; token?: number }) {
+  const map = useMap()
+  const prevToken = useRef(token)
+  useEffect(() => {
+    if (!target || token === undefined || token === prevToken.current) return
+    prevToken.current = token
+    map.flyTo([target.lat, target.lng], 16)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
+  return null
+}
+
 function BoundsAdjuster({ bounds }: { bounds: L.LatLngBoundsExpression }) {
   const map = useMap()
   const hasFit = useRef(false)
@@ -174,6 +194,8 @@ export default function FieldDrawMap({
   farmLat,
   farmLng,
   fullscreen = false,
+  flyToTarget = null,
+  flyToToken,
 }: FieldDrawMapProps) {
   const [isSatellite, setIsSatellite] = useState(false)
 
@@ -206,6 +228,13 @@ export default function FieldDrawMap({
           onEachFeature={(_, layer) => {
             layer.bindTooltip(f.name, { sticky: true })
             layer.on("click", () => onFieldSelect?.(f.id))
+            // Exclude this read-only reference layer from geoman's global Edit Mode toolbar
+            // button (map.pm.toggleGlobalEditMode() would otherwise silently give it draggable
+            // vertices — no pm:edit listener is attached here, so any drag was captured nowhere
+            // and lost on save). Without this, a user could reshape a field's boundary on the
+            // map without ever going through handleSelectField, and the edit couldn't be saved.
+            // Click-to-select (above) remains the only way into edit mode for these layers.
+            ;(layer.options as L.PathOptions & { pmIgnore?: boolean }).pmIgnore = true
           }}
         />
       )
@@ -226,6 +255,7 @@ export default function FieldDrawMap({
             <BasemapTileLayer satellite={isSatellite} />
             {existingFieldLayers}
             <DrawControls loadGeometry={loadGeometry} loadToken={loadToken} onGeometryChange={onGeometryChange} />
+            <FlyToTarget target={flyToTarget} token={flyToToken} />
           </MapContainer>
         </div>
       </div>
@@ -247,6 +277,7 @@ export default function FieldDrawMap({
           {existingFieldLayers}
 
           <DrawControls loadGeometry={loadGeometry} loadToken={loadToken} onGeometryChange={onGeometryChange} />
+          <FlyToTarget target={flyToTarget} token={flyToToken} />
         </MapContainer>
       </div>
       <p className="text-xs text-stone-500">

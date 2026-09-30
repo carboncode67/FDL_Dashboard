@@ -2,7 +2,9 @@
 
 import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import Link from "next/link"
+import { Plus, Check, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import FieldDrawMapWrapper from "@/components/field-draw-map-wrapper"
@@ -41,6 +43,37 @@ export function DrawFieldPage({ farmId, farmName, existingFields, farmLat, farmL
   const [error, setError] = useState("")
   const [status, setStatus] = useState("")
   const originalGeometryRef = useRef<string | null>(null)
+
+  // Address search (Planned Changes item 17) — geocodes via Nominatim (same service/pattern as
+  // components/forms/farm-form.tsx) and flies the map there, to help locate a field whose farm
+  // doesn't have field geometry to auto-center on yet.
+  const [addressQuery, setAddressQuery] = useState("")
+  const [geocoding, setGeocoding] = useState(false)
+  const [flyToTarget, setFlyToTarget] = useState<{ lat: number; lng: number } | null>(null)
+  const [flyToToken, setFlyToToken] = useState(0)
+
+  async function handleAddressSearch(e: React.FormEvent) {
+    e.preventDefault()
+    if (!addressQuery.trim()) return
+    setGeocoding(true)
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addressQuery)}&format=json&limit=1`,
+        { headers: { "Accept-Language": "en" } }
+      )
+      const data = await res.json()
+      if (data.length > 0) {
+        setFlyToTarget({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
+        setFlyToToken((t) => t + 1)
+      } else {
+        toast.error("Address not found")
+      }
+    } catch {
+      toast.error("Address lookup failed")
+    } finally {
+      setGeocoding(false)
+    }
+  }
 
   const farmHref = `/farms/${farmId}`
 
@@ -93,6 +126,7 @@ export function DrawFieldPage({ farmId, farmName, existingFields, farmLat, farmL
         setFields((prev) => [...prev, { id: saved.id, name: saved.Name ?? fieldName.trim(), geometry }])
       }
       setStatus(`Saved "${fieldName.trim()}" — click another field to edit it, or draw a new one`)
+      toast.success(`Saved "${fieldName.trim()}"`)
       loadField(null)
       router.refresh()
     } finally {
@@ -114,6 +148,7 @@ export function DrawFieldPage({ farmId, farmName, existingFields, farmLat, farmL
       }
       setFields((prev) => prev.filter((f) => f.id !== selectedFieldId))
       setStatus(`Deleted "${fieldName.trim() || "field"}"`)
+      toast.success(`Deleted "${fieldName.trim() || "field"}"`)
       loadField(null)
       router.refresh()
     } finally {
@@ -150,11 +185,23 @@ export function DrawFieldPage({ farmId, farmName, existingFields, farmLat, farmL
         {selectedFieldId && (
           <span className="text-xs text-stone-400 shrink-0">Editing existing field</span>
         )}
+        <form onSubmit={handleAddressSearch} className="flex items-center gap-1.5 shrink-0">
+          <Input
+            value={addressQuery}
+            onChange={(e) => setAddressQuery(e.target.value)}
+            placeholder="Search an address…"
+            className="max-w-48 h-8 text-sm"
+          />
+          <Button type="submit" variant="outline" size="icon-sm" disabled={geocoding || !addressQuery.trim()} aria-label="Search address">
+            <Search className="h-3.5 w-3.5" />
+          </Button>
+        </form>
         {error && <span className="text-sm text-red-500 shrink-0">{error}</span>}
         {!error && status && <span className="text-sm text-emerald-600 shrink-0">{status}</span>}
         <div className="ml-auto flex items-center gap-2 shrink-0">
           {selectedFieldId && (
             <Button variant="outline" size="sm" onClick={handleNewField}>
+              <Plus className="h-3.5 w-3.5" />
               New Field
             </Button>
           )}
@@ -168,7 +215,7 @@ export function DrawFieldPage({ farmId, farmName, existingFields, farmLat, farmL
               {deleting ? "Deleting…" : confirmingDelete ? "Confirm Delete" : "Delete Field"}
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={handleDone}>
+          <Button variant="success" size="sm" onClick={handleDone}>
             Done
           </Button>
           <Button
@@ -176,10 +223,15 @@ export function DrawFieldPage({ farmId, farmName, existingFields, farmLat, farmL
             onClick={handleSave}
             disabled={saving || !geometry || !fieldName.trim()}
           >
+            {!saving && <Check className="h-3.5 w-3.5" />}
             {saving ? "Saving…" : selectedFieldId ? "Save Changes" : "Save Field"}
           </Button>
         </div>
       </div>
+
+      <p className="px-4 py-1 text-xs text-stone-400 text-center border-b border-stone-100 shrink-0">
+        You can edit a field&apos;s name or boundary later — just click it on the map to reopen it here.
+      </p>
 
       {/* Map fills the rest of the viewport */}
       <div className="flex-1 min-h-0">
@@ -192,6 +244,8 @@ export function DrawFieldPage({ farmId, farmName, existingFields, farmLat, farmL
           farmLat={farmLat}
           farmLng={farmLng}
           fullscreen
+          flyToTarget={flyToTarget}
+          flyToToken={flyToToken}
         />
       </div>
     </div>

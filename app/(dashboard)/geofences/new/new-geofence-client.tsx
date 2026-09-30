@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { toast } from "sonner"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -178,6 +179,7 @@ export function NewGeofencePage({ farms, forms, samplingMaps }: { farms: Farm[];
         setError(json.error ?? "Failed to save")
         return
       }
+      toast.success(`"${title.trim()}" created`)
       router.push(`/geofences/${json.id}/edit`)
       router.refresh()
     } finally {
@@ -268,6 +270,22 @@ export function NewGeofencePage({ farms, forms, samplingMaps }: { farms: Farm[];
                   Switch Farm
                 </button>
               </div>
+
+              {selectedFarm.Fields.length === 0 && (
+                <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 flex items-center justify-between gap-3">
+                  <p className="text-sm text-amber-800">
+                    This farm has no fields yet — a zone needs at least one field boundary to build from.
+                  </p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button variant="outline" size="sm" render={<a href={`/farms/${selectedFarm.id}/draw-field`} target="_blank" rel="noopener noreferrer" />}>
+                      Add a field →
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => router.refresh()}>
+                      I added one, refresh
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <GeofenceZoneMap
                 fields={selectedFarm.Fields}
@@ -403,9 +421,9 @@ export function NewGeofencePage({ farms, forms, samplingMaps }: { farms: Farm[];
               )}
 
               {!showMessageOverride ? (
-                <button type="button" onClick={() => setShowMessageOverride(true)} className="text-xs text-green-700 hover:text-green-900">
-                  Customize notification text →
-                </button>
+                <Button type="button" variant="outline" onClick={() => setShowMessageOverride(true)}>
+                  Customize notification text
+                </Button>
               ) : (
                 <div className="space-y-1.5">
                   <Label>Notification message (optional override)</Label>
@@ -420,10 +438,11 @@ export function NewGeofencePage({ farms, forms, samplingMaps }: { farms: Farm[];
               <div className="flex items-center gap-2">
                 <Button variant="outline" onClick={() => setStep("farm")}>← Add More Zones</Button>
                 <Button
+                  variant="success"
                   disabled={saving || (geofenceType === "notification" && !notifyCircle && !notifyField)}
                   onClick={handleSubmit}
                 >
-                  {saving ? "Saving…" : "Add Geofence"}
+                  {saving ? "Saving…" : "Save"}
                 </Button>
               </div>
               {geofenceType === "notification" && !notifyCircle && !notifyField && (

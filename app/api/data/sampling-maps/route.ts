@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
 import { runWithLab } from "@/lib/lab-db";
-import { assignmentWhereForLabMember } from "@/lib/sampling-maps";
+import { assignmentWhereForContact, assignmentWhereForLabMember } from "@/lib/sampling-maps";
 
 const INCLUDE = {
   Farm: { select: { Farm_Name: true, latitude: true, longitude: true } },
@@ -11,22 +11,24 @@ const INCLUDE = {
   _count: { select: { Polygons: true, Points: true } },
 } as const;
 
-// List sampling maps sent to the authenticated lab member's phone (GET /api/data/sampling-maps).
+// List sampling maps sent to the authenticated identity's phone (GET /api/data/sampling-maps).
 // Deliberately lightweight — counts only, no geometry — so a device can see what's assigned
 // without pulling every map's full polygons/points. GET /api/data/sampling-maps/[id] is the
 // full-geometry "download" fetch for one map at a time, triggered by an explicit user action on
 // the client (see Views/SamplingMapsListView.swift's Download button), not by this list route.
-// Sampling maps are lab-member-only work -- a contact (farmer) token gets an empty list, same
-// convention as other lab-only bearer routes returning nothing rather than an error for a kind
-// that doesn't apply.
+// Sampling maps can now be sent to a Contact (farmer) as well as a lab member (Planned Changes
+// item 15/16), same OR-eligibility as Forms — see lib/sampling-maps.ts's assignmentWhereForContact.
 export async function GET(request: Request) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
   return runWithLab(auth.labSlug, async () => {
-    if (auth.kind !== "labMember") return NextResponse.json([]);
+    const where =
+      auth.kind === "contact"
+        ? assignmentWhereForContact(auth.contact)
+        : assignmentWhereForLabMember(auth.labMember.id);
 
     const maps = await prisma.samplingMap.findMany({
-      where: { Assignments: assignmentWhereForLabMember(auth.labMember.id) },
+      where: { Assignments: where },
       include: INCLUDE,
       orderBy: { updated_at: "desc" },
     });
