@@ -58,7 +58,8 @@ export default async function EditFormPage({ params }: { params: Promise<{ id: s
       farms={farms}
       experiments={experiments}
       responseCount={responseCount}
-      canDelete={!!session?.user && canDelete(session.user.role as Role, editMode)}
+      allowedByRole={!!session?.user && canDelete(session.user.role as Role, true)}
+      editMode={editMode}
     />
   );
   });

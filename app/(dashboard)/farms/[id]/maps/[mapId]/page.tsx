@@ -8,6 +8,8 @@ import type { ImportableBoundary } from "@/components/import-boundary-dialog";
 import { pipelineOutputToMapRaster, basemapToMapRaster } from "@/lib/map-rasters";
 import { ASSIGNMENT_INCLUDE, resolveTargetLabel } from "@/lib/sampling-maps";
 import { runWithTenant } from "@/lib/lab-db";
+import { getEditMode } from "@/lib/edit-mode";
+import { canDelete } from "@/lib/roles";
 import { getPointDataCounts } from "@/lib/sampling-point-data";
 
 export default async function SamplingMapDetailRoute({
@@ -142,6 +144,8 @@ export default async function SamplingMapDetailRoute({
       basemapId={map.basemap_id}
       basemapBufferM={map.basemap_buffer_m}
       basemapMaxZoom={map.basemap_max_zoom}
+      canDeleteMap={canDelete(role, true)}
+      editMode={await getEditMode()}
     />
   );
   });

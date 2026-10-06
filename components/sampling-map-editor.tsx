@@ -14,6 +14,7 @@ import { SatelliteToggleButton } from "@/components/satellite-toggle-button"
 import { RasterLayer, VectorLayer, TiledBasemapLayer, type MapRaster } from "@/components/map-raster-layers"
 import { ImportBoundaryDialog, type ImportableBoundary } from "@/components/import-boundary-dialog"
 import { SamplingMapUploadDialog, type UploadedPolygon, type UploadedPoint } from "@/components/sampling-map-upload-dialog"
+import { DeleteEntitySection } from "@/components/delete-entity-section"
 import { SamplingPointDataDialog } from "@/components/sampling-point-data-dialog"
 import { SamplingMapAssignmentPicker } from "@/components/sampling-map-assignment-picker"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -299,6 +300,8 @@ export interface SamplingMapEditorProps {
   basemapId: number | null
   basemapBufferM: number | null
   basemapMaxZoom: number | null
+  canDeleteMap: boolean
+  editMode: boolean
 }
 
 export default function SamplingMapEditor({
@@ -327,6 +330,8 @@ export default function SamplingMapEditor({
   basemapId,
   basemapBufferM,
   basemapMaxZoom,
+  canDeleteMap,
+  editMode,
 }: SamplingMapEditorProps) {
   const router = useRouter()
   const [polygons, setPolygons] = useState<SamplingMapPolygonData[]>(initialPolygons)
@@ -1196,6 +1201,20 @@ export default function SamplingMapEditor({
               <p className="text-sm text-stone-400 italic">No points yet.</p>
             )}
           </div>
+
+          <DeleteEntitySection
+            entityLabel="sampling map"
+            entityName={mapName}
+            deleteUrl={`/api/sampling-maps/${samplingMapId}`}
+            redirectTo={`/farms/${farmId}`}
+            description={`Permanently removes this map with its polygons and points${
+              points.some((p) => (p.data_count ?? 0) > 0)
+                ? ", and the collection log for points that have been collected. Form responses stay in their form's Responses page (unlinked from the point) — use Download Responses first if you want the map-linked copy"
+                : ""
+            }.`}
+            allowedByRole={canDeleteMap}
+            editMode={editMode}
+          />
         </div>
       </div>
 

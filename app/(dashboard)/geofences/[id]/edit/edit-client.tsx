@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GeofenceBasicsForm } from "@/components/geofence-basics-form";
+import { DeleteEntitySection } from "@/components/delete-entity-section";
 import { GeofenceAssignmentPicker } from "@/components/geofence-assignment-picker";
 
 type Assignment = {
@@ -44,9 +45,12 @@ interface Props {
   experiments: { id: number; experiment_name: string | null }[];
   forms: { id: number; title: string }[];
   samplingMaps: { id: number; name: string }[];
+  sessionCount: number;
+  allowedByRole: boolean;
+  editMode: boolean;
 }
 
-export default function EditGeofenceClient({ geofence, zones, assignments, contacts, users, farms, experiments, forms, samplingMaps }: Props) {
+export default function EditGeofenceClient({ geofence, zones, assignments, contacts, users, farms, experiments, forms, samplingMaps, sessionCount, allowedByRole, editMode }: Props) {
   const router = useRouter();
 
   // Zones auto-derive a Whole-Farm assignment per farm on creation — filter those farms out of
@@ -119,6 +123,21 @@ export default function EditGeofenceClient({ geofence, zones, assignments, conta
           </Link>
         )}
       </div>
+
+      <DeleteEntitySection
+        entityLabel="geofence"
+        entityName={geofence.title}
+        deleteUrl={`/api/geofences/${geofence.id}`}
+        redirectTo="/geofences"
+        description="Permanently removes this geofence, its zones, assignments and logged events/time sessions. Devices stop monitoring it on their next sync."
+        allowedByRole={allowedByRole}
+        editMode={editMode}
+        requireExport={sessionCount > 0 ? {
+          href: `/api/geofences/${geofence.id}/time-sessions/export`,
+          label: `Download time sessions CSV (${sessionCount})`,
+          warning: "This geofence has logged time sessions. Download the CSV first — deletion is disabled until you do.",
+        } : undefined}
+      />
     </div>
   );
 }

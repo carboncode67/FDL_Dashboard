@@ -3,12 +3,20 @@ import { notFound } from "next/navigation";
 import { ASSIGNMENT_INCLUDE, resolveTargetLabel } from "@/lib/geofences";
 import EditGeofenceClient from "./edit-client";
 import { runWithTenant } from "@/lib/lab-db";
+import { auth } from "@/lib/auth";
+import { getEditMode } from "@/lib/edit-mode";
+import { canDelete, type Role } from "@/lib/roles";
 
 export default async function EditGeofencePage({ params }: { params: Promise<{ id: string }> }) {
   return runWithTenant(async () => {
   const { id } = await params;
   const geofenceId = parseInt(id);
 
+  const [session, editMode, sessionCount] = await Promise.all([
+    auth(),
+    getEditMode(),
+    prisma.geofenceZoneTimeSession.count({ where: { geofence_id: geofenceId } }),
+  ]);
   const [geofence, assignments, contacts, users, farms, experiments, forms, samplingMaps] = await Promise.all([
     prisma.geofence.findUnique({
       where: { id: geofenceId },
@@ -72,6 +80,9 @@ export default async function EditGeofencePage({ params }: { params: Promise<{ i
       experiments={experiments}
       forms={forms}
       samplingMaps={samplingMaps}
+      sessionCount={sessionCount}
+      allowedByRole={!!session?.user && canDelete(session.user.role as Role, true)}
+      editMode={editMode}
     />
   );
   });

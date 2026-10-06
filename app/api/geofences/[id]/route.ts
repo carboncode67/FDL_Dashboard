@@ -94,7 +94,10 @@ export async function PUT(req: Request, { params }: Params) {
   });
 }
 
-export async function DELETE(_req: Request, { params }: Params) {
+// Deleting a geofence cascades to its zones, assignments, events and time sessions. One with
+// logged time sessions can only be deleted once the caller confirms the time-sessions CSV was
+// downloaded (?confirm_exported=true, sent by the edit page only after that download).
+export async function DELETE(req: Request, { params }: Params) {
   return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -102,7 +105,15 @@ export async function DELETE(_req: Request, { params }: Params) {
   if (!canDelete(session.user.role as Role, editMode)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  await prisma.geofence.delete({ where: { id: parseInt(id) } });
+  const geofenceId = parseInt(id);
+  const sessionCount = await prisma.geofenceZoneTimeSession.count({ where: { geofence_id: geofenceId } });
+  if (sessionCount > 0 && new URL(req.url).searchParams.get("confirm_exported") !== "true") {
+    return NextResponse.json(
+      { error: `This geofence has ${sessionCount} logged time session(s). Download the time-sessions CSV before deleting it.` },
+      { status: 409 },
+    );
+  }
+  await prisma.geofence.delete({ where: { id: geofenceId } });
   return new NextResponse(null, { status: 204 });
   });
 }
