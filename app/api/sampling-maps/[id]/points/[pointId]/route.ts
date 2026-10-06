@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { canEdit, canDelete } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
 import { runWithTenant } from "@/lib/lab-db";
+import { getPointDataCounts } from "@/lib/sampling-point-data";
 
 type Params = { params: Promise<{ id: string; pointId: string }> };
 
@@ -16,6 +17,19 @@ export async function PUT(req: Request, { params }: Params) {
   const { pointId } = await params;
   const body = await req.json();
   const { label, geometry, experiment_test_id, polygon_id } = body;
+
+  // A point with attributed data (form responses / collections) is pinned in place: moving it
+  // afterwards would make the map disagree with where that data was actually collected. Label
+  // and linked-test edits stay allowed.
+  if (geometry !== undefined || polygon_id !== undefined) {
+    const existing = (await getPointDataCounts([parseInt(pointId)])).get(parseInt(pointId)) ?? 0;
+    if (existing > 0) {
+      return NextResponse.json(
+        { error: "This point has collected data attributed to it, so its position can no longer be changed." },
+        { status: 409 },
+      );
+    }
+  }
 
   const point = await prisma.samplingPoint.update({
     where: { id: parseInt(pointId) },

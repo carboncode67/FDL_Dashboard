@@ -41,7 +41,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   });
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+// Deleting a form cascades to every response, assignment and field definition, so a form that
+// has responses can only be deleted once the caller confirms the CSV export was downloaded
+// (?confirm_exported=true, sent by the edit page only after its Download CSV button was used).
+// This is a guard against accidental/scripted deletes, not a cryptographic proof of the download.
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -49,7 +53,16 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!canDelete(session.user.role as Role, editMode)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  await prisma.form.delete({ where: { id: parseInt(id) } });
+  const formId = parseInt(id);
+  const responseCount = await prisma.formResponse.count({ where: { form_id: formId } });
+  const confirmed = new URL(req.url).searchParams.get("confirm_exported") === "true";
+  if (responseCount > 0 && !confirmed) {
+    return NextResponse.json(
+      { error: `This form has ${responseCount} response(s). Download the CSV export before deleting it.` },
+      { status: 409 }
+    );
+  }
+  await prisma.form.delete({ where: { id: formId } });
   return new NextResponse(null, { status: 204 });
   });
 }

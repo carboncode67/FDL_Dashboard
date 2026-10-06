@@ -5,12 +5,22 @@ import { canCreate, type Role } from "@/lib/roles";
 import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import { runWithTenant } from "@/lib/lab-db";
 import { toCsv } from "@/lib/csv";
+import fs from "fs";
+import path from "path";
+import { Readable } from "stream";
+import { ZipArchive } from "archiver";
+import { DATA_DIR } from "@/lib/data-api";
+import { resolvePhotoFilenames } from "@/lib/sampling-point-data";
+
+export const runtime = "nodejs";
 
 // Planned Changes #13.1 — "Download Responses" button on the sampling-map editor toolbar.
 // Session-authed, gated the same way as the map editor page itself (app/(dashboard)/farms/
 // [id]/maps/[mapId]/page.tsx): canCreate + farm in the caller's effective scope. Exports every
 // Form_Responses row submitted at a point on this map, one row per response, one column per
-// linked-form field (in col_index order) plus the fixed columns below.
+// linked-form field (in col_index order) plus the fixed columns below. When any response has a
+// photo that's on disk, the download is a .zip instead — the CSV plus a photos/ folder, with the
+// CSV's photo cells pointing at photos/<filename> — otherwise it's the plain CSV as before.
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return runWithTenant(async () => {
     const session = await auth();
@@ -68,14 +78,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         if (typeof v === "string" && v) photoHashes.add(v);
       }
     }
-    const photos =
-      photoHashes.size > 0
-        ? await prisma.photo.findMany({
-            where: { content_hash: { in: Array.from(photoHashes) } },
-            select: { content_hash: true, filename: true },
-          })
-        : [];
-    const filenameByHash = new Map(photos.map((p) => [p.content_hash, p.filename]));
+    const filenameByHash = await resolvePhotoFilenames(photoHashes);
+    // Only photos actually present on disk go in the zip (and get a photos/ path in the CSV).
+    const zipPhotos = new Map<string, string>(); // filename -> absolute path
+    for (const filename of new Set(filenameByHash.values())) {
+      const abs = path.join(DATA_DIR, "photos", path.basename(filename));
+      if (fs.existsSync(abs)) zipPhotos.set(filename, abs);
+    }
+    const useZip = zipPhotos.size > 0;
 
     const header = [
       "Point name",
@@ -97,7 +107,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         const v = data[String(f.col_index)];
         if (v === null || v === undefined) return null;
         if (f.field_type === "photo") {
-          return typeof v === "string" ? (filenameByHash.get(v) ?? "Uploading…") : null;
+          if (typeof v !== "string") return null;
+          const filename = filenameByHash.get(v);
+          if (!filename) return "Uploading…";
+          return useZip && zipPhotos.has(filename) ? `photos/${filename}` : filename;
         }
         return typeof v === "boolean" ? (v ? "true" : "false") : v;
       });
@@ -139,12 +152,25 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     });
 
     const csv = toCsv(header, rows);
-    const filename = `${map.name.replace(/[^a-zA-Z0-9._-]/g, "_")}_responses.csv`;
+    const baseName = map.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+    if (useZip) {
+      const archive = new ZipArchive({ zlib: { level: 9 } });
+      archive.append("\uFEFF" + csv, { name: `${baseName}_responses.csv` });
+      for (const [filename, abs] of zipPhotos) archive.file(abs, { name: `photos/${filename}` });
+      archive.finalize();
+      return new NextResponse(Readable.toWeb(archive as unknown as Readable) as unknown as ReadableStream, {
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="${baseName}_responses.zip"`,
+        },
+      });
+    }
 
     return new NextResponse(csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `attachment; filename="${baseName}_responses.csv"`,
       },
     });
   });

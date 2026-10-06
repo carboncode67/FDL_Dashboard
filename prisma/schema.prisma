@@ -215,6 +215,7 @@ model Field {
   ExperimentZones ExperimentZone[]
   ExperimentFields ExperimentField[]
   GeofenceZoneFields GeofenceZoneField[]
+  GeofenceZoneTimeSessions GeofenceZoneTimeSession[]
   SamplingMapPolygons SamplingMapPolygon[]
 
   @@map("Fields")
@@ -1565,6 +1566,7 @@ model GeofenceZoneTimeSession {
   id               Int      @id @default(autoincrement())
   geofence_id      Int
   zone_id          Int
+  field_id         Int?                        // which field polygon (migration 083); null = whole-circle session
   contact_id       Int?
   user_id          String?
   entered_at       DateTime
@@ -1575,11 +1577,13 @@ model GeofenceZoneTimeSession {
 
   Geofence Geofence     @relation(fields: [geofence_id], references: [id], onDelete: Cascade)
   Zone     GeofenceZone @relation(fields: [zone_id], references: [id], onDelete: Cascade)
+  Field    Field?       @relation(fields: [field_id], references: [id], onDelete: SetNull)
   Contact  Contact?     @relation(fields: [contact_id], references: [id], onDelete: SetNull)
   User     User?        @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
   @@index([geofence_id])
   @@index([zone_id])
+  @@index([field_id])
   @@index([contact_id])
   @@index([user_id])
   @@index([content_hash])

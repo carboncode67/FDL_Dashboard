@@ -9,7 +9,7 @@ type Params = { params: Promise<{ id: string }> };
 // Log a confirmed on-device 'duration' geofence time session (circle entry -> exit). The
 // device already closed the session locally before calling this — no server-side re-
 // validation of the reported duration, same "device is authoritative" stance as the sibling
-// events route. Body: { zone_id, entered_at (ISO), exited_at (ISO), duration_seconds, content_hash? }
+// events route. Body: { zone_id, field_id? (which field polygon the session was in), entered_at (ISO), exited_at (ISO), duration_seconds, content_hash? }
 export async function POST(request: Request, { params }: Params) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
@@ -27,6 +27,7 @@ export async function POST(request: Request, { params }: Params) {
 
   let body: {
     zone_id?: unknown;
+    field_id?: unknown;
     entered_at?: unknown;
     exited_at?: unknown;
     duration_seconds?: unknown;
@@ -39,6 +40,7 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   const zoneId = typeof body.zone_id === "number" ? body.zone_id : null;
+  const fieldId = typeof body.field_id === "number" ? body.field_id : null;
   const enteredAtRaw = typeof body.entered_at === "string" ? body.entered_at : null;
   const exitedAtRaw = typeof body.exited_at === "string" ? body.exited_at : null;
   const durationSeconds = typeof body.duration_seconds === "number" ? body.duration_seconds : null;
@@ -58,6 +60,13 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: "zone_id does not belong to this geofence" }, { status: 400 });
   }
 
+  if (fieldId !== null) {
+    const link = await prisma.geofenceZoneField.findUnique({
+      where: { zone_id_field_id: { zone_id: zoneId, field_id: fieldId } },
+    });
+    if (!link) return NextResponse.json({ error: "field_id does not belong to this zone" }, { status: 400 });
+  }
+
   const submitterFilter =
     auth.kind === "contact" ? { contact_id: auth.contact.id } : { user_id: auth.labMember.id };
 
@@ -75,6 +84,7 @@ export async function POST(request: Request, { params }: Params) {
     data: {
       geofence_id: geofenceId,
       zone_id: zoneId,
+      field_id: fieldId,
       contact_id: auth.kind === "contact" ? auth.contact.id : null,
       user_id: auth.kind === "labMember" ? auth.labMember.id : null,
       entered_at: enteredAt,

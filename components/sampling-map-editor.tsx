@@ -14,6 +14,7 @@ import { SatelliteToggleButton } from "@/components/satellite-toggle-button"
 import { RasterLayer, VectorLayer, TiledBasemapLayer, type MapRaster } from "@/components/map-raster-layers"
 import { ImportBoundaryDialog, type ImportableBoundary } from "@/components/import-boundary-dialog"
 import { SamplingMapUploadDialog, type UploadedPolygon, type UploadedPoint } from "@/components/sampling-map-upload-dialog"
+import { SamplingPointDataDialog } from "@/components/sampling-point-data-dialog"
 import { SamplingMapAssignmentPicker } from "@/components/sampling-map-assignment-picker"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -43,6 +44,9 @@ export interface SamplingPointData {
   polygon_id: number | null
   experiment_test_id: number | null
   placement_method: string
+  // Form responses + collections attributed to this point (set by the page load; absent on a
+  // point just created in this session, which can't have any yet). > 0 pins the point's position.
+  data_count?: number
 }
 
 export interface ExperimentTestOption {
@@ -121,6 +125,7 @@ interface MapDrawLayersProps {
   onEditPolygon: (id: number, geojson: string) => void
   onCreatePoint: (geojson: string) => Promise<SamplingPointData | null>
   onEditPoint: (id: number, geojson: string) => void
+  onPointClick: (id: number) => void
 }
 
 // Polygons and points are both managed imperatively against the live Leaflet map
@@ -132,13 +137,18 @@ interface MapDrawLayersProps {
 // side panel (which owns metadata like label/purpose/linked test) add/remove/restyle
 // a layer after its own API call succeeds, without the map re-running its setup effect.
 const MapDrawLayers = forwardRef<MapDrawLayersHandle, MapDrawLayersProps>(function MapDrawLayers(
-  { initialPolygons, initialPoints, onCreatePolygon, onEditPolygon, onCreatePoint, onEditPoint },
+  { initialPolygons, initialPoints, onCreatePolygon, onEditPolygon, onCreatePoint, onEditPoint, onPointClick },
   ref,
 ) {
   const map = useMap()
   const polygonLayersRef = useRef<Map<number, L.Layer>>(new Map())
   const pointLayersRef = useRef<Map<number, L.Layer>>(new Map())
   const initializedRef = useRef(false)
+  // Layers are created once and keep their handlers, so read the latest callback via a ref.
+  const onPointClickRef = useRef(onPointClick)
+  useEffect(() => {
+    onPointClickRef.current = onPointClick
+  })
 
   function addPolygonLayer(p: SamplingMapPolygonData) {
     try {
@@ -162,14 +172,20 @@ const MapDrawLayers = forwardRef<MapDrawLayersHandle, MapDrawLayersProps>(functi
   function addPointLayer(p: SamplingPointData) {
     const latlng = pointLatLng(p.geometry)
     if (!latlng) return
-    const layer = L.circleMarker(latlng, POINT_STYLE)
+    // A point with attributed data is pinned: pmIgnore keeps geoman (including the global edit
+    // mode toggle) from ever making it draggable. The API enforces the same rule.
+    const locked = (p.data_count ?? 0) > 0
+    const layer = L.circleMarker(latlng, { ...POINT_STYLE, pmIgnore: locked } as L.CircleMarkerOptions)
     layer.addTo(map)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(layer as any).pm.enable()
-    layer.on("pm:edit", () => {
-      const feature = layer.toGeoJSON()
-      onEditPoint(p.id, JSON.stringify(feature.geometry))
-    })
+    if (!locked) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(layer as any).pm.enable()
+      layer.on("pm:edit", () => {
+        const feature = layer.toGeoJSON()
+        onEditPoint(p.id, JSON.stringify(feature.geometry))
+      })
+    }
+    layer.on("click", () => onPointClickRef.current(p.id))
     pointLayersRef.current.set(p.id, layer)
   }
 
@@ -347,6 +363,8 @@ export default function SamplingMapEditor({
   const [savingMaxZoom, setSavingMaxZoom] = useState(false)
 
   const layersApiRef = useRef<MapDrawLayersHandle>(null)
+  // Point whose collected data (responses + photos) is open in SamplingPointDataDialog.
+  const [dataPointId, setDataPointId] = useState<number | null>(null)
 
   // Every point on the map (existing, or created ad hoc in the field) is filled out against
   // this one form — see Sampling_Maps.form_id. Submitting it there also marks the point
@@ -902,6 +920,7 @@ export default function SamplingMapEditor({
               onEditPolygon={handleEditPolygonGeometry}
               onCreatePoint={handleCreatePoint}
               onEditPoint={handleEditPointGeometry}
+              onPointClick={setDataPointId}
             />
 
             {/* The buffered (eroded) boundary points are actually generated within —
@@ -1152,6 +1171,17 @@ export default function SamplingMapEditor({
                 <p className="text-xs text-stone-400">
                   {polygonLabel(p.polygon_id) ? `In ${polygonLabel(p.polygon_id)}` : "Not inside a polygon"}
                 </p>
+                {(p.data_count ?? 0) > 0 && (
+                  <p className="text-xs text-stone-500">Position locked — {p.data_count} record(s) collected here.</p>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs mr-2"
+                  onClick={() => setDataPointId(p.id)}
+                >
+                  View data{(p.data_count ?? 0) > 0 ? ` (${p.data_count})` : ""}
+                </Button>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -1168,6 +1198,14 @@ export default function SamplingMapEditor({
           </div>
         </div>
       </div>
+
+      <SamplingPointDataDialog
+        key={dataPointId ?? "none"}
+        samplingMapId={samplingMapId}
+        pointId={dataPointId}
+        pointLabel={points.find((p) => p.id === dataPointId)?.label ?? `Point ${dataPointId ?? ""}`}
+        onClose={() => setDataPointId(null)}
+      />
 
       <ImportBoundaryDialog
         open={importOpen}

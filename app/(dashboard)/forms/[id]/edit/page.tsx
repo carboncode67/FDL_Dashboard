@@ -3,12 +3,20 @@ import { notFound } from "next/navigation";
 import { ASSIGNMENT_INCLUDE, resolveTargetLabel } from "@/lib/forms";
 import EditFormClient from "./edit-client";
 import { runWithTenant } from "@/lib/lab-db";
+import { auth } from "@/lib/auth";
+import { getEditMode } from "@/lib/edit-mode";
+import { canDelete, type Role } from "@/lib/roles";
 
 export default async function EditFormPage({ params }: { params: Promise<{ id: string }> }) {
   return runWithTenant(async () => {
   const { id } = await params;
   const formId = parseInt(id);
 
+  const [session, editMode, responseCount] = await Promise.all([
+    auth(),
+    getEditMode(),
+    prisma.formResponse.count({ where: { form_id: formId } }),
+  ]);
   const [form, fieldDefs, assignments, contacts, users, farms, experiments] = await Promise.all([
     prisma.form.findUnique({ where: { id: formId } }),
     prisma.formFieldDefinition.findMany({ where: { form_id: formId }, orderBy: { col_index: "asc" } }),
@@ -49,6 +57,8 @@ export default async function EditFormPage({ params }: { params: Promise<{ id: s
       users={users}
       farms={farms}
       experiments={experiments}
+      responseCount={responseCount}
+      canDelete={!!session?.user && canDelete(session.user.role as Role, editMode)}
     />
   );
   });

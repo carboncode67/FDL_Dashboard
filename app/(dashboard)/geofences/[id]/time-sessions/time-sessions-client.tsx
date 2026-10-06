@@ -9,6 +9,7 @@ interface Props {
     id: number;
     recipient: string;
     farm_name: string;
+    field_name: string | null;
     entered_at: string;
     exited_at: string;
     duration_seconds: number;
@@ -27,6 +28,13 @@ export default function TimeSessionsClient({ geofence, sessions }: Props) {
   const columns = [
     { key: "recipient", header: "Recipient", sortable: true },
     { key: "farm_name", header: "Farm", sortable: true },
+    {
+      key: "field_name",
+      header: "Field",
+      sortable: true,
+      render: (row: Record<string, unknown>) =>
+        <span>{(row as unknown as (typeof sessions)[number]).field_name ?? "Whole zone"}</span>,
+    },
     {
       key: "entered_at",
       header: "Entered At",
@@ -67,16 +75,25 @@ export default function TimeSessionsClient({ geofence, sessions }: Props) {
           <span>/</span>
           <span>Time Sessions</span>
         </div>
+        <div className="flex items-start justify-between gap-4">
         <p className="text-sm text-stone-500 mt-1">
           Chronological log of confirmed on-device zone visits and how long each lasted — not a
           per-recipient completion status.
         </p>
+        <a
+          href={`/api/geofences/${geofence.id}/time-sessions/export`}
+          download
+          className="shrink-0 inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-50"
+        >
+          Download CSV
+        </a>
+        </div>
       </div>
       <DataTable
         title={`${geofence.title} — Time Sessions`}
         data={sessions as unknown as Record<string, unknown>[]}
         columns={columns}
-        searchKeys={["recipient", "farm_name"]}
+        searchKeys={["recipient", "farm_name", "field_name"]}
       />
     </div>
   );

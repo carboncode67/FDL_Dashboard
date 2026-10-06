@@ -8,6 +8,7 @@ import type { ImportableBoundary } from "@/components/import-boundary-dialog";
 import { pipelineOutputToMapRaster, basemapToMapRaster } from "@/lib/map-rasters";
 import { ASSIGNMENT_INCLUDE, resolveTargetLabel } from "@/lib/sampling-maps";
 import { runWithTenant } from "@/lib/lab-db";
+import { getPointDataCounts } from "@/lib/sampling-point-data";
 
 export default async function SamplingMapDetailRoute({
   params,
@@ -53,6 +54,7 @@ export default async function SamplingMapDetailRoute({
   const scope = await getEffectiveScope(session?.user?.id ?? null, session?.user?.category);
   if (!scopeIncludesFarm(scope, farmId)) notFound();
 
+  const pointDataCounts = await getPointDataCounts(map.Points.map((p) => p.id));
   const [assignments, users, forms, contacts, farms, experiments] = await Promise.all([
     prisma.samplingMapAssignment.findMany({
       where: { sampling_map_id: map.id },
@@ -114,6 +116,7 @@ export default async function SamplingMapDetailRoute({
         polygon_id: p.polygon_id,
         experiment_test_id: p.experiment_test_id,
         placement_method: p.placement_method,
+        data_count: pointDataCounts.get(p.id) ?? 0,
       }))}
       rasters={rasters}
       importableFields={importableFields}
