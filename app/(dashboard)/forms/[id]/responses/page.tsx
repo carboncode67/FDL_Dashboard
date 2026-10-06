@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import ResponsesClient from "./responses-client";
 import { runWithTenant } from "@/lib/lab-db";
+import { resolvePhotoFilenames } from "@/lib/sampling-point-data";
 
 export default async function FormResponsesPage({ params }: { params: Promise<{ id: string }> }) {
   return runWithTenant(async () => {
@@ -43,14 +44,7 @@ export default async function FormResponsesPage({ params }: { params: Promise<{ 
       if (typeof v === "string" && v) photoHashes.add(v);
     }
   }
-  const photos =
-    photoHashes.size > 0
-      ? await prisma.photo.findMany({
-          where: { content_hash: { in: Array.from(photoHashes) } },
-          select: { content_hash: true, filename: true },
-        })
-      : [];
-  const filenameByHash = new Map(photos.map((p) => [p.content_hash, p.filename]));
+  const filenameByHash = await resolvePhotoFilenames(photoHashes);
 
   return (
     <ResponsesClient

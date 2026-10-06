@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { runWithTenant } from "@/lib/lab-db";
 import { toCsv } from "@/lib/csv";
+import { resolvePhotoFilenames } from "@/lib/sampling-point-data";
 
 // Full-fidelity CSV of every response to one form — one row per submission, one column per
 // field. This is the backup a lab member must take before deleting a form that has responses
@@ -42,13 +43,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       if (typeof v === "string" && v) hashes.add(v);
     }
   }
-  const photos = hashes.size
-    ? await prisma.photo.findMany({
-        where: { content_hash: { in: Array.from(hashes) } },
-        select: { content_hash: true, filename: true },
-      })
-    : [];
-  const filenameByHash = new Map(photos.map((p) => [p.content_hash, p.filename]));
+  const filenameByHash = await resolvePhotoFilenames(hashes);
 
   const header = ["response_id", "recipient", "submitted_at", "sampling_map", "sampling_point", ...form.FieldDefinitions.map((f) => f.label)];
   const rows: (string | number | null | undefined)[][] = [];

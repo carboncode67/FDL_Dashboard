@@ -28,14 +28,28 @@ export async function getPointDataCounts(pointIds: number[]): Promise<Map<number
   return counts;
 }
 
-// Form photo answers store the mobile client's content_hash for a Photos row, not a filename —
-// and the photo may not have uploaded yet (offline-first), so a hash can legitimately be missing.
+// Form photo answers store the mobile client's content_hash for an uploaded photo, not a filename
+// — and the photo may not have uploaded yet (offline-first), so a hash can legitimately be
+// missing. Where the photo lands depends on who uploaded it (POST /api/upload/photo): a contact's
+// goes to Photos, a lab member's to Lab_Member_Uploads (media_type "photo"). Both store files in
+// the same photos/ directory, so both resolve to a filename served by /api/files/photos/<name>.
+// Checking only Photos left every lab-member photo stuck at "uploading…" forever.
 export async function resolvePhotoFilenames(hashes: Iterable<string>): Promise<Map<string, string>> {
   const unique = Array.from(new Set(hashes));
-  if (unique.length === 0) return new Map();
-  const photos = await prisma.photo.findMany({
-    where: { content_hash: { in: unique } },
-    select: { content_hash: true, filename: true },
-  });
-  return new Map(photos.flatMap((p) => (p.content_hash ? [[p.content_hash, p.filename] as [string, string]] : [])));
+  const result = new Map<string, string>();
+  if (unique.length === 0) return result;
+  const [photos, labUploads] = await Promise.all([
+    prisma.photo.findMany({
+      where: { content_hash: { in: unique } },
+      select: { content_hash: true, filename: true },
+    }),
+    prisma.labMemberUpload.findMany({
+      where: { content_hash: { in: unique }, media_type: "photo", filename: { not: null } },
+      select: { content_hash: true, filename: true },
+    }),
+  ]);
+  for (const p of [...photos, ...labUploads]) {
+    if (p.content_hash && p.filename) result.set(p.content_hash, p.filename);
+  }
+  return result;
 }
