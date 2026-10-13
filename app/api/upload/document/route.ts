@@ -12,14 +12,24 @@ export const runtime = "nodejs";
 
 const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 
+// Cap on a single document upload. Checked against Content-Length before the
+// body is parsed (formData() buffers the whole request) and again against the
+// parsed file size, since Content-Length can be absent or wrong.
+const MAX_DOCUMENT_BYTES = 100 * 1024 * 1024;
+const tooLarge = () =>
+  NextResponse.json({ error: "File too large (100 MB max)" }, { status: 413 });
+
 export async function POST(request: Request) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
+  const declaredLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_DOCUMENT_BYTES) return tooLarge();
   return runWithLab(auth.labSlug, async () => {
 
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
+    if (file && file.size > MAX_DOCUMENT_BYTES) return tooLarge();
     const note = (formData.get("note") as string) ?? "";
     const ticket_ref = (formData.get("ticket_ref") as string) ?? "";
     const timestamp = (formData.get("timestamp") as string) ?? "";
@@ -44,7 +54,9 @@ export async function POST(request: Request) {
           filename: filename || null,
           content: note || null,
           date_collected: timestamp ? new Date(timestamp) : null,
-          status: 2,
+          // Same convention as upload/photo: no farm resolved -> 1 (unassigned),
+          // left for manual organization in the web UI.
+          status: farmId != null ? 2 : 1,
         },
       });
     } else {
