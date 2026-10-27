@@ -9,7 +9,7 @@ import { DeleteEntitySection } from "@/components/delete-entity-section";
 
 type Column = {
   col_index: number;
-  field_type: "text" | "number" | "boolean" | "date" | "select" | "photo";
+  field_type: "text" | "number" | "boolean" | "date" | "select" | "multiselect" | "photo";
   label: string;
   required: boolean;
   options: string[] | null;

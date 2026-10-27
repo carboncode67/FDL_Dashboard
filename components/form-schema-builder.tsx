@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, X, ArrowUp, ArrowDown } from "lucide-react";
 
-type FieldType = "text" | "number" | "boolean" | "date" | "select" | "photo";
+type FieldType = "text" | "number" | "boolean" | "date" | "select" | "multiselect" | "photo";
+
+const hasOptions = (t: FieldType) => t === "select" || t === "multiselect";
 
 // Same normalization as lib/forms.ts's normalizeLabel — duplicated here
 // rather than imported since that module pulls in the server-only prisma
@@ -167,7 +169,7 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
                     const field_type = e.target.value as FieldType;
                     updateColumn(i, {
                       field_type,
-                      options: field_type === "select" ? (col.options ?? []) : null,
+                      options: hasOptions(field_type) ? (col.options ?? []) : null,
                     });
                   }}
                 >
@@ -176,6 +178,7 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
                   <option value="boolean">Yes / No</option>
                   <option value="date">Date</option>
                   <option value="select">Single choice</option>
+                  <option value="multiselect">Multiple choice</option>
                   <option value="photo">Photo</option>
                 </select>
                 <Input
@@ -203,7 +206,7 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              {col.field_type === "select" && (
+              {hasOptions(col.field_type) && (
                 <Input
                   placeholder="Comma-separated options (e.g. Yes, No, Unsure)"
                   value={col.optionsText ?? ""}
@@ -255,7 +258,7 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
                             <option key={p.label} value={p.label}>{p.label}</option>
                           ))}
                         </select>
-                        <span>is</span>
+                        <span>{parent?.field_type === "multiselect" ? "includes" : "is"}</span>
                         {parent?.field_type === "boolean" ? (
                           <select
                             className="h-7 rounded-md border border-input bg-transparent px-1.5 text-xs"
@@ -266,7 +269,7 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
                             <option value="true">Yes</option>
                             <option value="false">No</option>
                           </select>
-                        ) : parent?.field_type === "select" ? (
+                        ) : parent && hasOptions(parent.field_type) ? (
                           <select
                             className="h-7 rounded-md border border-input bg-transparent px-1.5 text-xs"
                             value={col.show_when_value ?? ""}

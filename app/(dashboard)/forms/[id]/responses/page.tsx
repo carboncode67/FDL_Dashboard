@@ -51,7 +51,7 @@ export default async function FormResponsesPage({ params }: { params: Promise<{ 
       form={{ id: form.id, title: form.title }}
       fields={form.FieldDefinitions.map((f) => ({ col_index: f.col_index, label: f.label, field_type: f.field_type }))}
       responses={responses.map((r) => {
-        const data = r.data as Record<string, string | number | boolean | null>;
+        const data = r.data as Record<string, string | number | boolean | string[] | null>;
         const photoFilenames: Record<string, string | null> = {};
         for (const colIndex of photoColIndexes) {
           const v = data[String(colIndex)];

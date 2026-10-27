@@ -168,7 +168,7 @@ export async function POST(request: Request, { params }: Params) {
     const valuesEntries = Object.entries(values as Record<string, unknown>);
     const defByNorm = new Map(defs.map((d) => [normalizeLabel(d.label), d]));
 
-    const data: Record<string, string | number | boolean | null> = {};
+    const data: Record<string, string | number | boolean | string[] | null> = {};
     const matchedColIndexes = new Set<number>();
     const ignoredFields: string[] = [];
 
@@ -182,9 +182,17 @@ export async function POST(request: Request, { params }: Params) {
       data[String(def.col_index)] =
         v === null || v === undefined
           ? null
-          : typeof v === "number" || typeof v === "boolean"
-            ? v
-            : String(v);
+          : def.field_type === "multiselect"
+            // Clients without native multiselect support fall back to a free-text
+            // input, so accept a comma-separated string as well as an array
+            // (options can't contain commas — the builder splits on them).
+            ? (Array.isArray(v) ? v : String(v).split(","))
+                .filter((x) => x !== null && x !== undefined)
+                .map((x) => String(x).trim())
+                .filter((x) => x.length > 0)
+            : typeof v === "number" || typeof v === "boolean"
+              ? v
+              : String(v);
     }
 
     // Conditional fields: a field whose show_when_label/value isn't met by
@@ -198,6 +206,7 @@ export async function POST(request: Request, { params }: Params) {
       if (!parent) return true; // parent field no longer exists — fail open
       const parentValue = data[String(parent.col_index)];
       if (parentValue === undefined || parentValue === null) return false;
+      if (Array.isArray(parentValue)) return parentValue.includes(d.show_when_value ?? "");
       return String(parentValue) === d.show_when_value;
     };
     for (const d of defs) {

@@ -8,7 +8,7 @@ interface Props {
   fields: { col_index: number; label: string; field_type: string }[];
   responses: {
     id: number;
-    data: Record<string, string | number | boolean | null>;
+    data: Record<string, string | number | boolean | string[] | null>;
     photoFilenames: Record<string, string | null>;
     submitted_at: string;
     recipient: string;
@@ -59,6 +59,10 @@ export default function ResponsesClient({ form, fields, responses }: Props) {
               />
             </a>
           );
+        }
+        if (Array.isArray(value)) {
+          if (value.length === 0) return <span className="text-stone-400">—</span>;
+          return <span>{value.join(", ")}</span>;
         }
         return <span>{String(value)}</span>;
       },

@@ -5,7 +5,7 @@ import { canEdit, type Role } from "@/lib/roles";
 import { normalizeLabel } from "@/lib/forms";
 import { runWithTenant } from "@/lib/lab-db";
 
-const FIELD_TYPES = new Set(["text", "number", "boolean", "date", "select", "photo"]);
+const FIELD_TYPES = new Set(["text", "number", "boolean", "date", "select", "multiselect", "photo"]);
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -117,7 +117,7 @@ export async function PUT(req: Request, { params }: Params) {
               field_type: FIELD_TYPES.has(c.field_type) ? c.field_type : "text",
               label: c.label,
               required: c.required ?? false,
-              options: c.field_type === "select" ? (c.options ?? []) : undefined,
+              options: c.field_type === "select" || c.field_type === "multiselect" ? (c.options ?? []) : undefined,
               show_when_label: c.show_when_label || null,
               show_when_value: c.show_when_label ? (c.show_when_value ?? null) : null,
             })),
