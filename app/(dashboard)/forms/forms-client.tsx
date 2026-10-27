@@ -3,17 +3,28 @@
 import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
+import { ItemGroupSelect, ManageItemGroupsDialog } from "@/components/item-groups";
+import type { ItemGroup } from "@/lib/item-group-types";
 
 interface FormRow {
   id: number;
   title: string;
+  group_id: number | null;
   is_active: boolean;
   field_count: number;
   assignment_count: number;
   response_count: number;
 }
 
-export function FormsClient({ data }: { data: FormRow[] }) {
+export function FormsClient({
+  data,
+  groups,
+  canEditGroups,
+}: {
+  data: FormRow[];
+  groups: ItemGroup[];
+  canEditGroups: boolean;
+}) {
   const router = useRouter();
 
   const columns = [
@@ -41,6 +52,16 @@ export function FormsClient({ data }: { data: FormRow[] }) {
       header: "Responses",
       render: (row: Record<string, unknown>) => <span>{(row as unknown as FormRow).response_count}</span>,
     },
+    ...(canEditGroups
+      ? [{
+          key: "group_id",
+          header: "Group",
+          render: (row: Record<string, unknown>) => {
+            const r = row as unknown as FormRow;
+            return <ItemGroupSelect groups={groups} value={r.group_id} updateUrl={`/api/forms/${r.id}`} />;
+          },
+        }]
+      : []),
   ];
 
   return (
@@ -51,6 +72,8 @@ export function FormsClient({ data }: { data: FormRow[] }) {
       searchKeys={["title"]}
       onAdd={() => router.push("/forms/new")}
       addLabel="New Form"
+      actions={canEditGroups ? <ManageItemGroupsDialog kind="forms" groups={groups} itemLabel="forms" /> : undefined}
+      grouping={{ groups, groupKey: "group_id", storageKey: "fdl.forms.collapsed-groups" }}
       onRowClick={(row) => router.push(`/forms/${(row as unknown as FormRow).id}/edit`)}
     />
   );

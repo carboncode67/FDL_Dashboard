@@ -4,11 +4,16 @@ import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
+import { FarmTagChips } from "@/components/farm-tag-chips";
+import { ManageFarmTagsDialog } from "@/components/manage-farm-tags-dialog";
+import type { FarmTagOption } from "@/lib/farm-tags";
 
 interface FarmRow {
   id: number;
   Farm_Name: string | null;
   Farmer_Name: string | null;
+  tags: FarmTagOption[];
+  tag_names: string;
   is_active: boolean;
   created_at: string | null;
   updated_at: string | null;
@@ -23,12 +28,32 @@ function formatDate(iso: string | null): string {
   });
 }
 
-export function FarmsClient({ data, canCreate, activeFilter }: { data: FarmRow[]; canCreate?: boolean; activeFilter?: { projectCount: number; farmCount: number } | null }) {
+export function FarmsClient({
+  data,
+  canCreate,
+  canRenameTags = false,
+  canDeleteTags = false,
+  activeFilter,
+}: {
+  data: FarmRow[];
+  canCreate?: boolean;
+  canRenameTags?: boolean;
+  canDeleteTags?: boolean;
+  activeFilter?: { projectCount: number; farmCount: number; tagFiltered: boolean } | null;
+}) {
   const router = useRouter();
 
   const columns = [
     { key: "Farm_Name", header: "Farm Name", sortable: true },
     { key: "Farmer_Name", header: "Farmer Name", sortable: true },
+    {
+      key: "tag_names",
+      header: "Tags",
+      sortable: true,
+      render: (row: Record<string, unknown>) => (
+        <FarmTagChips tags={(row as unknown as FarmRow).tags} empty={<span className="text-stone-300">—</span>} />
+      ),
+    },
     {
       key: "is_active",
       header: "Active",
@@ -82,16 +107,20 @@ export function FarmsClient({ data, canCreate, activeFilter }: { data: FarmRow[]
 
   return (
     <div className="space-y-4">
-      {activeFilter && activeFilter.farmCount > 0 && (
+      {activeFilter && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
-          Filtered to <strong>{activeFilter.farmCount} farm{activeFilter.farmCount !== 1 ? "s" : ""}</strong>. Change in <strong>Dashboard Filters</strong> (header menu).
+          Filtered to <strong>{activeFilter.farmCount} farm{activeFilter.farmCount !== 1 ? "s" : ""}</strong>
+          {activeFilter.tagFiltered && " by farm tags"}. Change in <strong>Dashboard Filters</strong> (header menu).
         </div>
       )}
+      <div className="flex justify-end">
+        <ManageFarmTagsDialog canRename={canRenameTags} canRemove={canDeleteTags} />
+      </div>
       <DataTable
         title="Farms"
         data={data as unknown as Record<string, unknown>[]}
         columns={columns}
-        searchKeys={["Farm_Name", "Farmer_Name"]}
+        searchKeys={["Farm_Name", "Farmer_Name", "tag_names"]}
         onAdd={canCreate ? () => router.push("/farms/new") : undefined}
         addLabel="New Farm"
         onRowClick={(row) => router.push(`/farms/${(row as unknown as FarmRow).id}`)}

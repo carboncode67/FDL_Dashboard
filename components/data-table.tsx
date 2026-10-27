@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useMemo, useState, useSyncExternalStore } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Search, Plus, ChevronUp, ChevronDown, ChevronsUpDown, ChevronRight } from "lucide-react";
 
 interface Column<T> {
   key: string;
@@ -28,6 +28,50 @@ interface DataTableProps<T extends Record<string, unknown>> {
   onAdd?: () => void;
   addLabel?: string;
   onRowClick?: (row: T) => void;
+  /** Extra header controls, rendered left of the Add button. */
+  actions?: React.ReactNode;
+  /** Optional collapsible sections: rows are bucketed by `row[groupKey]` (a group id, or
+   *  null/unknown → "Ungrouped", shown last). Empty groups still show unless searching. */
+  grouping?: {
+    groups: { id: number; name: string }[];
+    groupKey: string;
+    /** localStorage key remembering which sections this viewer collapsed. */
+    storageKey: string;
+  };
+}
+
+const UNGROUPED = "ungrouped";
+
+// Collapsed-section memory: a per-viewer convenience in localStorage, read through
+// useSyncExternalStore so the server render (no storage) and hydration agree. Every access is
+// guarded — private mode / blocked storage just means sections start expanded.
+const COLLAPSE_EVENT = "fdl-data-table-collapse";
+
+function subscribeCollapsed(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener(COLLAPSE_EVENT, onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(COLLAPSE_EVENT, onChange);
+  };
+}
+
+function readStorage(key: string | undefined): string | null {
+  if (!key) return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeCollapsed(key: string, value: Set<string>) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify([...value]));
+  } catch {
+    // Storage unavailable — nothing to persist to.
+  }
+  window.dispatchEvent(new Event(COLLAPSE_EVENT));
 }
 
 type SortDir = "asc" | "desc";
@@ -40,10 +84,32 @@ export function DataTable<T extends Record<string, unknown>>({
   onAdd,
   addLabel = "New",
   onRowClick,
+  actions,
+  grouping,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const storageKey = grouping?.storageKey;
+  const collapsedRaw = useSyncExternalStore(subscribeCollapsed, () => readStorage(storageKey), () => null);
+  // Fallback for when storage is unavailable, so collapsing still works for this page view.
+  const [localCollapsed, setLocalCollapsed] = useState<Set<string>>(new Set());
+  const collapsed = useMemo(() => {
+    if (collapsedRaw == null) return localCollapsed;
+    try {
+      return new Set(JSON.parse(collapsedRaw) as string[]);
+    } catch {
+      return localCollapsed;
+    }
+  }, [collapsedRaw, localCollapsed]);
+
+  function toggleSection(key: string) {
+    const next = new Set(collapsed);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setLocalCollapsed(next);
+    if (storageKey) writeCollapsed(storageKey, next);
+  }
 
   function handleSort(key: string) {
     if (sortKey === key) {
@@ -78,16 +144,63 @@ export function DataTable<T extends Record<string, unknown>>({
       })
     : filtered;
 
+  // One section per group (in the given order) + Ungrouped last. While searching, empty
+  // sections are hidden and every section is forced open so matches are never tucked away.
+  const sections = grouping
+    ? (() => {
+        const known = new Set(grouping.groups.map((g) => g.id));
+        const all = [
+          ...grouping.groups.map((g) => ({
+            key: String(g.id),
+            name: g.name,
+            rows: sorted.filter((r) => r[grouping.groupKey] === g.id),
+          })),
+          {
+            key: UNGROUPED,
+            name: "Ungrouped",
+            rows: sorted.filter((r) => {
+              const v = r[grouping.groupKey];
+              return v == null || !known.has(v as number);
+            }),
+          },
+        ];
+        return all.filter((sec) => sec.rows.length > 0 || (!search && sec.key !== UNGROUPED));
+      })()
+    : null;
+
+  function renderRows(rows: T[]) {
+    return rows.map((row, idx) => (
+      <TableRow
+        key={idx}
+        onClick={() => onRowClick?.(row)}
+        className={onRowClick ? "cursor-pointer hover:bg-stone-50" : ""}
+      >
+        {columns.map((col) => (
+          <TableCell key={col.key}>
+            {col.render
+              ? col.render(row)
+              : row[col.key] != null
+              ? String(row[col.key])
+              : "—"}
+          </TableCell>
+        ))}
+      </TableRow>
+    ));
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-stone-900">{title}</h2>
-        {onAdd && (
-          <Button onClick={onAdd} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            {addLabel}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {actions}
+          {onAdd && (
+            <Button onClick={onAdd} size="sm">
+              <Plus className="h-4 w-4 mr-1" />
+              {addLabel}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="relative w-full max-w-sm">
@@ -139,24 +252,40 @@ export function DataTable<T extends Record<string, unknown>>({
                   No records found
                 </TableCell>
               </TableRow>
+            ) : sections ? (
+              sections.map((sec) => {
+                const isOpen = !!search || !collapsed.has(sec.key);
+                return (
+                  <Fragment key={sec.key}>
+                    <TableRow
+                      onClick={() => toggleSection(sec.key)}
+                      className="cursor-pointer bg-stone-50 hover:bg-stone-100"
+                    >
+                      <TableCell colSpan={columns.length} className="py-2">
+                        <span className="flex items-center gap-1.5 text-sm font-semibold text-stone-700">
+                          <ChevronRight
+                            className={`h-4 w-4 text-stone-400 transition-transform ${isOpen ? "rotate-90" : ""}`}
+                          />
+                          {sec.name}
+                          <span className="font-normal text-stone-400">({sec.rows.length})</span>
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                    {isOpen &&
+                      (sec.rows.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={columns.length} className="text-sm text-stone-400 pl-10">
+                            Empty group
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        renderRows(sec.rows)
+                      ))}
+                  </Fragment>
+                );
+              })
             ) : (
-              sorted.map((row, idx) => (
-                <TableRow
-                  key={idx}
-                  onClick={() => onRowClick?.(row)}
-                  className={onRowClick ? "cursor-pointer hover:bg-stone-50" : ""}
-                >
-                  {columns.map((col) => (
-                    <TableCell key={col.key}>
-                      {col.render
-                        ? col.render(row)
-                        : row[col.key] != null
-                        ? String(row[col.key])
-                        : "—"}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              renderRows(sorted)
             )}
           </TableBody>
         </Table>

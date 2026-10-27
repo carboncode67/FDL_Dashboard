@@ -23,7 +23,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const form = await prisma.form.findUnique({
     where: { id: formId, is_active: true },
-    include: { FieldDefinitions: { orderBy: { col_index: "asc" } } },
+    // Archived (removed) fields only exist to keep past answers readable — never sent to phones.
+    include: { FieldDefinitions: { where: { archived_at: null }, orderBy: { col_index: "asc" } } },
   });
   if (!form) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

@@ -41,7 +41,8 @@ export async function GET(request: Request) {
     const forms = await prisma.form.findMany({
       where,
       include: {
-        _count: { select: { FieldDefinitions: true, Responses: true } },
+        _count: { select: { FieldDefinitions: { where: { archived_at: null } }, Responses: true } },
+        Group: { select: { id: true, name: true, sort_order: true } },
       },
       orderBy: { created_at: "desc" },
     });
@@ -68,6 +69,9 @@ export async function GET(request: Request) {
         field_count: f._count.FieldDefinitions,
         response_count: f._count.Responses,
         last_submitted_at: lastSubmittedByForm.get(f.id) ?? null,
+        // Web list-page group (migration 087), null = Ungrouped. Not yet shown by the apps —
+        // see docs/mobile-item-groups-plan.md.
+        group: f.Group,
       })),
     );
   });

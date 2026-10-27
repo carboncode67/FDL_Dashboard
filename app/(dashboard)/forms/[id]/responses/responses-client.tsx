@@ -5,12 +5,14 @@ import Link from "next/link";
 
 interface Props {
   form: { id: number; title: string };
-  fields: { col_index: number; label: string; field_type: string }[];
+  fields: { field_key: string; label: string; field_type: string; removed: boolean }[];
   responses: {
     id: number;
     data: Record<string, string | number | boolean | string[] | null>;
     photoFilenames: Record<string, string | null>;
     submitted_at: string;
+    olderFormVersion: boolean;
+    missingRequired: string[];
     recipient: string;
     samplingPoint: { label: string; mapName: string; farmId: number; mapId: number } | null;
   }[];
@@ -40,14 +42,14 @@ export default function ResponsesClient({ form, fields, responses }: Props) {
         <span>{new Date((row as unknown as (typeof responses)[number]).submitted_at).toLocaleString()}</span>,
     },
     ...fields.map((f) => ({
-      key: `field_${f.col_index}`,
-      header: f.label,
+      key: `field_${f.field_key}`,
+      header: f.removed ? <span className="text-stone-400">{f.label}</span> : f.label,
       render: (row: Record<string, unknown>) => {
         const typedRow = row as unknown as (typeof responses)[number];
-        const value = typedRow.data[String(f.col_index)];
+        const value = typedRow.data[f.field_key];
         if (value === null || value === undefined) return <span className="text-stone-400">—</span>;
         if (f.field_type === "photo") {
-          const filename = typedRow.photoFilenames[String(f.col_index)];
+          const filename = typedRow.photoFilenames[f.field_key];
           if (!filename) return <span className="text-xs text-amber-600">Uploading…</span>;
           return (
             <a href={`/api/files/photos/${filename}`} target="_blank" rel="noopener noreferrer">
@@ -67,6 +69,24 @@ export default function ResponsesClient({ form, fields, responses }: Props) {
         return <span>{String(value)}</span>;
       },
     })),
+    ...(responses.some((r) => r.olderFormVersion)
+      ? [{
+          key: "olderFormVersion",
+          header: "Note",
+          render: (row: Record<string, unknown>) => {
+            const r = row as unknown as (typeof responses)[number];
+            if (!r.olderFormVersion) return null;
+            const title = r.missingRequired.length > 0
+              ? `No answer for: ${r.missingRequired.join(", ")} (added or made required after this was filled out)`
+              : "Filled out before the form was last edited — answers were matched to the current fields";
+            return (
+              <span title={title} className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-800 whitespace-nowrap">
+                Older form version
+              </span>
+            );
+          },
+        }]
+      : []),
   ];
 
   return (

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { fieldDisplayLabel, fieldsForDisplay } from "@/lib/form-fields";
 import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
 import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
@@ -18,7 +19,7 @@ export const runtime = "nodejs";
 // Session-authed, gated the same way as the map editor page itself (app/(dashboard)/farms/
 // [id]/maps/[mapId]/page.tsx): canCreate + farm in the caller's effective scope. Exports every
 // Form_Responses row submitted at a point on this map, one row per response, one column per
-// linked-form field (in col_index order) plus the fixed columns below. When any response has a
+// linked-form field (in display order, removed fields last) plus the fixed columns below. When any response has a
 // photo that's on disk, the download is a .zip instead — the CSV plus a photos/ folder, with the
 // CSV's photo cells pointing at photos/<filename> — otherwise it's the plain CSV as before.
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -47,7 +48,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "This map has no linked form" }, { status: 400 });
     }
 
-    const [fieldDefs, responses] = await Promise.all([
+    const [allFieldDefs, responses] = await Promise.all([
       prisma.formFieldDefinition.findMany({
         where: { form_id: map.form_id },
         orderBy: { col_index: "asc" },
@@ -62,19 +63,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         orderBy: { submitted_at: "asc" },
       }),
     ]);
+    // Removed (archived) fields come last, labelled "(removed)", so their answers still export.
+    const fieldDefs = fieldsForDisplay(allFieldDefs);
 
     // Photo fields store a content_hash reference to a Photos row, same resolution the
     // Custom Forms responses admin view does (app/(dashboard)/forms/[id]/responses/page.tsx) —
     // the CSV gets the filename, not the hash, so it's directly usable to cross-reference
     // /api/files/photos/<filename>.
-    const photoColIndexes = new Set(
-      fieldDefs.filter((f) => f.field_type === "photo").map((f) => f.col_index),
+    const photoKeys = new Set(
+      fieldDefs.filter((f) => f.field_type === "photo").map((f) => f.field_key),
     );
     const photoHashes = new Set<string>();
     for (const r of responses) {
       const data = r.data as Record<string, string | number | boolean | null>;
-      for (const colIndex of photoColIndexes) {
-        const v = data[String(colIndex)];
+      for (const key of photoKeys) {
+        const v = data[key];
         if (typeof v === "string" && v) photoHashes.add(v);
       }
     }
@@ -90,7 +93,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const header = [
       "Point name",
       "Pre-set point?",
-      ...fieldDefs.map((f) => f.label),
+      ...fieldDefs.map(fieldDisplayLabel),
       "Date collected",
       "Time collected",
       "Collected by",
@@ -99,12 +102,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       "Z position",
       "GPS accuracy (m)",
       "External GPS",
+      "Note",
     ];
 
     const rows = responses.map((r) => {
       const data = r.data as Record<string, string | number | boolean | null>;
       const fieldCells = fieldDefs.map((f) => {
-        const v = data[String(f.col_index)];
+        const v = data[f.field_key];
         if (v === null || v === undefined) return null;
         if (f.field_type === "photo") {
           if (typeof v !== "string") return null;
@@ -148,6 +152,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         r.altitude,
         r.h_accuracy,
         r.external_gps === null || r.external_gps === undefined ? null : r.external_gps ? "Yes" : "No",
+        // Filled out before the form was last edited (migration 088).
+        r.older_form_version
+          ? r.missing_required.length > 0
+            ? `Older form version; no answer for: ${r.missing_required.join(", ")}`
+            : "Older form version"
+          : null,
       ];
     });
 

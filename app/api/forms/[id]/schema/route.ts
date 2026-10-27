@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit, type Role } from "@/lib/roles";
 import { normalizeLabel } from "@/lib/forms";
+import { newFieldKey } from "@/lib/form-fields";
 import { runWithTenant } from "@/lib/lab-db";
 
 const FIELD_TYPES = new Set(["text", "number", "boolean", "date", "select", "multiselect", "photo"]);
@@ -16,14 +18,20 @@ export async function GET(_req: Request, { params }: Params) {
 
   const { id } = await params;
   const defs = await prisma.formFieldDefinition.findMany({
-    where: { form_id: parseInt(id) },
+    where: { form_id: parseInt(id), archived_at: null },
     orderBy: { col_index: "asc" },
   });
   return NextResponse.json(defs);
   });
 }
 
-// Full-replace, same pattern as app/api/tests/[id]/schema/route.ts.
+// Saves the builder's field list IN PLACE, keyed by field_key (migration 088) — never
+// delete+recreate, which used to renumber the col_index keys every stored response is
+// keyed by and scramble or orphan their answers. Columns carrying a field_key update that
+// field (a label change is remembered in previous_labels); columns without one are new
+// fields — or, if their label matches an archived field, that field revived with its old
+// answers. Active fields missing from the payload are archived when any response holds an
+// answer for them, and only deleted outright when none does.
 export async function PUT(req: Request, { params }: Params) {
   return runWithTenant(async () => {
   const session = await auth();
@@ -34,6 +42,7 @@ export async function PUT(req: Request, { params }: Params) {
   const formId = parseInt(id);
   const { columns } = await req.json() as {
     columns: {
+      field_key?: string | null;
       col_index: number;
       field_type: string;
       label: string;
@@ -102,32 +111,83 @@ export async function PUT(req: Request, { params }: Params) {
     }
   }
 
-  // Delete + recreate must be one transaction — if the insert below is
-  // rejected (e.g. a field_type not yet allowed by the DB's CHECK
-  // constraint), a non-transactional delete would already have committed,
-  // silently wiping the form's existing fields instead of failing cleanly.
+  const existing = await prisma.formFieldDefinition.findMany({ where: { form_id: formId } });
+  const existingByKey = new Map(existing.map((d) => [d.field_key, d]));
+
+  // Resolve every column to the field it saves into.
+  const ordered = [...columns].sort((a, b) => a.col_index - b.col_index);
+  const claimed = new Set<string>();
+  const resolved: { col: (typeof columns)[number]; prior: (typeof existing)[number] | null; key: string }[] = [];
+  for (const c of ordered) {
+    if (c.field_key) {
+      const prior = existingByKey.get(c.field_key);
+      if (!prior || claimed.has(c.field_key)) {
+        return NextResponse.json(
+          { error: "This form was changed elsewhere since you opened it — reload the page and try again" },
+          { status: 409 }
+        );
+      }
+      claimed.add(prior.field_key);
+      resolved.push({ col: c, prior, key: prior.field_key });
+      continue;
+    }
+    const revived = existing.find(
+      (d) => d.archived_at && !claimed.has(d.field_key) && normalizeLabel(d.label) === normalizeLabel(c.label)
+    );
+    if (revived) {
+      claimed.add(revived.field_key);
+      resolved.push({ col: c, prior: revived, key: revived.field_key });
+    } else {
+      resolved.push({ col: c, prior: null, key: newFieldKey() });
+    }
+  }
+
+  const removed = existing.filter((d) => !d.archived_at && !claimed.has(d.field_key));
+  const answeredKeys = new Set<string>();
+  if (removed.length > 0) {
+    const rows = await prisma.$queryRaw<{ key: string }[]>`
+      SELECT DISTINCT k AS key
+      FROM "pgntarg2udzj1f3"."Form_Responses" r, jsonb_object_keys(r.data::jsonb) AS k
+      WHERE r.form_id = ${formId}`;
+    for (const r of rows) answeredKeys.add(r.key);
+  }
+
+  const now = new Date();
+  // One transaction — a rejected write (e.g. a field_type the DB's CHECK constraint doesn't
+  // allow yet) leaves the form exactly as it was.
   await prisma.$transaction([
-    prisma.formFieldDefinition.deleteMany({ where: { form_id: formId } }),
-    ...(columns.length > 0
-      ? [
-          prisma.formFieldDefinition.createMany({
-            data: columns.map((c) => ({
-              form_id: formId,
-              col_index: c.col_index,
-              field_type: FIELD_TYPES.has(c.field_type) ? c.field_type : "text",
-              label: c.label,
-              required: c.required ?? false,
-              options: c.field_type === "select" || c.field_type === "multiselect" ? (c.options ?? []) : undefined,
-              show_when_label: c.show_when_label || null,
-              show_when_value: c.show_when_label ? (c.show_when_value ?? null) : null,
-            })),
-          }),
-        ]
-      : []),
+    ...resolved.map(({ col: c, prior, key }, i) => {
+      const fields = {
+        col_index: i,
+        field_type: FIELD_TYPES.has(c.field_type) ? c.field_type : "text",
+        label: c.label,
+        required: c.required ?? false,
+        options: c.field_type === "select" || c.field_type === "multiselect" ? (c.options ?? []) : Prisma.DbNull,
+        show_when_label: c.show_when_label || null,
+        show_when_value: c.show_when_label ? (c.show_when_value ?? null) : null,
+      };
+      if (!prior) {
+        return prisma.formFieldDefinition.create({ data: { ...fields, form_id: formId, field_key: key } });
+      }
+      const renamed = normalizeLabel(prior.label) !== normalizeLabel(c.label);
+      const previous_labels =
+        renamed && !prior.previous_labels.some((l) => normalizeLabel(l) === normalizeLabel(prior.label))
+          ? [...prior.previous_labels, prior.label]
+          : prior.previous_labels;
+      return prisma.formFieldDefinition.update({
+        where: { id: prior.id },
+        data: { ...fields, previous_labels, archived_at: null },
+      });
+    }),
+    ...removed.map((d) =>
+      answeredKeys.has(d.field_key)
+        ? prisma.formFieldDefinition.update({ where: { id: d.id }, data: { archived_at: now } })
+        : prisma.formFieldDefinition.delete({ where: { id: d.id } })
+    ),
   ]);
 
   const defs = await prisma.formFieldDefinition.findMany({
-    where: { form_id: formId },
+    where: { form_id: formId, archived_at: null },
     orderBy: { col_index: "asc" },
   });
   return NextResponse.json(defs);

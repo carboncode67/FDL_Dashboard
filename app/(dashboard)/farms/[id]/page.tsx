@@ -6,6 +6,7 @@ import { canCreate, canEdit, canDelete, isAdmin, type Role } from "@/lib/roles";
 import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import { DeleteFarmButton } from "./delete-button";
 import { OfeSyncToggle } from "@/components/ofe-sync-toggle";
+import { FarmTagEditor } from "@/components/farm-tag-editor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +68,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
         // ProjectFarms in app/(dashboard)/projects/[id]/page.tsx). Project_Name etc. are
         // joined client-side below against `allProjects` instead.
         ProjectFarms: { select: { Projects_id: true } },
+        TagLinks: { include: { Tag: { select: { id: true, name: true } } } },
         ExperimentZones: true,
         Contacts: {
           orderBy: { name: "asc" },
@@ -367,6 +369,10 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             {farm.Farm_Name ?? `Farm #${farm.id}`}
           </h2>
           <p className="text-stone-500">{primaryContact?.name ? `Farmer: ${primaryContact.name}` : ""}</p>
+          <FarmTagEditor
+            farmId={farm.id}
+            tags={farm.TagLinks.map((l) => l.Tag).sort((a, b) => a.name.localeCompare(b.name))}
+          />
         </div>
         <div className="flex items-center gap-2">
           {showOfeSyncToggle && (

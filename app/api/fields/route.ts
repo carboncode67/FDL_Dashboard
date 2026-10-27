@@ -10,7 +10,7 @@ export async function GET() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const scope = await getEffectiveScope(session.user.id, session.user.category);
-  const where = scope.hardScoped ? { Farms_id: { in: scope.farmIds } } : {};
+  const where = scope.hardScoped ? { Farms_id: { in: scope.accessFarmIds } } : {};
   const fields = await prisma.field.findMany({ where, orderBy: { id: "asc" }, include: { Farm: true } });
   return NextResponse.json(fields);
   });

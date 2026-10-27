@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
 import { runWithLab } from "@/lib/lab-db";
 import { resolveFarmId, resolveFarmIdForLabMember } from "@/lib/proximity";
+import { buildFieldMatcher } from "@/lib/form-fields";
 import {
   isFormVisibleToContact,
   isFormVisibleToLabMember,
@@ -160,26 +161,34 @@ export async function POST(request: Request, { params }: Params) {
       }
     }
 
-    const defs = await prisma.formFieldDefinition.findMany({
+    // Archived fields and previous labels are included so a submission filled out before the
+    // form was edited (queued offline on a phone) still lands every answer on the right field —
+    // see lib/form-fields.ts buildFieldMatcher.
+    const allDefs = await prisma.formFieldDefinition.findMany({
       where: { form_id: formId },
       orderBy: { col_index: "asc" },
     });
+    const defs = allDefs.filter((d) => !d.archived_at);
+    const matchField = buildFieldMatcher(allDefs);
 
     const valuesEntries = Object.entries(values as Record<string, unknown>);
     const defByNorm = new Map(defs.map((d) => [normalizeLabel(d.label), d]));
 
     const data: Record<string, string | number | boolean | string[] | null> = {};
-    const matchedColIndexes = new Set<number>();
+    const matchedKeys = new Set<string>();
     const ignoredFields: string[] = [];
+    let olderFormVersion = false;
 
     for (const [key, v] of valuesEntries) {
-      const def = defByNorm.get(normalizeLabel(key));
-      if (!def) {
+      const match = matchField(key);
+      if (!match) {
         ignoredFields.push(key);
         continue;
       }
-      matchedColIndexes.add(def.col_index);
-      data[String(def.col_index)] =
+      const def = match.def;
+      if (!match.current) olderFormVersion = true;
+      matchedKeys.add(def.field_key);
+      data[def.field_key] =
         v === null || v === undefined
           ? null
           : def.field_type === "multiselect"
@@ -204,29 +213,24 @@ export async function POST(request: Request, { params }: Params) {
       if (!d.show_when_label) return true;
       const parent = defByNorm.get(normalizeLabel(d.show_when_label));
       if (!parent) return true; // parent field no longer exists — fail open
-      const parentValue = data[String(parent.col_index)];
+      const parentValue = data[parent.field_key];
       if (parentValue === undefined || parentValue === null) return false;
       if (Array.isArray(parentValue)) return parentValue.includes(d.show_when_value ?? "");
       return String(parentValue) === d.show_when_value;
     };
+    // Only active fields' conditions apply — an archived field's answer is kept as submitted.
     for (const d of defs) {
-      if (!isVisible(d)) delete data[String(d.col_index)];
+      if (!isVisible(d)) delete data[d.field_key];
     }
 
+    // Both apps enforce required fields before a response is ever queued, so a gap here means
+    // the form changed under a queued submission (a field added or made required since). It
+    // used to be a 422 the apps retried forever without telling anyone; now it's accepted and
+    // flagged on the response instead.
     const missing = defs
-      .filter((d) => d.required && isVisible(d) && !matchedColIndexes.has(d.col_index))
+      .filter((d) => d.required && isVisible(d) && !matchedKeys.has(d.field_key))
       .map((d) => d.label);
-    if (missing.length > 0) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Missing required fields",
-          missing,
-          ignored_fields: ignoredFields,
-        },
-        { status: 422 },
-      );
-    }
+    if (missing.length > 0) olderFormVersion = true;
 
     const farmId =
       auth.kind === "contact"
@@ -248,6 +252,8 @@ export async function POST(request: Request, { params }: Params) {
         h_accuracy: hAccuracy,
         fix_quality: fixQuality,
         external_gps: externalGps,
+        older_form_version: olderFormVersion,
+        missing_required: missing,
       },
     });
 
@@ -257,6 +263,8 @@ export async function POST(request: Request, { params }: Params) {
         id: response.id,
         submitted_at: response.submitted_at,
         ignored_fields: ignoredFields,
+        older_form_version: olderFormVersion,
+        missing,
       },
       { status: 201 },
     );

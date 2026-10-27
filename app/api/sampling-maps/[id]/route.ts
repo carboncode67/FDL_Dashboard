@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { canEdit, canDelete } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
 import { runWithTenant } from "@/lib/lab-db";
+import { resolveGroupIdUpdate } from "@/lib/item-groups";
 import fs from "fs";
 import { naipPackagePath } from "@/lib/naip-package";
 import { parseNaipBbox, estimateNaipTiles, NAIP_MAX_TILES, NAIP_MAX_ZOOM, NAIP_DEFAULT_MAX_ZOOM } from "@/lib/naip-bbox";
@@ -44,7 +45,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   const { id } = await params;
   const body = await req.json();
-  const { name, description, experiment_id, form_id, proximity_radius_m, basemap_id, basemap_buffer_m, basemap_max_zoom, naip_bbox } = body;
+  const { name, description, experiment_id, form_id, proximity_radius_m, basemap_id, basemap_buffer_m, basemap_max_zoom, naip_bbox, group_id } = body;
+  const groupUpdate = await resolveGroupIdUpdate("sampling-maps", group_id);
+  if (groupUpdate === false) return NextResponse.json({ error: "Invalid group" }, { status: 400 });
 
   // null clears the box; anything else must be a sane [w,s,e,n] that isn't absurdly large to render.
   let naipBboxUpdate: { naip_bbox: number[] | typeof Prisma.DbNull } | null = null;
@@ -83,6 +86,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         ? { basemap_max_zoom: basemap_max_zoom ? parseInt(basemap_max_zoom) : null }
         : {}),
       ...(naipBboxUpdate ?? {}),
+      ...(groupUpdate ?? {}),
     },
   });
   return NextResponse.json(map);

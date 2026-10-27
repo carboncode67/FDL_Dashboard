@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { fieldDisplayLabel, fieldsForDisplay } from "@/lib/form-fields";
 import { auth } from "@/lib/auth";
 import { runWithTenant } from "@/lib/lab-db";
 import { toCsv } from "@/lib/csv";
@@ -23,6 +24,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     include: { FieldDefinitions: { orderBy: { col_index: "asc" } } },
   });
   if (!form) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Removed (archived) fields come last, labelled "(removed)", so their answers still export.
+  const fields = fieldsForDisplay(form.FieldDefinitions);
 
   const responses = await prisma.formResponse.findMany({
     where: { form_id: formId },
@@ -34,18 +37,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     orderBy: { submitted_at: "asc" },
   });
 
-  const photoCols = new Set(form.FieldDefinitions.filter((f) => f.field_type === "photo").map((f) => f.col_index));
+  const photoCols = new Set(fields.filter((f) => f.field_type === "photo").map((f) => f.field_key));
   const hashes = new Set<string>();
   for (const r of responses) {
     const data = r.data as Record<string, unknown>;
     for (const c of photoCols) {
-      const v = data[String(c)];
+      const v = data[c];
       if (typeof v === "string" && v) hashes.add(v);
     }
   }
   const filenameByHash = await resolvePhotoFilenames(hashes);
 
-  const header = ["response_id", "recipient", "submitted_at", "sampling_map", "sampling_point", ...form.FieldDefinitions.map((f) => f.label)];
+  const header = ["response_id", "recipient", "submitted_at", "sampling_map", "sampling_point", ...fields.map(fieldDisplayLabel), "note"];
   const rows: (string | number | null | undefined)[][] = [];
   for (const r of responses) {
     const data = r.data as Record<string, unknown>;
@@ -55,11 +58,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       r.submitted_at.toISOString(),
       r.SamplingPoint?.SamplingMap.name ?? "",
       r.SamplingPoint ? (r.SamplingPoint.label ?? `Point #${r.SamplingPoint.id}`) : "",
-      ...form.FieldDefinitions.map((f) => {
-        const v = data[String(f.col_index)];
+      ...fields.map((f) => {
+        const v = data[f.field_key];
         if (f.field_type === "photo" && typeof v === "string") return filenameByHash.get(v) ?? v;
         return v === null || v === undefined ? null : String(v);
       }),
+      responseNote(r),
     ];
     rows.push(row);
   }
@@ -75,4 +79,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     },
   });
   });
+}
+
+// Flags a response that was filled out before the form was last edited (migration 088).
+function responseNote(r: { older_form_version: boolean; missing_required: string[] }): string {
+  if (!r.older_form_version) return "";
+  return r.missing_required.length > 0
+    ? `Older form version; no answer for: ${r.missing_required.join(", ")}`
+    : "Older form version";
 }

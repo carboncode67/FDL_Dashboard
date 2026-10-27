@@ -56,6 +56,7 @@ model User {
   ProjectFilters     UserProjectFilter[]
   FarmFilters        UserFarmFilter[]
   FilterSettings     UserFilterSettings?
+  FarmTagFilters     UserFarmTagFilter[]
   CreatedExperiments FarmExperiment[]    @relation("ExperimentCreatedBy")
   CreatedForms       Form[]              @relation("FormCreatedBy")
   FormAssignments    FormAssignment[]
@@ -189,6 +190,7 @@ model Farm {
   Basemaps         Basemap[]
   SamplingMapAssignments SamplingMapAssignment[]
   SamplingMaps     SamplingMap[]
+  TagLinks         FarmTagLink[]
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
@@ -1293,6 +1295,10 @@ model Form {
   SamplingMaps     SamplingMap[]
   LinkedGeofences  Geofence[]            @relation("GeofenceLinkedForm")
 
+  // Optional Form_Groups row (migration 087) — list-page organisation only; NULL = Ungrouped.
+  group_id         Int?
+  Group            FormGroup?            @relation(fields: [group_id], references: [id], onDelete: SetNull)
+
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
   lab_id      Int?
@@ -1324,9 +1330,17 @@ model FormFieldDefinition {
   show_when_label String?
   show_when_value String?
 
+  // Migration 088 — permanent identity: FormResponse.data is keyed by field_key (backfilled to
+  // col_index::text for pre-088 fields; new ones are "f_<random>"). col_index is display order
+  // only. A removed field that still has answers is archived, not deleted; previous_labels lets
+  // submissions queued before a rename still match. See lib/form-fields.ts.
+  field_key       String
+  archived_at     DateTime? @db.Timestamptz(6)
+  previous_labels String[]  @default([])
+
   Form Form @relation(fields: [form_id], references: [id], onDelete: Cascade)
 
-  @@unique([form_id, col_index])
+  @@unique([form_id, field_key])
   @@map("Form_Field_Definitions")
   @@schema("pgntarg2udzj1f3")
 }
@@ -1365,7 +1379,7 @@ model FormResponse {
   contact_id   Int?
   user_id      String?
   farm_id      Int?     // resolved at submission time via lib/proximity.ts
-  data         Json     // JSONB keyed by FormFieldDefinition.col_index as a string — no FK to field defs
+  data         Json     // JSONB keyed by FormFieldDefinition.field_key — no FK to field defs
   content_hash String?  // client-supplied dedup key, same pattern as Photos/Notes/Recordings
   submitted_at DateTime @default(now()) @db.Timestamptz(6)
 
@@ -1390,6 +1404,12 @@ model FormResponse {
   h_accuracy   Float?
   fix_quality  String?
   external_gps Boolean?
+
+  // Migration 088: submitted against an older version of the form (matched a renamed or
+  // removed field), and/or missing answers for since-required fields — accepted and flagged
+  // rather than rejected, so offline-queued submissions are never stranded.
+  older_form_version Boolean  @default(false)
+  missing_required   String[] @default([])
 
   Form          Form           @relation(fields: [form_id], references: [id], onDelete: Cascade)
   Contact       Contact?       @relation(fields: [contact_id], references: [id], onDelete: SetNull)
@@ -1861,6 +1881,9 @@ model SamplingMap {
   Points     SamplingPoint[]
   Assignments SamplingMapAssignment[]
   LinkedGeofences Geofence[]            @relation("GeofenceLinkedSamplingMap")
+  // Optional Sampling_Map_Groups row (migration 087) — list-page organisation only; NULL = Ungrouped.
+  group_id   Int?
+  Group      SamplingMapGroup? @relation(fields: [group_id], references: [id], onDelete: SetNull)
 
   @@index([farm_id])
   @@index([experiment_id])
@@ -1982,5 +2005,74 @@ model SamplingPointCollection {
   @@index([sampling_point_id])
   @@index([content_hash])
   @@map("Sampling_Point_Collections")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Farm tags (migration 087): lab-scoped vocabulary, many-to-many with Farms. A user's
+// include/exclude rules (UserFarmTagFilter) narrow the farm list every page filters by —
+// see lib/get-user-filters.ts getEffectiveScope(). Names are unique per lab, case-
+// insensitively (expression index in the migration, not expressible here).
+model FarmTag {
+  id         Int      @id @default(autoincrement())
+  lab_id     Int?
+  name       String
+  created_at DateTime @default(now())
+
+  Links   FarmTagLink[]
+  Filters UserFarmTagFilter[]
+
+  @@map("Farm_Tags")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model FarmTagLink {
+  farm_id Int
+  tag_id  Int
+  Farm    Farm    @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  Tag     FarmTag @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+
+  @@id([farm_id, tag_id])
+  @@index([tag_id])
+  @@map("Farm_Tag_Links")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model UserFarmTagFilter {
+  user_id String
+  tag_id  Int
+  mode    String // include | exclude
+  User    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  Tag     FarmTag @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, tag_id])
+  @@map("User_Farm_Tag_Filters")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Flat, collapsible list-page groups (migration 087). Forms and Sampling Maps each have
+// their own, separate group list; see lib/item-groups.ts.
+model FormGroup {
+  id         Int      @id @default(autoincrement())
+  lab_id     Int?
+  name       String
+  sort_order Int      @default(0)
+  created_at DateTime @default(now())
+
+  Forms Form[]
+
+  @@map("Form_Groups")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model SamplingMapGroup {
+  id         Int      @id @default(autoincrement())
+  lab_id     Int?
+  name       String
+  sort_order Int      @default(0)
+  created_at DateTime @default(now())
+
+  SamplingMaps SamplingMap[]
+
+  @@map("Sampling_Map_Groups")
   @@schema("pgntarg2udzj1f3")
 }

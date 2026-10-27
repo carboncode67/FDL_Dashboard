@@ -8,6 +8,7 @@ import Link from "next/link";
 import { DeleteEntitySection } from "@/components/delete-entity-section";
 
 type Column = {
+  field_key: string;
   col_index: number;
   field_type: "text" | "number" | "boolean" | "date" | "select" | "multiselect" | "photo";
   label: string;
@@ -60,7 +61,7 @@ export default function EditFormClient({ form, fieldDefs, assignments, contacts,
 
       <div className="bg-white border rounded-lg p-6 space-y-3">
         <h3 className="text-sm font-semibold text-stone-900 pb-2 border-b">Fields</h3>
-        <FormSchemaBuilder formId={form.id} initialColumns={fieldDefs} />
+        <FormSchemaBuilder formId={form.id} initialColumns={fieldDefs} responseCount={responseCount} />
       </div>
 
       <div className="bg-white border rounded-lg p-6 space-y-3">

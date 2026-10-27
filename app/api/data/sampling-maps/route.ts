@@ -9,6 +9,7 @@ const INCLUDE = {
   Farm: { select: { Farm_Name: true, latitude: true, longitude: true } },
   Experiment: { select: { experiment_name: true } },
   _count: { select: { Polygons: true, Points: true } },
+  Group: { select: { id: true, name: true, sort_order: true } },
 } as const;
 
 // List sampling maps sent to the authenticated identity's phone (GET /api/data/sampling-maps).
@@ -54,5 +55,8 @@ function serializeMapSummary(
     polygon_count: m._count.Polygons,
     point_count: m._count.Points,
     form_id: m.form_id,
+    // Web list-page group (migration 087), null = Ungrouped. Not yet shown by the apps —
+    // see docs/mobile-item-groups-plan.md.
+    group: m.Group,
   };
 }

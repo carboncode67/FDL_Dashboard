@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import ResponsesClient from "./responses-client";
 import { runWithTenant } from "@/lib/lab-db";
 import { resolvePhotoFilenames } from "@/lib/sampling-point-data";
+import { fieldDisplayLabel, fieldsForDisplay } from "@/lib/form-fields";
 
 export default async function FormResponsesPage({ params }: { params: Promise<{ id: string }> }) {
   return runWithTenant(async () => {
@@ -28,19 +29,19 @@ export default async function FormResponsesPage({ params }: { params: Promise<{ 
   ]);
 
   if (!form) notFound();
+  // Includes archived (removed) fields after the active ones, so their past answers stay visible.
+  const fields = fieldsForDisplay(form.FieldDefinitions);
 
   // Photo fields store the mobile client's content_hash reference to a Photos
   // row, not a filename — resolve it here since the response may have been
   // submitted before that photo finished uploading (offline-first, same as
   // every other upload type), so the lookup can legitimately come up empty.
-  const photoColIndexes = new Set(
-    form.FieldDefinitions.filter((f) => f.field_type === "photo").map((f) => f.col_index)
-  );
+  const photoKeys = new Set(fields.filter((f) => f.field_type === "photo").map((f) => f.field_key));
   const photoHashes = new Set<string>();
   for (const r of responses) {
     const data = r.data as Record<string, string | number | boolean | null>;
-    for (const colIndex of photoColIndexes) {
-      const v = data[String(colIndex)];
+    for (const key of photoKeys) {
+      const v = data[key];
       if (typeof v === "string" && v) photoHashes.add(v);
     }
   }
@@ -49,19 +50,21 @@ export default async function FormResponsesPage({ params }: { params: Promise<{ 
   return (
     <ResponsesClient
       form={{ id: form.id, title: form.title }}
-      fields={form.FieldDefinitions.map((f) => ({ col_index: f.col_index, label: f.label, field_type: f.field_type }))}
+      fields={fields.map((f) => ({ field_key: f.field_key, label: fieldDisplayLabel(f), field_type: f.field_type, removed: !!f.archived_at }))}
       responses={responses.map((r) => {
         const data = r.data as Record<string, string | number | boolean | string[] | null>;
         const photoFilenames: Record<string, string | null> = {};
-        for (const colIndex of photoColIndexes) {
-          const v = data[String(colIndex)];
-          photoFilenames[String(colIndex)] = typeof v === "string" ? (filenameByHash.get(v) ?? null) : null;
+        for (const key of photoKeys) {
+          const v = data[key];
+          photoFilenames[key] = typeof v === "string" ? (filenameByHash.get(v) ?? null) : null;
         }
         return {
           id: r.id,
           data,
           photoFilenames,
           submitted_at: r.submitted_at.toISOString(),
+          olderFormVersion: r.older_form_version,
+          missingRequired: r.missing_required,
           recipient: r.Contact?.name ?? r.User?.name ?? r.User?.email ?? "Unknown",
           samplingPoint: r.SamplingPoint
             ? {

@@ -10,7 +10,7 @@ export async function GET() {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const forms = await prisma.form.findMany({
-    include: { _count: { select: { FieldDefinitions: true, Assignments: true, Responses: true } } },
+    include: { _count: { select: { FieldDefinitions: { where: { archived_at: null } }, Assignments: true, Responses: true } } },
     orderBy: { created_at: "desc" },
   });
   return NextResponse.json(forms);

@@ -17,6 +17,9 @@ function normalizeLabel(s: string): string {
 }
 
 type Column = {
+  // Permanent field identity (migration 088) — undefined until the server has saved the field.
+  // Must round-trip untouched: it's what keeps a field's existing answers attached to it.
+  field_key?: string | null;
   col_index: number;
   field_type: FieldType;
   label: string;
@@ -32,13 +35,17 @@ type Column = {
 interface Props {
   formId: number;
   initialColumns: Column[];
+  /** Existing responses — when > 0 the builder explains how edits treat their answers. */
+  responseCount?: number;
 }
+
+type SavedDef = Omit<Column, "optionsText" | "options"> & { options: unknown };
 
 function withOptionsText(col: Column): Column {
   return { ...col, optionsText: col.optionsText ?? (col.options ?? []).join(", ") };
 }
 
-export function FormSchemaBuilder({ formId, initialColumns }: Props) {
+export function FormSchemaBuilder({ formId, initialColumns, responseCount = 0 }: Props) {
   const [columns, setColumns] = useState<Column[]>(initialColumns.map(withOptionsText));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -137,6 +144,23 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
         setError(body?.error ?? `Save failed (${res.status})`);
         return;
       }
+      // Adopt the saved fields so newly added ones carry their server-assigned field_key —
+      // otherwise saving twice would create them a second time.
+      const defs = (await res.json()) as SavedDef[];
+      setColumns(
+        defs.map((d) =>
+          withOptionsText({
+            field_key: d.field_key,
+            col_index: d.col_index,
+            field_type: d.field_type,
+            label: d.label,
+            required: d.required,
+            options: Array.isArray(d.options) ? (d.options as string[]) : null,
+            show_when_label: d.show_when_label,
+            show_when_value: d.show_when_value,
+          })
+        )
+      );
       setSaved(true);
     } catch {
       setError("Save failed — check your connection and try again");
@@ -151,6 +175,14 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
         Define the fields recipients will fill in. Forms are repeatable — the same recipient can submit
         this form more than once.
       </p>
+      {responseCount > 0 && (
+        <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+          This form has {responseCount} response{responseCount !== 1 ? "s" : ""}. Editing is safe: renamed or
+          reordered fields keep their answers, and removed fields are kept as &ldquo;(removed)&rdquo; columns in
+          the responses and CSV. Phones holding unsent answers from before your edit still upload them — they
+          show up flagged as filled on an older version.
+        </p>
+      )}
 
       {columns.length === 0 ? (
         <p className="text-sm text-stone-400 italic">No fields defined — add one below.</p>
@@ -160,7 +192,7 @@ export function FormSchemaBuilder({ formId, initialColumns }: Props) {
             const norm = normalizeLabel(col.label);
             const isDuplicate = norm.length > 0 && (labelCounts.get(norm) ?? 0) > 1;
             return (
-            <div key={i} className="space-y-1.5 border-b pb-2 last:border-b-0">
+            <div key={col.field_key ?? `new-${i}`} className="space-y-1.5 border-b pb-2 last:border-b-0">
               <div className="flex gap-2 items-center">
                 <select
                   className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"

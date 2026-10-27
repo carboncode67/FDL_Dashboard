@@ -1,11 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import { SamplingMapsListClient } from "./sampling-maps-list-client";
 import { runWithTenant } from "@/lib/lab-db";
+import { auth } from "@/lib/auth";
+import { canEdit, type Role } from "@/lib/roles";
+import { getEffectiveScope } from "@/lib/get-user-filters";
+import { listItemGroups } from "@/lib/item-groups";
 
 export default async function SamplingMapsPage() {
   return runWithTenant(async () => {
-  const [maps, farms, experiments, forms] = await Promise.all([
+  const session = await auth();
+  const role = (session?.user?.role ?? "viewer") as Role;
+  // Dashboard Filters (incl. farm tags) apply here too — a map belongs to exactly one farm.
+  const { farmIds } = await getEffectiveScope(session?.user?.id ?? null, session?.user?.category);
+  const farmWhere = farmIds.length > 0 ? { id: { in: farmIds } } : {};
+
+  const [maps, farms, experiments, forms, groups] = await Promise.all([
     prisma.samplingMap.findMany({
+      where: farmIds.length > 0 ? { farm_id: { in: farmIds } } : {},
       orderBy: { updated_at: "desc" },
       include: {
         Farm: { select: { id: true, Farm_Name: true } },
@@ -14,6 +25,7 @@ export default async function SamplingMapsPage() {
       },
     }),
     prisma.farm.findMany({
+      where: farmWhere,
       select: { id: true, Farm_Name: true },
       orderBy: { Farm_Name: "asc" },
     }),
@@ -26,12 +38,14 @@ export default async function SamplingMapsPage() {
       select: { id: true, title: true },
       orderBy: { title: "asc" },
     }),
+    listItemGroups("sampling-maps"),
   ]);
 
   const data = maps.map((m) => ({
     id: m.id,
     farmId: m.farm_id,
     name: m.name,
+    group_id: m.group_id,
     Farm_Name: m.Farm.Farm_Name ?? `Farm #${m.farm_id}`,
     Experiment_Name: m.Experiment?.experiment_name ?? null,
     polygonCount: m._count.Polygons,
@@ -51,6 +65,8 @@ export default async function SamplingMapsPage() {
           name: e.experiment_name ?? `Experiment #${e.id}`,
         }))}
       forms={forms}
+      groups={groups}
+      canEditGroups={canEdit(role)}
     />
   );
   });

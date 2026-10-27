@@ -19,7 +19,7 @@ export default async function EditFormPage({ params }: { params: Promise<{ id: s
   ]);
   const [form, fieldDefs, assignments, contacts, users, farms, experiments] = await Promise.all([
     prisma.form.findUnique({ where: { id: formId } }),
-    prisma.formFieldDefinition.findMany({ where: { form_id: formId }, orderBy: { col_index: "asc" } }),
+    prisma.formFieldDefinition.findMany({ where: { form_id: formId, archived_at: null }, orderBy: { col_index: "asc" } }),
     prisma.formAssignment.findMany({
       where: { form_id: formId },
       include: ASSIGNMENT_INCLUDE,
@@ -37,6 +37,7 @@ export default async function EditFormPage({ params }: { params: Promise<{ id: s
     <EditFormClient
       form={{ id: form.id, title: form.title, description: form.description, is_active: form.is_active }}
       fieldDefs={fieldDefs.map((d) => ({
+        field_key: d.field_key,
         col_index: d.col_index,
         field_type: d.field_type as "text" | "number" | "boolean" | "date" | "select" | "multiselect" | "photo",
         label: d.label,

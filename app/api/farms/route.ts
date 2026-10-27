@@ -15,7 +15,7 @@ export async function GET() {
   // Agronomist's assigned-project ceiling must hold everywhere this data is
   // reachable, not just server-rendered pages.
   const scope = await getEffectiveScope(session.user.id, session.user.category);
-  const where = scope.hardScoped ? { id: { in: scope.farmIds } } : {};
+  const where = scope.hardScoped ? { id: { in: scope.accessFarmIds } } : {};
   const farms = await prisma.farm.findMany({ where, orderBy: { id: "asc" } });
   return NextResponse.json(farms);
   });

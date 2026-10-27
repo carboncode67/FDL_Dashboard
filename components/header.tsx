@@ -28,7 +28,10 @@ import { GlobalSearch } from "@/components/global-search";
 import { MobileNav } from "@/components/mobile-nav";
 import { LabSwitcher } from "@/components/lab-switcher";
 import { Building2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Role } from "@/lib/roles";
+import { FarmTagChip } from "@/components/farm-tag-chips";
+import type { FarmTagOption } from "@/lib/farm-tags";
 
 interface LabOption {
   id: number;
@@ -58,6 +61,10 @@ interface FarmOption {
   project_ids: number[];
 }
 
+type TagMode = "any" | "include" | "exclude";
+
+const TAG_MODE_LABELS: Record<TagMode, string> = { any: "Any", include: "Only", exclude: "Hide" };
+
 const roleLabels: Record<Role, string> = {
   admin: "Admin",
   member: "Member",
@@ -83,6 +90,8 @@ export function Header({
   const [projectSelection, setProjectSelection] = useState<number[]>([]);
   const [farmSelection, setFarmSelection] = useState<number[]>([]);
   const [showUnassigned, setShowUnassigned] = useState(true);
+  const [tagOptions, setTagOptions] = useState<FarmTagOption[]>([]);
+  const [tagModes, setTagModes] = useState<Record<number, TagMode>>({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -99,8 +108,17 @@ export function Header({
     setFilterOpen(true);
     setLoading(true);
     try {
-      const res = await fetch("/api/profile/project-filters");
+      const [res, tagRes] = await Promise.all([
+        fetch("/api/profile/project-filters"),
+        fetch("/api/profile/farm-tag-filters"),
+      ]);
       const data = await res.json();
+      const tagData = await tagRes.json();
+      setTagOptions(tagData.tags ?? []);
+      const modes: Record<number, TagMode> = {};
+      for (const id of tagData.include ?? []) modes[id] = "include";
+      for (const id of tagData.exclude ?? []) modes[id] = "exclude";
+      setTagModes(modes);
       setProjects(data.projects ?? []);
       setFarmOptions(data.farm_options ?? []);
       setProjectSelection(data.project_ids ?? []);
@@ -123,18 +141,31 @@ export function Header({
     );
   }
 
+  const tagInclude = Object.keys(tagModes).map(Number).filter((id) => tagModes[id] === "include");
+  const tagExclude = Object.keys(tagModes).map(Number).filter((id) => tagModes[id] === "exclude");
+
   async function saveFilters() {
     setSaving(true);
     try {
-      await fetch("/api/profile/project-filters", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_ids: projectSelection,
-          farm_ids: farmSelection,
-          show_unassigned: showUnassigned,
+      // Agronomists can't change their admin-set project/farm scope, but may narrow it by tag.
+      await Promise.all([
+        ...(isAgronomist
+          ? []
+          : [fetch("/api/profile/project-filters", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                project_ids: projectSelection,
+                farm_ids: farmSelection,
+                show_unassigned: showUnassigned,
+              }),
+            })]),
+        fetch("/api/profile/farm-tag-filters", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ include: tagInclude, exclude: tagExclude }),
         }),
-      });
+      ]);
       setFilterOpen(false);
       router.refresh();
     } finally {
@@ -148,7 +179,8 @@ export function Header({
       ? farmOptions.filter((f) => f.project_ids.some((pid) => projectSelection.includes(pid)))
       : farmOptions;
 
-  const isFiltered = projectSelection.length > 0 || farmSelection.length > 0;
+  const tagRuleCount = tagInclude.length + tagExclude.length;
+  const isFiltered = projectSelection.length > 0 || farmSelection.length > 0 || tagRuleCount > 0;
 
   return (
     <header className="h-14 border-b border-stone-200 bg-white flex items-center justify-between px-4 sm:px-6 shrink-0">
@@ -244,7 +276,7 @@ export function Header({
             <DialogTitle>{isAgronomist ? "My Assigned Projects" : "Dashboard Filters"}</DialogTitle>
             <DialogDescription>
               {isAgronomist
-                ? "As an Agronomist, your access is hard-scoped to the project(s) below — set by an admin, not editable here. You won't see farms, fields, experiments, or uploads outside them."
+                ? "As an Agronomist, your access is hard-scoped to the project(s) below — set by an admin, not editable here. You won't see farms, fields, experiments, or uploads outside them. You can still narrow what you see by farm tag."
                 : "Filter what you see across the dashboard. Leave all unchecked to see everything."}
             </DialogDescription>
           </DialogHeader>
@@ -304,6 +336,47 @@ export function Header({
                 </div>
               </div>
 
+              {/* Farm tags — Only = farm has any of these; Hide always wins */}
+              {tagOptions.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
+                    Farm tags
+                    <span className="ml-1 font-normal normal-case">(Only = any of these, Hide always wins)</span>
+                  </p>
+                  <div className="max-h-44 overflow-y-auto space-y-1.5">
+                    {tagOptions.map((t) => {
+                      const mode = tagModes[t.id] ?? "any";
+                      return (
+                        <div key={t.id} className="flex items-center justify-between gap-2">
+                          <FarmTagChip tag={t} />
+                          <div className="inline-flex rounded-md border border-stone-200 overflow-hidden shrink-0">
+                            {(["any", "include", "exclude"] as const).map((m) => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => setTagModes((prev) => ({ ...prev, [t.id]: m }))}
+                                className={cn(
+                                  "px-2 py-0.5 text-xs border-l border-stone-200 first:border-l-0",
+                                  mode === m
+                                    ? m === "exclude"
+                                      ? "bg-red-50 text-red-700 font-medium"
+                                      : m === "include"
+                                        ? "bg-green-50 text-green-700 font-medium"
+                                        : "bg-stone-100 text-stone-700 font-medium"
+                                    : "text-stone-500 hover:bg-stone-50"
+                                )}
+                              >
+                                {TAG_MODE_LABELS[m]}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Show unassigned toggle */}
               {!isAgronomist && (
                 <div className="border-t border-stone-100 pt-3">
@@ -326,32 +399,26 @@ export function Header({
             {isAgronomist
               ? projectSelection.length === 0
                 ? "No projects assigned yet — contact an admin."
-                : `Scoped to ${projectSelection.length} project${projectSelection.length !== 1 ? "s" : ""}.`
+                : `Scoped to ${projectSelection.length} project${projectSelection.length !== 1 ? "s" : ""}` +
+                  (tagRuleCount > 0 ? `, narrowed by ${tagRuleCount} tag rule${tagRuleCount !== 1 ? "s" : ""}.` : ".")
               : !isFiltered
                 ? "No filter active — you see all data."
                 : [
                     projectSelection.length > 0 && `${projectSelection.length} project${projectSelection.length !== 1 ? "s" : ""}`,
                     farmSelection.length > 0 && `${farmSelection.length} farm${farmSelection.length !== 1 ? "s" : ""}`,
+                    tagRuleCount > 0 && `${tagRuleCount} tag rule${tagRuleCount !== 1 ? "s" : ""}`,
                   ]
                     .filter(Boolean)
                     .join(", ") + " selected."}
           </p>
 
           <DialogFooter>
-            {isAgronomist ? (
-              <Button variant="outline" onClick={() => setFilterOpen(false)}>
-                Close
-              </Button>
-            ) : (
-              <>
-                <Button variant="outline" onClick={() => setFilterOpen(false)} disabled={saving}>
-                  Cancel
-                </Button>
-                <Button onClick={saveFilters} disabled={saving || loading}>
-                  {saving ? "Saving…" : "Save"}
-                </Button>
-              </>
-            )}
+            <Button variant="outline" onClick={() => setFilterOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={saveFilters} disabled={saving || loading}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

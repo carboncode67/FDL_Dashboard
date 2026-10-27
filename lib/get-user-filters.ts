@@ -26,6 +26,13 @@ export interface EffectiveScope extends UserFilters {
   /** True only for an Agronomist. UI should hide/disable the self-service
    *  "Dashboard Filters" dialog and explain that access is admin-managed instead. */
   hardScoped: boolean;
+  /** Farms this user may open at all: `farmIds` *before* farm-tag filters narrowed it.
+   *  Access checks (scopeIncludesFarm, API ceilings) must use this, never `farmIds` —
+   *  hiding a tag is a view preference and must not 404 a farm reached by link. Same
+   *  empty = unrestricted convention as `farmIds`. */
+  accessFarmIds: number[];
+  /** True when any farm-tag include/exclude rule is active (User_Farm_Tag_Filters). */
+  tagFiltered: boolean;
 }
 
 // A serial PK no real row ever has — used to force an empty `{ in: [...] }` filter to
@@ -49,11 +56,15 @@ export async function getEffectiveScope(
   category: string | null | undefined
 ): Promise<EffectiveScope> {
   const filters = await getUserFilters(userId);
+  const base = category !== "agronomist"
+    ? { ...filters, hardScoped: false }
+    : await agronomistScope(filters);
+  return applyFarmTagFilters(userId, base);
+}
 
-  if (category !== "agronomist") {
-    return { ...filters, hardScoped: false };
-  }
+type BaseScope = Omit<EffectiveScope, "accessFarmIds" | "tagFiltered">;
 
+async function agronomistScope(filters: UserFilters): Promise<BaseScope> {
   let farmIds = filters.farmIds;
   if (filters.projectIds.length > 0) {
     const experiments = await prisma.farmExperiment.findMany({
@@ -77,6 +88,42 @@ export async function getEffectiveScope(
   };
 }
 
+/** Narrows `farmIds` by the user's farm-tag rules: include = farm has ANY included tag,
+ *  exclude = farm has none of the excluded tags (exclude wins), both intersected with
+ *  whatever farm list the base scope already had. Self-service for every user including
+ *  Agronomists — it can only ever narrow their admin-set ceiling, never widen it. A
+ *  rule set matching zero farms yields the sentinel, not an empty (= unrestricted) list. */
+async function applyFarmTagFilters(userId: string | null, scope: BaseScope): Promise<EffectiveScope> {
+  const rules = userId
+    ? await prisma.userFarmTagFilter.findMany({ where: { user_id: userId }, select: { tag_id: true, mode: true } })
+    : [];
+  const include = rules.filter((r) => r.mode === "include").map((r) => r.tag_id);
+  const exclude = rules.filter((r) => r.mode === "exclude").map((r) => r.tag_id);
+
+  if (include.length === 0 && exclude.length === 0) {
+    return { ...scope, accessFarmIds: scope.farmIds, tagFiltered: false };
+  }
+
+  const farms = await prisma.farm.findMany({
+    where: {
+      AND: [
+        ...(scope.farmIds.length > 0 ? [{ id: { in: scope.farmIds } }] : []),
+        ...(include.length > 0 ? [{ TagLinks: { some: { tag_id: { in: include } } } }] : []),
+        ...(exclude.length > 0 ? [{ TagLinks: { none: { tag_id: { in: exclude } } } }] : []),
+      ],
+    },
+    select: { id: true },
+  });
+  const ids = farms.map((f) => f.id);
+
+  return {
+    ...scope,
+    farmIds: ids.length > 0 ? ids : NO_ACCESS_SENTINEL,
+    accessFarmIds: scope.farmIds,
+    tagFiltered: true,
+  };
+}
+
 /** For a detail page reached by ID (not a filtered list) — an unscoped user (or a
  *  Lab Member's optional filter) always has access; an Agronomist only if the record
  *  falls within their assigned project(s). Callers should `notFound()` on a false
@@ -89,5 +136,5 @@ export function scopeIncludesProject(scope: EffectiveScope, projectId: number | 
 
 export function scopeIncludesFarm(scope: EffectiveScope, farmId: number | null | undefined): boolean {
   if (!scope.hardScoped) return true;
-  return farmId != null && scope.farmIds.includes(farmId);
+  return farmId != null && scope.accessFarmIds.includes(farmId);
 }

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { canEdit, canDelete, type Role } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
 import { runWithTenant } from "@/lib/lab-db";
+import { resolveGroupIdUpdate } from "@/lib/item-groups";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   return runWithTenant(async () => {
@@ -13,7 +14,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const form = await prisma.form.findUnique({
     where: { id: parseInt(id) },
-    include: { FieldDefinitions: { orderBy: { col_index: "asc" } } },
+    include: { FieldDefinitions: { where: { archived_at: null }, orderBy: { col_index: "asc" } } },
   });
   if (!form) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(form);
@@ -27,7 +28,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!canEdit(session.user.role as Role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  const body = await req.json() as { title?: string; description?: string | null; is_active?: boolean };
+  const body = await req.json() as { title?: string; description?: string | null; is_active?: boolean; group_id?: number | null };
+  const groupUpdate = await resolveGroupIdUpdate("forms", body.group_id);
+  if (groupUpdate === false) return NextResponse.json({ error: "Invalid group" }, { status: 400 });
 
   const form = await prisma.form.update({
     where: { id: parseInt(id) },
@@ -35,6 +38,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       ...(body.title !== undefined ? { title: body.title } : {}),
       ...(body.description !== undefined ? { description: body.description } : {}),
       ...(body.is_active !== undefined ? { is_active: body.is_active } : {}),
+      ...(groupUpdate ?? {}),
     },
   });
   return NextResponse.json(form);

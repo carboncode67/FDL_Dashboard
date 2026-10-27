@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { fieldDisplayLabel, fieldsForDisplay } from "@/lib/form-fields";
 import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
 import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
@@ -61,7 +62,7 @@ export async function GET(_req: Request, { params }: Params) {
   for (const r of responses) {
     const data = r.data as Record<string, unknown>;
     for (const f of r.Form.FieldDefinitions) {
-      const v = data[String(f.col_index)];
+      const v = data[f.field_key];
       if (f.field_type === "photo" && typeof v === "string" && v) hashes.push(v);
     }
   }
@@ -71,12 +72,12 @@ export async function GET(_req: Request, { params }: Params) {
     point: { id: point.id, label: point.label },
     responses: responses.map((r) => {
       const data = r.data as Record<string, unknown>;
-      const answers: PointAnswer[] = r.Form.FieldDefinitions.flatMap((f) => {
-        const v = data[String(f.col_index)];
+      const answers: PointAnswer[] = fieldsForDisplay(r.Form.FieldDefinitions).flatMap((f) => {
+        const v = data[f.field_key];
         if (v === null || v === undefined || v === "") return [];
         const photo = f.field_type === "photo";
         return [{
-          label: f.label,
+          label: fieldDisplayLabel(f),
           field_type: f.field_type,
           value: photo ? null : (v as string | number | boolean),
           photo_filename: photo && typeof v === "string" ? (filenameByHash.get(v) ?? null) : null,

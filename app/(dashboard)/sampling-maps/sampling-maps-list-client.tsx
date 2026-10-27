@@ -16,11 +16,14 @@ import {
   type MapFormChoice,
   type MapFormOption,
 } from "@/components/map-form-select";
+import { ItemGroupSelect, ManageItemGroupsDialog } from "@/components/item-groups";
+import type { ItemGroup } from "@/lib/item-group-types";
 
 interface SamplingMapRow {
   id: number;
   farmId: number;
   name: string;
+  group_id: number | null;
   Farm_Name: string;
   Experiment_Name: string | null;
   polygonCount: number;
@@ -44,11 +47,15 @@ export function SamplingMapsListClient({
   farms,
   experiments,
   forms,
+  groups,
+  canEditGroups,
 }: {
   data: SamplingMapRow[];
   farms: FarmOption[];
   experiments: ExperimentOption[];
   forms: MapFormOption[];
+  groups: ItemGroup[];
+  canEditGroups: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -138,6 +145,16 @@ export function SamplingMapsListClient({
       render: (row: Record<string, unknown>) =>
         new Date((row as unknown as SamplingMapRow).updated_at).toLocaleDateString(),
     },
+    ...(canEditGroups
+      ? [{
+          key: "group_id",
+          header: "Group",
+          render: (row: Record<string, unknown>) => {
+            const r = row as unknown as SamplingMapRow;
+            return <ItemGroupSelect groups={groups} value={r.group_id} updateUrl={`/api/sampling-maps/${r.id}`} />;
+          },
+        }]
+      : []),
   ];
 
   return (
@@ -149,6 +166,8 @@ export function SamplingMapsListClient({
         searchKeys={["name", "Farm_Name", "Experiment_Name"]}
         onAdd={() => setOpen(true)}
         addLabel="New Map"
+        actions={canEditGroups ? <ManageItemGroupsDialog kind="sampling-maps" groups={groups} itemLabel="maps" /> : undefined}
+        grouping={{ groups, groupKey: "group_id", storageKey: "fdl.sampling-maps.collapsed-groups" }}
         onRowClick={(row) => {
           const r = row as unknown as SamplingMapRow;
           router.push(`/farms/${r.farmId}/maps/${r.id}`);
