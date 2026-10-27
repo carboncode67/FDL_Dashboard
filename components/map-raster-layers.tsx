@@ -34,6 +34,12 @@ export interface MapRaster {
   // "pipeline" row, which is geo-referenced from the file's own embedded
   // bounds at render time instead (see RasterLayer below).
   footprint?: GeoJSON.Polygon | null
+  // Only ever set for source: "basemap" — the zoom range the tile pyramid was
+  // actually generated for. Without these Leaflet requests tiles at whatever
+  // zoom the map is at (the farm map opens around 14-16), gets 404s below the
+  // pyramid's min zoom, and draws nothing.
+  minZoom?: number | null
+  maxZoom?: number | null
   // Where the "CRS unclear — download and check manually" link (farm-map.tsx)
   // points. Defaults to `url` when omitted, which is correct for a "pipeline"
   // row (url is already a single-file download link there) — but a
@@ -86,9 +92,13 @@ export function RasterLayer({ url }: { url: string }) {
 export function TiledBasemapLayer({
   urlTemplate,
   footprint,
+  minZoom,
+  maxZoom,
 }: {
   urlTemplate: string
   footprint: GeoJSON.Polygon | null
+  minZoom?: number | null
+  maxZoom?: number | null
 }) {
   const map = useMap()
   useEffect(() => {
@@ -96,12 +106,22 @@ export function TiledBasemapLayer({
     const bounds = ring && ring.length > 0
       ? L.latLngBounds(ring.map(([lng, lat]) => [lat, lng] as [number, number]))
       : undefined
-    const layer = L.tileLayer(urlTemplate, { bounds, opacity: 0.85 })
+    // minNativeZoom/maxNativeZoom: outside the generated zoom range Leaflet
+    // scales the nearest real zoom level's tiles instead of requesting
+    // non-existent ones. `bounds` keeps that bounded to the raster's own
+    // extent, so a zoomed-out view only fetches a handful of tiles.
+    const layer = L.tileLayer(urlTemplate, {
+      bounds,
+      opacity: 0.85,
+      ...(minZoom != null ? { minNativeZoom: minZoom } : {}),
+      ...(maxZoom != null ? { maxNativeZoom: maxZoom } : {}),
+      maxZoom: 22,
+    })
     layer.addTo(map)
     return () => {
       map.removeLayer(layer)
     }
-  }, [map, urlTemplate, footprint])
+  }, [map, urlTemplate, footprint, minZoom, maxZoom])
   return null
 }
 

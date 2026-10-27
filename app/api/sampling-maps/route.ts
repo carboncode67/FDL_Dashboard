@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   if (!canCreate(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { farm_id, experiment_id, name, description } = body;
+  const { farm_id, experiment_id, form_id, name, description } = body;
 
   if (!farm_id) return NextResponse.json({ error: "farm_id is required" }, { status: 400 });
   if (!name?.trim()) return NextResponse.json({ error: "name is required" }, { status: 400 });
@@ -44,6 +44,9 @@ export async function POST(req: Request) {
     data: {
       farm_id: parseInt(farm_id),
       experiment_id: experiment_id ? parseInt(experiment_id) : null,
+      // Optional — the New Sampling Map dialogs can link (or create) the form up front; it can
+      // also be set/changed later from the editor toolbar via PUT /api/sampling-maps/[id].
+      form_id: form_id ? parseInt(form_id) : null,
       name,
       description: description ?? null,
       created_by_id: session.user.id,

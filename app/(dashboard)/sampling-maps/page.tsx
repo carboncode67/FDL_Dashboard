@@ -4,7 +4,7 @@ import { runWithTenant } from "@/lib/lab-db";
 
 export default async function SamplingMapsPage() {
   return runWithTenant(async () => {
-  const [maps, farms, experiments] = await Promise.all([
+  const [maps, farms, experiments, forms] = await Promise.all([
     prisma.samplingMap.findMany({
       orderBy: { updated_at: "desc" },
       include: {
@@ -20,6 +20,11 @@ export default async function SamplingMapsPage() {
     prisma.farmExperiment.findMany({
       select: { id: true, farm_id: true, experiment_name: true },
       orderBy: { experiment_name: "asc" },
+    }),
+    prisma.form.findMany({
+      where: { is_active: true },
+      select: { id: true, title: true },
+      orderBy: { title: "asc" },
     }),
   ]);
 
@@ -45,6 +50,7 @@ export default async function SamplingMapsPage() {
           farmId: e.farm_id,
           name: e.experiment_name ?? `Experiment #${e.id}`,
         }))}
+      forms={forms}
     />
   );
   });

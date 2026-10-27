@@ -56,7 +56,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
   const showDelete = canDelete(role, editMode);
   const showOfeSyncToggle = isAdmin(role);
 
-  const [farm, allProjects, farmExperiments] = await Promise.all([
+  const [farm, allProjects, farmExperiments, activeForms] = await Promise.all([
     prisma.farm.findUnique({
       where: { id: farmId },
       include: {
@@ -138,6 +138,11 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
         },
         ExperimentFields: { select: { field_id: true } },
       },
+    }),
+    prisma.form.findMany({
+      where: { is_active: true },
+      select: { id: true, title: true },
+      orderBy: { title: "asc" },
     }),
   ]);
 
@@ -801,6 +806,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
               _count: m._count,
             }))}
             experiments={farmExperiments.map((e) => ({ id: e.id, experiment_name: e.experiment_name }))}
+            forms={activeForms}
             fieldCount={farm.Fields.length}
             canCreate={showCreate}
             canDelete={showDelete}

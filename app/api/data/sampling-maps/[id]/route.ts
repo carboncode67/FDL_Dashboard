@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
 import { runWithLab } from "@/lib/lab-db";
+import { naipPackageDescriptor } from "@/lib/naip-package";
 import { isSamplingMapVisibleToContact, isSamplingMapVisibleToLabMember } from "@/lib/sampling-maps";
 
 const INCLUDE = {
@@ -58,6 +59,9 @@ export async function GET(
       // Planned Changes #13 (proximity auto-popup) — meters; null/0 means off. Mobile apps
       // prompt "Fill Form" when a fresh GPS fix lands within this radius of any point below.
       proximity_radius_m: m.proximity_radius_m,
+      // Offline NAIP imagery (MBTiles) for this map's bounding box, or null. Download it from
+      // basemap.url; compare basemap.sha256 to the local copy to know whether it changed.
+      basemap: naipPackageDescriptor(m.id, m),
       polygons: m.Polygons.map((p) => ({
         id: p.id,
         label: p.label,

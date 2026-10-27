@@ -42,6 +42,7 @@ export const RESTRICTED_ALLOWED_ROUTES: RouteScope[] = [
   // Sampling maps — pull assigned maps, submit field points/collections.
   { method: "GET", pattern: "/api/data/sampling-maps" },
   { method: "GET", pattern: "/api/data/sampling-maps/:id" },
+  { method: "GET", pattern: "/api/data/sampling-maps/:id/basemap" },
   { method: "POST", pattern: "/api/data/sampling-maps/:id/points" },
   { method: "GET", pattern: "/api/data/sampling-maps/:id/points/status" },
   { method: "POST", pattern: "/api/data/sampling-maps/points/:pointId/collections" },

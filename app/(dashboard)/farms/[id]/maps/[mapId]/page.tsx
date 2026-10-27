@@ -11,6 +11,8 @@ import { runWithTenant } from "@/lib/lab-db";
 import { getEditMode } from "@/lib/edit-mode";
 import { canDelete } from "@/lib/roles";
 import { getPointDataCounts } from "@/lib/sampling-point-data";
+import { parseNaipBbox } from "@/lib/naip-bbox";
+import { naipPackageState } from "@/lib/naip-package";
 
 export default async function SamplingMapDetailRoute({
   params,
@@ -144,6 +146,8 @@ export default async function SamplingMapDetailRoute({
       basemapId={map.basemap_id}
       basemapBufferM={map.basemap_buffer_m}
       basemapMaxZoom={map.basemap_max_zoom}
+      naipBbox={parseNaipBbox(map.naip_bbox)}
+      naipPackage={naipPackageState(map)}
       canDeleteMap={canDelete(role, true)}
       editMode={await getEditMode()}
     />

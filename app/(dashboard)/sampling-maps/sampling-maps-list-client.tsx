@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  MapFormSelect,
+  NO_MAP_FORM,
+  isMapFormChoiceComplete,
+  resolveMapFormId,
+  type MapFormChoice,
+  type MapFormOption,
+} from "@/components/map-form-select";
 
 interface SamplingMapRow {
   id: number;
@@ -35,16 +43,21 @@ export function SamplingMapsListClient({
   data,
   farms,
   experiments,
+  forms,
 }: {
   data: SamplingMapRow[];
   farms: FarmOption[];
   experiments: ExperimentOption[];
+  forms: MapFormOption[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [farmId, setFarmId] = useState("");
   const [experimentId, setExperimentId] = useState("");
   const [name, setName] = useState("");
+  const [formChoice, setFormChoice] = useState<MapFormChoice>(NO_MAP_FORM);
+  // Form already created by an earlier attempt whose map POST then failed — reused on retry.
+  const createdFormId = useRef<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
@@ -58,6 +71,8 @@ export function SamplingMapsListClient({
     setFarmId("");
     setExperimentId("");
     setName("");
+    setFormChoice(NO_MAP_FORM);
+    createdFormId.current = null;
     setError("");
   }
 
@@ -70,13 +85,27 @@ export function SamplingMapsListClient({
       setError("Enter a map name");
       return;
     }
+    if (!isMapFormChoiceComplete(formChoice)) {
+      setError("Enter a title for the new form");
+      return;
+    }
     setError("");
     setCreating(true);
     try {
+      let formId: number | null;
+      try {
+        formId = formChoice.kind === "new" && createdFormId.current != null
+          ? createdFormId.current
+          : await resolveMapFormId(formChoice);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to create form");
+        return;
+      }
+      if (formChoice.kind === "new") createdFormId.current = formId;
       const res = await fetch("/api/sampling-maps", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ farm_id: farmId, experiment_id: experimentId || null, name: name.trim() }),
+        body: JSON.stringify({ farm_id: farmId, experiment_id: experimentId || null, form_id: formId, name: name.trim() }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -174,12 +203,21 @@ export function SamplingMapsListClient({
             <p className="text-xs text-stone-500">
               Link to an experiment to be able to connect sampling points to its tests.
             </p>
+            <MapFormSelect
+              forms={forms}
+              value={formChoice}
+              onChange={(v) => { setFormChoice(v); createdFormId.current = null; setError(""); }}
+            />
+            <p className="text-xs text-stone-500">
+              Every point on the map is filled out against this form. Optional — you can link or
+              change it later from the map editor.
+            </p>
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={closeDialog}>
                 Cancel
               </Button>
-              <Button onClick={handleCreate} disabled={creating || !farmId || !name.trim()}>
+              <Button onClick={handleCreate} disabled={creating || !farmId || !name.trim() || !isMapFormChoiceComplete(formChoice)}>
                 {creating ? "Creating…" : "Create & Open"}
               </Button>
             </div>

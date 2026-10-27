@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit, canDelete } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
 import { runWithTenant } from "@/lib/lab-db";
+import fs from "fs";
+import { naipPackagePath } from "@/lib/naip-package";
+import { parseNaipBbox, estimateNaipTiles, NAIP_MAX_TILES, NAIP_MAX_ZOOM, NAIP_DEFAULT_MAX_ZOOM } from "@/lib/naip-bbox";
 
 const INCLUDE = {
   Polygons: true,
@@ -40,7 +44,23 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   const { id } = await params;
   const body = await req.json();
-  const { name, description, experiment_id, form_id, proximity_radius_m, basemap_id, basemap_buffer_m, basemap_max_zoom } = body;
+  const { name, description, experiment_id, form_id, proximity_radius_m, basemap_id, basemap_buffer_m, basemap_max_zoom, naip_bbox } = body;
+
+  // null clears the box; anything else must be a sane [w,s,e,n] that isn't absurdly large to render.
+  let naipBboxUpdate: { naip_bbox: number[] | typeof Prisma.DbNull } | null = null;
+  if (naip_bbox !== undefined) {
+    if (naip_bbox === null) {
+      naipBboxUpdate = { naip_bbox: Prisma.DbNull };
+    } else {
+      const parsed = parseNaipBbox(naip_bbox);
+      if (!parsed) return NextResponse.json({ error: "Invalid naip_bbox" }, { status: 400 });
+      const maxZ = basemap_max_zoom ? Math.min(parseInt(basemap_max_zoom), NAIP_MAX_ZOOM) : NAIP_DEFAULT_MAX_ZOOM;
+      if (estimateNaipTiles(parsed, maxZ).tiles > NAIP_MAX_TILES) {
+        return NextResponse.json({ error: "Box is too large" }, { status: 400 });
+      }
+      naipBboxUpdate = { naip_bbox: parsed };
+    }
+  }
 
   const map = await prisma.samplingMap.update({
     where: { id: parseInt(id) },
@@ -62,6 +82,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       ...(basemap_max_zoom !== undefined
         ? { basemap_max_zoom: basemap_max_zoom ? parseInt(basemap_max_zoom) : null }
         : {}),
+      ...(naipBboxUpdate ?? {}),
     },
   });
   return NextResponse.json(map);
@@ -77,6 +98,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
 
   const { id } = await params;
   await prisma.samplingMap.delete({ where: { id: parseInt(id) } });
+  fs.unlink(naipPackagePath(parseInt(id)), () => {}); // best-effort: the NAIP package, if any
   return new NextResponse(null, { status: 204 });
   });
 }

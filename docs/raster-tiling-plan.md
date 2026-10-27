@@ -6,7 +6,7 @@ FDL app") in `FarmersDatabase/Planned Changes.md`, including item 6's two
 sub-bullets (drone-raster checkbox on Farm maps; raster basemap toolset in the
 Create-maps/sampling-map editor).
 
-> **Status:** Phase 1 (Dashboard-UI + PipelineProcessor upload/tiling/display,
+> **Status:** (see §7 for the NAIP bounding-box basemap work and its open issues.) Phase 1 (Dashboard-UI + PipelineProcessor upload/tiling/display,
 > not yet the mobile apps) implemented as of commit `487e664` (2026-09-13) —
 > `Basemaps` table (migration 074), `POST /api/basemaps`, tiling webhook,
 > farm-map + sampling-map-editor display. Being tested live against TrueNAS
@@ -357,3 +357,123 @@ path (option A) instead of chasing the timeout further:**
 - Committed but **not deployed** anywhere (TrueNAS or production) — per the
   user's standing rule, no production changes until things are proven
   smooth on dev first.
+
+---
+
+## 7. NAIP bounding-box basemap — status & open issues (2026-10-12)
+
+A second way to get a phone basemap, with no orthomosaic upload: a lab member
+draws a box in the sampling-map editor and PipelineProcessor renders free USDA
+NAIP imagery for it into an MBTiles file the apps download with the map. This
+is the Phase 2 "package a tile subset for the phones" item from §3.3, built for
+NAIP rather than for uploaded `Basemaps` rows. Architecture and routes are
+documented in `Dashboard-UI/CLAUDE.md` ("NAIP imagery tile proxy") and
+`PipelineProcessor/CLAUDE.md` ("NAIP tiles", "NAIP packages"); this section only
+tracks what is **unfinished, unverified, or wrong**.
+
+**Built (server side):** on-demand tile route (`GET /naip/tiles/...` + Dashboard
+proxy), bbox draw UI + live tile/size estimate, MBTiles package build + signed
+webhook + resumable mobile download, `basemap` descriptor in the map download.
+Imagery source is Microsoft Planetary Computer's NAIP COGs (public domain).
+
+### 7.1 Bugs and blockers
+
+1. **Existing upload-basemap tiling can never trigger (found, not fixed).**
+   `triggerBasemapTiling()` in `lib/processing.ts` POSTs to `/basemaps/tile`;
+   PipelineProcessor only serves `POST /basemaps/{basemap_id}/tile`
+   (`main.py`). Found by reading both files, never run — it fits §6, which
+   records that no tiling run has completed end to end yet. Likely fix: post
+   to `` `/basemaps/${payload.basemap_id}/tile` ``. Independent of the NAIP
+   work, but it blocks the orthomosaic path in §§1–5.
+2. **Migrations 084 and 085 are not applied anywhere.** Prisma's `SamplingMap`
+   model already lists `naip_bbox` and the ten `naip_package_*` columns, so the
+   sampling-map editor page (and `GET/PUT /api/sampling-maps/[id]`) will fail
+   on any instance missing them — the same "missing column crashes every query
+   touching that model" hazard as every other migration. Per the standing rule,
+   hand the SQL to whoever holds production access; run against dev first.
+3. **Webhook has no lab/tenant context.** `app/api/naip/packages/webhook` has no
+   session, so it updates `Sampling_Maps` through the base Prisma client, same
+   as `app/api/basemaps/webhook` and the pipelines webhook. Fine with
+   `TENANT_ENFORCEMENT=off`; unresolved for `soft`/`hard`, where a base-client
+   write to an RLS-protected table may be rejected or mis-scoped. Needs the
+   same decision as the other two webhooks (e.g. look up the owning lab from
+   the row and use `runWithLab`).
+
+### 7.2 Configuration the deploy depends on
+
+- PipelineProcessor's `PROCESSOR_PUBLIC_URL` (default `http://localhost:8010`)
+  must be reachable **from the Dashboard**: the webhook pulls the finished
+  package from `package_url` built from it. §6's note about Datamachine →
+  TrueNAS reachability applies in the other direction here.
+- `PROCESSING_URL` / `PROCESSING_API_KEY` / `PROCESSING_WEBHOOK_SECRET` are
+  reused; no new env vars. `DATA_DIR/naip-packages/` is created on first
+  successful build and needs to be on storage that survives container
+  restarts (same concern as `basemap-tiles/`).
+- Redeploy PipelineProcessor (`./deploy.sh`) — no new Python dependencies.
+
+### 7.3 Not verified
+
+- Verified: processor tile route and package build against live Planetary
+  Computer data (1 km², zoom 12–18: 143 tiles in ~9 s, 2.8 MB), including the
+  signed callback, sha256-checked download, and the no-coverage / bad-zoom
+  failure paths.
+- **Never run:** the Dashboard proxy route, package POST/GET/DELETE routes,
+  webhook download-and-rename, the mobile `basemap` endpoint (incl. `Range`
+  responses), and the editor UI (drawing, preview, polling, stale detection).
+  They typecheck and lint clean only. Needs a Dashboard with the migrations
+  applied plus a reachable processor.
+- Not tested at scale: a box near the 20,000-tile cap, or two lab members
+  building at once (builds are serialised by a process-wide lock, with no queue
+  position or progress reporting).
+
+### 7.4 Known limitations
+
+- **No 2023/2024 NY imagery.** Planetary Computer's NAIP for NY ends at **2022**
+  (checked 2026-10-08). The user's Box folder of NYS NAIP is MrSID, which stock
+  `rasterio` wheels cannot read (needs a GDAL build with the MrSID DSDK) — so it
+  was left unused; whether it contains anything newer is unchecked.
+- Without a `year`, tiles mosaic newest-first across all years, so seams between
+  quads flown in different years are possible. There is no year picker in the
+  UI yet; the API (`?year=`, `NaipPackagePayload.year`) already supports one.
+- First request after a processor restart took ~20 s (cold GDAL/HTTP + STAC +
+  SAS token); the STAC and token caches are per-process. Fine for preview, worth
+  a warm-up if first-tile latency matters.
+- Package tiles are JPEG with PNG+alpha edge tiles, while the MBTiles `format`
+  metadata says `jpg`. Phone readers must decode by sniffing, not by trusting
+  `format`.
+- A "pending" build older than 45 min is shown as failed in the UI
+  (`NAIP_PENDING_TIMEOUT_MS`) although the DB row stays `pending` until a
+  callback or a new build; with serialised builds a long queue can trip this
+  while the job is still legitimately waiting.
+- Removing the box (`Clear`) does not remove an already-built package; that is a
+  separate **Remove**. Phones that already downloaded a package keep it.
+
+### 7.5 Phone apps
+
+**Swift: built 2026-10-21 (FDL build 47), Simulator-verified against a mock of
+`GET /api/data/sampling-maps/[id]` + `.../basemap` only** — never run against this
+Dashboard's real routes or a processor-built package. Manual "Download NAIP Imagery"
+in the map's layer menu; resumes with `Range` + `If-Range: "<sha256>"` (expects the
+route's quoted-sha `ETag`); sha256-checked; drawn as an `MKTileOverlay` over Apple
+imagery ("NAIP Imagery (offline)" layer). Decisions taken: overlay, not replace;
+outside `basemap.bounds` Apple imagery shows through; past the package's max zoom the
+max-zoom tiles are enlarged. Details in `FarmerDataLogger/swift/CLAUDE.md`
+("Sampling map imagery & close-up"). **Kotlin: still not built.**
+
+Original scoping notes (before the Swift work):
+Neither app had any offline-imagery support (confirmed 2026-10-09: Swift used
+Apple's streamed `.imagery`/`.hybrid` styles only, which MapKit cannot cache for
+offline use; Kotlin has none either). Each needs: download
+`basemap.url` when `basemap.sha256` differs from the local copy (resume via
+`Range`), store the MBTiles file per map, read it, and draw it.
+
+- **Kotlin:** Google Maps Compose `TileOverlay`/`TileProvider` reading the
+  SQLite file (remember MBTiles rows are TMS: `tile_row = 2^z − 1 − y`). Easier
+  of the two — suggested first.
+- **Swift:** the SwiftUI `Map` has no raster-overlay API, so this needs a
+  `UIViewRepresentable` wrapping `MKMapView` with an `MKTileOverlay` subclass
+  that reads the MBTiles file (only while a raster layer is active, per §2). It
+  is the largest remaining piece.
+- Also decide: whether the apps show the imagery as an overlay on top of Apple's
+  base map or replace it, and what to do when the user pans outside
+  `basemap.bounds`.

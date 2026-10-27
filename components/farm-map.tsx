@@ -196,7 +196,7 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
               pipeline outputs, rendered as a real tile layer instead of a whole-file
               fetch since these can be multi-GB sources. */}
           {basemapRasters.filter((r) => visibleRasterIds.has(rasterKey(r))).map((r) =>
-            <TiledBasemapLayer key={rasterKey(r)} urlTemplate={r.url} footprint={r.footprint ?? null} />
+            <TiledBasemapLayer key={rasterKey(r)} urlTemplate={r.url} footprint={r.footprint ?? null} minZoom={r.minZoom} maxZoom={r.maxZoom} />
           )}
 
           {/* Field boundaries — green */}

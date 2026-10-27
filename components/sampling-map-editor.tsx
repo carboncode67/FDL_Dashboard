@@ -12,11 +12,13 @@ import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css"
 import { BasemapTileLayer } from "@/components/basemap-tile-layer"
 import { SatelliteToggleButton } from "@/components/satellite-toggle-button"
 import { RasterLayer, VectorLayer, TiledBasemapLayer, type MapRaster } from "@/components/map-raster-layers"
+import { NaipBoxLayer } from "@/components/naip-box-layer"
 import { ImportBoundaryDialog, type ImportableBoundary } from "@/components/import-boundary-dialog"
 import { SamplingMapUploadDialog, type UploadedPolygon, type UploadedPoint } from "@/components/sampling-map-upload-dialog"
 import { DeleteEntitySection } from "@/components/delete-entity-section"
 import { SamplingPointDataDialog } from "@/components/sampling-point-data-dialog"
 import { SamplingMapAssignmentPicker } from "@/components/sampling-map-assignment-picker"
+import { resolveMapFormId } from "@/components/map-form-select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,8 +29,14 @@ import {
   generateGridPoints,
   generateRandomPoints,
   bufferGeojsonString,
+  geojsonBounds,
+  unionBounds,
+  bboxRing,
   type GeneratedPoint,
+  type Bounds,
 } from "@/lib/geo"
+import type { NaipPackageState } from "@/lib/naip-package"
+import { estimateNaipTiles, NAIP_DEFAULT_MAX_ZOOM, NAIP_MAX_TILES, NAIP_MAX_ZOOM, NAIP_MIN_ZOOM } from "@/lib/naip-bbox"
 
 export interface SamplingMapPolygonData {
   id: number
@@ -300,6 +308,10 @@ export interface SamplingMapEditorProps {
   basemapId: number | null
   basemapBufferM: number | null
   basemapMaxZoom: number | null
+  // NAIP imagery box — [west, south, east, north], see components/naip-box-layer.tsx.
+  naipBbox: Bounds | null
+  // State of the built MBTiles package for that box (lib/naip-package.ts).
+  naipPackage: NaipPackageState
   canDeleteMap: boolean
   editMode: boolean
 }
@@ -330,6 +342,8 @@ export default function SamplingMapEditor({
   basemapId,
   basemapBufferM,
   basemapMaxZoom,
+  naipBbox,
+  naipPackage,
   canDeleteMap,
   editMode,
 }: SamplingMapEditorProps) {
@@ -346,6 +360,12 @@ export default function SamplingMapEditor({
   const [assignOpen, setAssignOpen] = useState(false)
   const [linkedFormId, setLinkedFormId] = useState<number | null>(formId)
   const [savingForm, setSavingForm] = useState(false)
+  // Local copy so a form created from the "+ New form…" option shows up in the dropdown
+  // without a page reload.
+  const [formOptions, setFormOptions] = useState(forms)
+  const [newFormOpen, setNewFormOpen] = useState(false)
+  const [newFormTitle, setNewFormTitle] = useState("")
+  const [creatingForm, setCreatingForm] = useState(false)
   // Text, not number, while editing — same reasoning as the comma-separated-options input in
   // form-schema-builder.tsx: keeps a half-typed value ("12." while typing "12.5") from being
   // silently coerced/rejected on every keystroke. Parsed to a number only in handleRadiusBlur.
@@ -367,6 +387,97 @@ export default function SamplingMapEditor({
   const [savedMaxZoom, setSavedMaxZoom] = useState(basemapMaxZoom)
   const [savingMaxZoom, setSavingMaxZoom] = useState(false)
 
+  // NAIP imagery box: draw a bounding box, preview the imagery inside it, see how
+  // many tiles/MB it would be at the chosen max zoom. Saved on the map (PUT
+  // naip_bbox); packaging the tiles for the phone is a later step.
+  const [savedNaipBbox, setSavedNaipBbox] = useState<Bounds | null>(naipBbox)
+  const [naipDrawing, setNaipDrawing] = useState(false)
+  const [naipPreview, setNaipPreview] = useState(true)
+  const [savingNaip, setSavingNaip] = useState(false)
+  const naipMaxZoom = Math.min(Math.max(savedMaxZoom ?? NAIP_DEFAULT_MAX_ZOOM, NAIP_MIN_ZOOM), NAIP_MAX_ZOOM)
+  const naipEstimate = savedNaipBbox ? estimateNaipTiles(savedNaipBbox, naipMaxZoom) : null
+
+  // Package build (commit step): PipelineProcessor renders every tile in the box into an
+  // MBTiles file the phone apps download with the map. Status is polled while pending.
+  const [pkg, setPkg] = useState<NaipPackageState>(naipPackage)
+  const [startingPackage, setStartingPackage] = useState(false)
+
+  useEffect(() => {
+    if (pkg.status !== "pending") return
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/sampling-maps/${samplingMapId}/basemap-package`)
+        if (res.ok) setPkg(await res.json())
+      } catch {
+        // transient — try again on the next tick
+      }
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [pkg.status, samplingMapId])
+
+  async function buildNaipPackage() {
+    setStartingPackage(true)
+    try {
+      const res = await fetch(`/api/sampling-maps/${samplingMapId}/basemap-package`, { method: "POST" })
+      const body = await res.json().catch(() => null)
+      if (body && "status" in body) setPkg(body)
+      if (!res.ok) toast.error(body?.error ?? "Couldn't start the build")
+    } catch {
+      toast.error("Couldn't start the build")
+    } finally {
+      setStartingPackage(false)
+    }
+  }
+
+  async function removeNaipPackage() {
+    const res = await fetch(`/api/sampling-maps/${samplingMapId}/basemap-package`, { method: "DELETE" })
+    if (res.ok) setPkg(await res.json())
+    else toast.error("Couldn't remove the package")
+  }
+
+  // The built file no longer matches the box / max zoom currently set above.
+  const pkgStale =
+    pkg.built != null &&
+    (savedNaipBbox == null ||
+      pkg.built.bbox.some((v, i) => Math.abs(v - savedNaipBbox[i]) > 1e-9) ||
+      pkg.built.maxZoom !== naipMaxZoom)
+
+  async function saveNaipBbox(next: Bounds | null) {
+    if (next && estimateNaipTiles(next, naipMaxZoom).tiles > NAIP_MAX_TILES) {
+      toast.error("That box is too large at this max zoom — draw a smaller box or lower the max zoom.")
+      return
+    }
+    setSavingNaip(true)
+    try {
+      const res = await fetch(`/api/sampling-maps/${samplingMapId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ naip_bbox: next, basemap_max_zoom: savedMaxZoom }),
+      })
+      if (res.ok) {
+        setSavedNaipBbox(next)
+      } else {
+        const body = await res.json().catch(() => null)
+        toast.error(body?.error ?? "Couldn't save the imagery box")
+      }
+    } catch {
+      toast.error("Couldn't save the imagery box")
+    } finally {
+      setSavingNaip(false)
+    }
+  }
+
+  // The union bounding box of every polygon on this map, grown by the Buffer setting.
+  function useFieldBoundsForNaip() {
+    const union = unionBounds(polygons.map((p) => geojsonBounds(p.geometry)))
+    if (!union) {
+      toast.error("Add or import a polygon first")
+      return
+    }
+    const ring = bboxRing(union, savedBufferM ?? 0)
+    saveNaipBbox([ring[0][0], ring[0][1], ring[2][0], ring[2][1]])
+  }
+
   const layersApiRef = useRef<MapDrawLayersHandle>(null)
   // Point whose collected data (responses + photos) is open in SamplingPointDataDialog.
   const [dataPointId, setDataPointId] = useState<number | null>(null)
@@ -374,7 +485,12 @@ export default function SamplingMapEditor({
   // Every point on the map (existing, or created ad hoc in the field) is filled out against
   // this one form — see Sampling_Maps.form_id. Submitting it there also marks the point
   // Collected, so this is the one control that turns the map into a data-collection workflow.
-  async function handleFormChange(value: string) {
+  async function handleFormChange(value: string): Promise<boolean> {
+    if (value === "__new__") {
+      setNewFormTitle("")
+      setNewFormOpen(true)
+      return false
+    }
     const newFormId = value === "none" ? null : parseInt(value)
     const previous = linkedFormId
     setLinkedFormId(newFormId)
@@ -386,10 +502,35 @@ export default function SamplingMapEditor({
         body: JSON.stringify({ form_id: newFormId }),
       })
       if (!res.ok) setLinkedFormId(previous)
+      return res.ok
     } catch {
       setLinkedFormId(previous)
+      return false
     } finally {
       setSavingForm(false)
+    }
+  }
+
+  // Lets a map's survey be created after the map instead of beforehand: the form is created
+  // blank (title only) and linked right away; its questions are added from the "Edit form" link.
+  async function handleCreateForm() {
+    const title = newFormTitle.trim()
+    if (!title) return
+    setCreatingForm(true)
+    try {
+      const id = await resolveMapFormId({ kind: "new", title })
+      if (id == null) return
+      setFormOptions((prev) => [...prev, { id, title }].sort((a, b) => a.title.localeCompare(b.title)))
+      setNewFormOpen(false)
+      if (await handleFormChange(String(id))) {
+        toast.success(`"${title}" created and linked — use "Edit form" to add its questions`)
+      } else {
+        toast.error(`"${title}" was created but couldn't be linked — pick it from the Linked Form list`)
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to create form")
+    } finally {
+      setCreatingForm(false)
     }
   }
 
@@ -776,13 +917,26 @@ export default function SamplingMapEditor({
               <SelectItem value="none" label="Linked Form: None">
                 Linked Form: None
               </SelectItem>
-              {forms.map((f) => (
+              {formOptions.map((f) => (
                 <SelectItem key={f.id} value={String(f.id)} label={f.title}>
                   {f.title}
                 </SelectItem>
               ))}
+              <SelectItem value="__new__" label="+ New form…">
+                + New form…
+              </SelectItem>
             </SelectContent>
           </Select>
+          {linkedFormId != null && (
+            <Button
+              size="sm"
+              variant="outline"
+              title="Open this form's questions in a new tab"
+              render={<a href={`/forms/${linkedFormId}/edit`} target="_blank" rel="noopener noreferrer" />}
+            >
+              Edit form
+            </Button>
+          )}
           <div className="flex items-center gap-1.5" title="Radius around every point that auto-prompts &quot;Fill Form&quot; on the phone when entered">
             <label htmlFor="proximity-radius" className="text-xs text-stone-500 whitespace-nowrap">
               Auto-prompt radius
@@ -909,13 +1063,23 @@ export default function SamplingMapEditor({
               .filter((r) => visibleRasterIds.has(rasterKey(r)))
               .map((r) =>
                 r.source === "basemap" ? (
-                  <TiledBasemapLayer key={rasterKey(r)} urlTemplate={r.url} footprint={r.footprint ?? null} />
+                  <TiledBasemapLayer key={rasterKey(r)} urlTemplate={r.url} footprint={r.footprint ?? null} minZoom={r.minZoom} maxZoom={r.maxZoom} />
                 ) : r.kind === "vector" ? (
                   <VectorLayer key={rasterKey(r)} url={r.url} />
                 ) : (
                   <RasterLayer key={rasterKey(r)} url={r.url} />
                 ),
               )}
+
+            <NaipBoxLayer
+              bbox={savedNaipBbox}
+              drawing={naipDrawing}
+              showPreview={naipPreview}
+              onDrawn={(b) => {
+                setNaipDrawing(false)
+                saveNaipBbox(b)
+              }}
+            />
 
             <MapDrawLayers
               ref={layersApiRef}
@@ -963,6 +1127,124 @@ export default function SamplingMapEditor({
             <p className="text-xs text-stone-500 mt-0.5">
               Draw with the polygon tool (top-left of the map), or import an existing Field/Zone boundary.
             </p>
+          </div>
+
+          <div className="rounded border border-amber-200 bg-amber-50/50 p-2 space-y-2">
+            <div>
+              <h4 className="text-xs font-semibold uppercase text-stone-500">NAIP imagery box</h4>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Drag a box over the area the phone needs offline imagery for. Free USDA aerial imagery, no upload needed.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <Button
+                size="sm"
+                variant={naipDrawing ? "default" : "outline"}
+                onClick={() => setNaipDrawing((d) => !d)}
+                disabled={savingNaip}
+              >
+                {naipDrawing ? "Cancel drawing" : savedNaipBbox ? "Redraw box" : "Draw box"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={useFieldBoundsForNaip} disabled={savingNaip || naipDrawing}>
+                Use polygons + buffer
+              </Button>
+              {savedNaipBbox && (
+                <Button size="sm" variant="outline" onClick={() => saveNaipBbox(null)} disabled={savingNaip || naipDrawing}>
+                  Clear
+                </Button>
+              )}
+            </div>
+            {naipDrawing && <p className="text-xs text-amber-700">Click and drag on the map. Zoom in to at least level {NAIP_MIN_ZOOM} to see imagery.</p>}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <label htmlFor="naip-buffer" className="text-xs text-stone-500 whitespace-nowrap">Buffer</label>
+                <input
+                  id="naip-buffer"
+                  type="number"
+                  min={0}
+                  step="any"
+                  inputMode="decimal"
+                  value={bufferText}
+                  onChange={(e) => setBufferText(e.target.value)}
+                  onBlur={() =>
+                    saveBasemapNumberField(
+                      bufferText, savedBufferM, "basemap_buffer_m",
+                      setBufferText, setSavedBufferM, setSavingBuffer,
+                      (n) => n >= 0,
+                    )
+                  }
+                  disabled={savingBuffer}
+                  placeholder="0"
+                  className="h-8 w-16 rounded-md border border-stone-200 px-2 text-sm"
+                />
+                <span className="text-xs text-stone-500">m</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <label htmlFor="naip-max-zoom" className="text-xs text-stone-500 whitespace-nowrap">Max zoom</label>
+                <input
+                  id="naip-max-zoom"
+                  type="number"
+                  min={NAIP_MIN_ZOOM}
+                  max={NAIP_MAX_ZOOM}
+                  step={1}
+                  inputMode="numeric"
+                  value={maxZoomText}
+                  onChange={(e) => setMaxZoomText(e.target.value)}
+                  onBlur={() =>
+                    saveBasemapNumberField(
+                      maxZoomText, savedMaxZoom, "basemap_max_zoom",
+                      setMaxZoomText, setSavedMaxZoom, setSavingMaxZoom,
+                      (n) => Number.isInteger(n) && n >= NAIP_MIN_ZOOM && n <= NAIP_MAX_ZOOM,
+                    )
+                  }
+                  disabled={savingMaxZoom}
+                  placeholder={String(NAIP_DEFAULT_MAX_ZOOM)}
+                  className="h-8 w-16 rounded-md border border-stone-200 px-2 text-sm"
+                />
+              </div>
+            </div>
+            {naipEstimate && (
+              <>
+                <p className={`text-xs ${naipEstimate.tiles > NAIP_MAX_TILES ? "text-red-600" : "text-stone-600"}`}>
+                  ≈ {naipEstimate.tiles.toLocaleString()} tiles, {naipEstimate.megabytes < 10 ? naipEstimate.megabytes.toFixed(1) : Math.round(naipEstimate.megabytes)} MB (zoom {NAIP_MIN_ZOOM}–{naipMaxZoom})
+                  {naipEstimate.tiles > NAIP_MAX_TILES ? " — too large, lower the max zoom or shrink the box" : ""}
+                </p>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={naipPreview} onChange={() => setNaipPreview((v) => !v)} />
+                  Preview imagery in the box
+                </label>
+              </>
+            )}
+            {(savedNaipBbox || pkg.built) && (
+              <div className="border-t border-amber-200 pt-2 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={buildNaipPackage}
+                    disabled={!savedNaipBbox || startingPackage || pkg.status === "pending" || (naipEstimate?.tiles ?? 0) > NAIP_MAX_TILES}
+                  >
+                    {pkg.status === "pending" ? "Building…" : pkg.built ? "Rebuild package" : "Prepare for phone"}
+                  </Button>
+                  {pkg.built && pkg.status !== "pending" && (
+                    <Button size="sm" variant="outline" onClick={removeNaipPackage}>
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                {pkg.status === "pending" && (
+                  <p className="text-xs text-stone-600">Rendering imagery — this can take several minutes for a large box.</p>
+                )}
+                {pkg.status === "failed" && <p className="text-xs text-red-600">Build failed: {pkg.error}</p>}
+                {pkg.built && (
+                  <p className={`text-xs ${pkgStale ? "text-amber-700" : "text-emerald-700"}`}>
+                    {pkgStale ? "Out of date — box or max zoom changed since the last build. " : "Ready for phones. "}
+                    {pkg.built.tiles.toLocaleString()} tiles, {(pkg.built.bytes / 1e6).toFixed(1)} MB, zoom up to {pkg.built.maxZoom}, built{" "}
+                    {new Date(pkg.built.builtAt).toLocaleString()}.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {rasters.length > 0 && (
@@ -1241,6 +1523,35 @@ export default function SamplingMapEditor({
         samplingMapId={samplingMapId}
         onUploaded={handleUploaded}
       />
+
+      <Dialog open={newFormOpen} onOpenChange={(v) => { if (!creatingForm) setNewFormOpen(v) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>New Form</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <Input
+              value={newFormTitle}
+              onChange={(e) => setNewFormTitle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleCreateForm() }}
+              placeholder="Form title…"
+              autoFocus
+            />
+            <p className="text-xs text-stone-500">
+              Creates an empty form and links it to this map. Add its questions afterwards with
+              &quot;Edit form&quot;.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setNewFormOpen(false)} disabled={creatingForm}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreateForm} disabled={creatingForm || !newFormTitle.trim()}>
+                {creatingForm ? "Creating…" : "Create & Link"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent className="sm:max-w-md">

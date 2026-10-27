@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -10,6 +10,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  MapFormSelect,
+  NO_MAP_FORM,
+  isMapFormChoiceComplete,
+  resolveMapFormId,
+  type MapFormChoice,
+  type MapFormOption,
+} from "@/components/map-form-select";
 
 interface SamplingMapRow {
   id: number;
@@ -29,16 +37,20 @@ interface Props {
   farmId: number;
   maps: SamplingMapRow[];
   experiments: ExperimentOption[];
+  forms: MapFormOption[];
   fieldCount: number;
   canCreate: boolean;
   canDelete: boolean;
 }
 
-export function SamplingMapsTab({ farmId, maps, experiments, fieldCount, canCreate, canDelete }: Props) {
+export function SamplingMapsTab({ farmId, maps, experiments, forms, fieldCount, canCreate, canDelete }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [experimentId, setExperimentId] = useState<string>("");
+  const [formChoice, setFormChoice] = useState<MapFormChoice>(NO_MAP_FORM);
+  // Form already created by an earlier attempt whose map POST then failed — reused on retry.
+  const createdFormId = useRef<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -51,15 +63,30 @@ export function SamplingMapsTab({ farmId, maps, experiments, fieldCount, canCrea
       setError("Enter a map name");
       return;
     }
+    if (!isMapFormChoiceComplete(formChoice)) {
+      setError("Enter a title for the new form");
+      return;
+    }
     setError("");
     setSaving(true);
     try {
+      let formId: number | null;
+      try {
+        formId = formChoice.kind === "new" && createdFormId.current != null
+          ? createdFormId.current
+          : await resolveMapFormId(formChoice);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to create form");
+        return;
+      }
+      if (formChoice.kind === "new") createdFormId.current = formId;
       const res = await fetch("/api/sampling-maps", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           farm_id: farmId,
           experiment_id: experimentId || null,
+          form_id: formId,
           name: name.trim(),
         }),
       });
@@ -149,7 +176,7 @@ export function SamplingMapsTab({ farmId, maps, experiments, fieldCount, canCrea
         )}
       </CardContent>
 
-      <Dialog open={open} onOpenChange={(v) => { if (!v) { setOpen(false); setName(""); setExperimentId(""); setError(""); } }}>
+      <Dialog open={open} onOpenChange={(v) => { if (!v) { setOpen(false); setName(""); setExperimentId(""); setFormChoice(NO_MAP_FORM); createdFormId.current = null; setError(""); } }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>New Sampling Map</DialogTitle>
@@ -187,12 +214,17 @@ export function SamplingMapsTab({ farmId, maps, experiments, fieldCount, canCrea
             <p className="text-xs text-stone-500">
               Link to an experiment to be able to connect sampling points to its tests.
             </p>
+            <MapFormSelect forms={forms} value={formChoice} onChange={(v) => { setFormChoice(v); createdFormId.current = null; setError(""); }} />
+            <p className="text-xs text-stone-500">
+              Every point on the map is filled out against this form. Optional — you can link or
+              change it later from the map editor.
+            </p>
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleCreate} disabled={saving || !name.trim()}>
+              <Button onClick={handleCreate} disabled={saving || !name.trim() || !isMapFormChoiceComplete(formChoice)}>
                 {saving ? "Creating…" : "Create & Open"}
               </Button>
             </div>

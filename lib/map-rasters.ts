@@ -35,6 +35,8 @@ export function basemapToMapRaster(b: {
   source_filename: string;
   crs_status: string | null;
   footprint: unknown;
+  min_zoom: number | null;
+  max_zoom: number | null;
 }): MapRaster {
   return {
     id: b.id,
@@ -48,5 +50,7 @@ export function basemapToMapRaster(b: {
     kind: "raster",
     crsStatus: b.crs_status === "ok" ? "ok" : b.crs_status === "unclear" ? "unclear" : null,
     footprint: (b.footprint as GeoJSON.Polygon | null) ?? null,
+    minZoom: b.min_zoom,
+    maxZoom: b.max_zoom,
   };
 }

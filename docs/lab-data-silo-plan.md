@@ -242,12 +242,23 @@ adding labs stays predictable.
 
 ### System / non-request code
 
-- **Scheduler** (`lib/scheduler.ts`): iterates active labs, does each lab's work
-  through `getLabPrisma(lab.slug)`. (Reporting subscriptions, context-fetch cron.)
-- **Webhook routes** (pipelines, CVAT): resolve the record's lab (via `nocodb`
-  singleton or `app_platform`), then act through that lab's client.
-- These paths select the lab explicitly instead of from a session, but use the
-  same per-lab clients — so they're still RLS-scoped, not bypassing.
+> **Status correction (2026-09-23): this subsection describes the intended
+> design, not what's built.** Neither piece below has actually been converted.
+> See §9a for the concrete fix list — this stopped being a "someday" item the
+> moment a second lab's role (`app_ipm`) existed in any environment, per the
+> 2026-09-11 security review's own caveat on this exact gap.
+
+- **Scheduler** (`lib/scheduler.ts`): *intended* to iterate active labs, doing
+  each lab's work through `getLabPrisma(lab.slug)` (reporting subscriptions,
+  GeoDaRT context-fetch cron). **Not implemented** — as of 2026-09-23 the file
+  has zero references to `getLabPrisma`/`runWithLab`, so it still runs
+  entirely on the unscoped `nocodb` connection.
+- **Webhook routes** (pipelines, CVAT annotations, Vikunja tasks, basemaps
+  tiling): *intended* to resolve the record's lab first, then act through that
+  lab's client. **Not implemented** on any of the four — see §9a.
+- Once fixed, these paths would select the lab explicitly instead of from a
+  session, but use the same per-lab clients — so they'd be RLS-scoped, not
+  bypassing, same as every session/bearer-token path already is.
 
 ### The one raw-SQL site
 
@@ -461,6 +472,69 @@ hasn't run on `fdl.casata.org` for the stated soak.
   non-destructive — policies stay defined but inert). Emergency: point
   `DATABASE_URL__FDL` back at `nocodb` and set `TENANT_ENFORCEMENT=off` while
   investigating.
+
+### Phase 3a — Outstanding sweep gaps (found 2026-09-23) · blocks "full multi-lab correctness"
+
+The Phase 2 sweep (2026-09-11) deliberately excluded 3 webhook routes as
+"needs a different pattern... left for later, before RLS ever touches the
+tables they write to" and the same session's security review filtered out
+this exact class of gap as "no live exploit path yet — worth revisiting once
+multi-lab is actually live." That review is now due: `app_ipm` exists in
+production (as of 2026-09-23, an intentionally empty/no-data shell — see
+progress log). A fresh grep for every `app/api` or `app/(dashboard)` file
+importing the tenant-scoped `prisma` proxy without a `runWithLab`/
+`runWithTenant` call turned up **4 webhook routes** (one more than the
+original 3 — `basemaps/webhook` shipped after the 2026-09-11 sweep and was
+never evaluated against it) plus the scheduler. None of these are reachable
+by an ordinary session/bearer-token request — they're all machine-to-machine
+callbacks or a cron job — so the exposure is narrower than a user-facing leak,
+but it's real: any of these paths reading or writing lab-scoped data currently
+does so via the RLS-bypassing `nocodb` connection, invisible to `soft` mode's
+audit (which only wraps queries made *through* a `runWithLab` context — these
+never enter one).
+
+- [ ] **`app/api/pipelines/webhook/route.ts`** — `Pipeline` is a root/owned
+  table with its own `lab_id` directly on it (§4), so this is the simplest
+  fix: `const { lab_id } = await basePrisma.pipeline.findUniqueOrThrow({ where: { id: pipelineId }, select: { lab_id: true } })`,
+  resolve to a slug via `resolveLabSlug()` (`lib/lab-db.ts`), wrap the
+  existing handler body in `runWithLab(slug, ...)`. Also creates
+  `PipelineRun`/`PipelineOutputRaster` rows — both child tables (no own
+  `lab_id`, inherit via `pipeline_id`), so no insert-misassignment risk, just
+  the bypass itself.
+- [ ] **`app/api/tasks/vikunja-webhook/route.ts`** — `Tasks` is also a
+  root/owned table with its own `lab_id` (§4); same pattern, resolve via the
+  task id from the payload. Only does `.update()`, no `.create()`, so lower
+  risk than pipelines but still fully unscoped today.
+- [ ] **`app/api/annotations/webhook/route.ts`** — `CvatTask`/`Annotation`
+  are child tables; resolve the lab via `CvatTask` → its `fdl_task_id` (→
+  `Tasks.lab_id`) or `project_id` (→ `Projects.lab_id`) chain, whichever the
+  payload's `task.id` maps to more directly — check `lib/cvat.ts`'s task
+  metadata shape before picking one.
+- [ ] **`app/api/basemaps/webhook/route.ts`** — newly found in this pass, not
+  in any prior review. `Basemaps` is a child table scoped via `farm_id` →
+  `Farms.lab_id` (same as its migration-075 RLS policy). Resolve via
+  `basePrisma.basemap.findUnique({ where: { id }, select: { farm: { select: { lab_id: true } } } })`.
+- [ ] **`lib/scheduler.ts`** — convert its two lab-touching jobs (reporting-
+  subscription emails, GeoDaRT context-fetch cron) to iterate
+  `basePrisma.lab.findMany({ where: { is_active: true } })` and run each
+  lab's slice of work through `getLabPrisma(lab.slug)`, per the original §5
+  design. Today it silently processes every lab's rows together in one
+  unscoped pass — functionally fine with one real lab (`fdl`), but wrong
+  once a second lab has real reporting subscriptions or context-fetch jobs of
+  its own, and worth fixing before IPM gets real data even though it's not a
+  cross-lab *leak* today (nocodb sees everything, correctly, by accident).
+- [ ] Re-run the transitive-closure grep (`grep -rl '"@/lib/prisma"' app/api "app/(dashboard)"`,
+  filter out anything already containing `runWithLab`/`runWithTenant`) as a
+  standing check before every future production deploy that touches this
+  area, until it's automated (ESLint rule, per §5's existing note for
+  `getPlatformPrisma` — extend it to flag an unwrapped `prisma` import in any
+  webhook/cron file, not just the platform-only restriction it covers today).
+- **Do not put real (or dummy) data through pipelines, CVAT, Vikunja-linked
+  tasks, basemap tiling, or reporting subscriptions on any lab other than
+  `fdl` until this list is cleared.** Ordinary CRUD (projects/farms/fields/
+  contacts/uploads/forms/plain tasks) is unaffected — those paths were
+  confirmed swept in the 2026-09-11 session-auth pass and re-verified via the
+  direct `app_ipm` isolation check this session.
 
 ### Phase 4 — Platform-admin tier
 
@@ -1276,4 +1350,64 @@ migration's safety net).
   The [[production-migration-freeze]] memory should be treated as
   superseded by this entry, not as still-current guidance — the freeze was
   for this specific batch, which has now shipped.
+
+**2026-09-23 — Phase 3 finished on production; second lab shell provisioned;
+sweep gap re-audited and found wider than previously known:**
+
+- Confirmed via `migrations/check_pending_migrations.sql` (+ an ad-hoc query
+  for 078/079, which the script doesn't cover) that production's schema was
+  already fully current through `079` — no migration work needed this
+  session.
+- Provisioned `app_fdl` on production (`sql/roles/create_lab_role.sql.template`,
+  password via `openssl rand -hex 24`), wired `DATABASE_URL__FDL` into
+  `~/compose/fdl/docker-compose.yml`, flipped `TENANT_ENFORCEMENT` `off` →
+  **`soft`**, restarted `app`. Clean logs, no `[TENANT_ENFORCEMENT=soft]`
+  warnings, manual pass confirmed working.
+- **Deliberate deviation from this plan's own Phase 6 (dev-only dry run) and
+  §10a (onboard after the feature ships)**, decided with the maintainer:
+  provisioned a second lab, **Cornell IPM** (`slug=ipm`, `db_role=app_ipm`),
+  directly on production *during* the `fdl` soak, specifically to get a real
+  two-lab isolation signal — a single-lab soak can never exercise the `soft`
+  audit's cross-lab check at all, since there's nothing to leak *from*.
+  Deliberately no admin user, no data — direct-connect verification
+  (`psql -U app_ipm`) confirmed 0 rows visible from `fdl`'s ~30 real farms.
+  Hit and fixed the exact `openssl rand -base64`-adjacent password bug
+  documented in `sql/roles/README.md`, but for a different root cause this
+  time: `$PASSWORD` was set in one shell session and the role-creation
+  command run in another, so `app_ipm` was created with a blank password —
+  fixed with `ALTER ROLE app_ipm PASSWORD '...'` using the real saved value.
+- **Prompted by "can I add dummy data to IPM" — re-audited the webhook/
+  scheduler sweep gap** that the 2026-09-11 security review had filtered out
+  as "no live exploit path yet... revisit once multi-lab is live." It's live
+  now. Re-ran the transitive-closure check (every `app/api`/`app/(dashboard)`
+  file importing `@/lib/prisma` without `runWithLab`/`runWithTenant`) and
+  found **4 unswept webhook routes, not the 3 originally identified** —
+  `basemaps/webhook` shipped after the 2026-09-11 sweep (part of items 6+7,
+  migration 074/075) and was never evaluated against it. `lib/scheduler.ts`
+  also still has zero lab-awareness despite §5 describing it as done.
+  Checked each webhook's actual `.create()`/`.update()` calls against §4's
+  owned-vs-child table list before writing up fixes, rather than assuming —
+  `Pipeline`/`Tasks` are root tables with their own `lab_id` (straightforward
+  fix, resolve then `runWithLab`); `Annotation`/`PipelineRun`/
+  `PipelineOutputRaster`/`Basemaps` are all child tables with no own `lab_id`,
+  so there's no insert-misassignment risk today, just the architectural
+  bypass. Full fix list, sized per-route, written up in the new §9a ("Phase
+  3a") above. Two other candidates the same grep surfaced — the self-service
+  password-reset routes (`api/auth/{forgot,reset}-password`) — checked and
+  confirmed correct as-is: they deliberately use `basePrisma` directly, same
+  justified pattern as `lib/auth.ts`'s login lookup (can't know a user's lab
+  before finding them by email/token), not an oversight.
+- **Guidance given to the maintainer**: ordinary CRUD (projects, farms,
+  fields, contacts, uploads, forms, plain tasks) is safe to put dummy data
+  through on IPM right now — those paths were part of the verified 2026-09-11
+  sweep and directly re-confirmed this session. Pipelines, CVAT annotation
+  tasks, Vikunja-linked tasks, basemap tiling, and reporting subscriptions
+  should wait for §9a to be cleared first.
+- **Still true:** `TENANT_ENFORCEMENT=hard` not yet flipped on production —
+  soak is just starting. IPM has no real admin user or data. Phase 5
+  (cross-lab sharing UI) and Phase 7 (updating root/Dashboard-UI/other
+  components' `CLAUDE.md` files, marking Planned Changes items 10/13 done)
+  are both still fully unbuilt — neither is a safety blocker, but both are
+  real gaps in "full multi-lab functionality" beyond just the RLS/soak
+  mechanics this session focused on.
 

@@ -1835,6 +1835,22 @@ model SamplingMap {
   basemap_id         Int?
   basemap_buffer_m   Float?
   basemap_max_zoom   Int?
+  // NAIP basemap-from-bounding-box (migration 084): [west, south, east, north] in WGS84, drawn in
+  // the editor's "NAIP imagery box" panel; validated by lib/naip-bbox.ts's parseNaipBbox().
+  naip_bbox          Json?
+  // NAIP MBTiles package (migration 085). _status is the latest build attempt
+  // (pending|ready|failed); the rest describe the file on disk and only change on a
+  // successful build. See lib/naip-package.ts.
+  naip_package_status       String?
+  naip_package_requested_at DateTime?
+  naip_package_error        String?
+  naip_package_built_at     DateTime?
+  naip_package_bbox         Json?
+  naip_package_min_zoom     Int?
+  naip_package_max_zoom     Int?
+  naip_package_tiles        Int?
+  naip_package_bytes        Int?
+  naip_package_sha256       String?
 
   Farm       Farm            @relation(fields: [farm_id], references: [id], onDelete: Cascade)
   Experiment FarmExperiment? @relation(fields: [experiment_id], references: [id], onDelete: SetNull)

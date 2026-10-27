@@ -116,8 +116,47 @@ export interface TriggerBasemapTilingPayload {
 // Same fire-and-forget shape as triggerPipelineRun: the processor accepts the
 // job and reports back to callback_url when tiling finishes.
 export async function triggerBasemapTiling(payload: TriggerBasemapTilingPayload): Promise<void> {
-  await processingFetch("/basemaps/tile", {
+  await processingFetch(`/basemaps/${payload.basemap_id}/tile`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+// On-demand NAIP imagery tile (PipelineProcessor's GET /naip/tiles/{z}/{x}/{y},
+// naip_tiles.py) for the sampling-map bounding-box basemap feature. Returns
+// null when NAIP has no coverage there (processor 404); throws on any other
+// failure (502 = Planetary Computer unreachable) so a transient outage isn't
+// mistaken for "no imagery" and cached by the browser as a missing tile.
+export async function fetchNaipTile(
+  z: number,
+  x: number,
+  y: number,
+  year?: number
+): Promise<{ body: ArrayBuffer; contentType: string } | null> {
+  if (!PROCESSING_URL) throw new Error("PROCESSING_URL is not configured");
+  const qs = year ? `?year=${year}` : "";
+  const res = await fetch(`${PROCESSING_URL}/naip/tiles/${z}/${x}/${y}${qs}`, {
+    headers: { Authorization: `Bearer ${PROCESSING_API_KEY}` },
+    signal: AbortSignal.timeout(60_000), // a cold first tile can take ~20 s
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Processing machine GET /naip/tiles → ${res.status}`);
+  return { body: await res.arrayBuffer(), contentType: res.headers.get("content-type") ?? "image/jpeg" };
+}
+
+export interface TriggerNaipPackagePayload {
+  // Sampling_Maps.id — one package per map.
+  package_id: number;
+  callback_url: string;
+  bbox: [number, number, number, number]; // [west, south, east, north]
+  min_zoom: number;
+  max_zoom: number;
+}
+
+// Asks PipelineProcessor to render every NAIP tile in a sampling map's box into
+// an MBTiles file (naip_package.py). Fire-and-forget like triggerBasemapTiling:
+// the processor accepts the job and calls callback_url (naip_package_completed /
+// naip_package_failed) when done.
+export async function triggerNaipPackage(payload: TriggerNaipPackagePayload): Promise<void> {
+  await processingFetch("/naip/packages", { method: "POST", body: JSON.stringify(payload) });
 }
