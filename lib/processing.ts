@@ -108,6 +108,10 @@ export interface TriggerBasemapTilingPayload {
   // shape as TriggerRunPayload.farm_centroid above) — required here, unlike
   // pipeline runs, since every Basemap has a farm_id by construction.
   farm_centroid: { lat: number; lng: number } | null;
+  // Uploader-named source CRS (Basemaps.crs_override_epsg) — the processor
+  // reprojects from this instead of guessing, still sanity-checked against
+  // farm_centroid. Omitted/null = auto-detect as before.
+  crs_override_epsg?: number | null;
 }
 
 // Planned Changes items 6+7 (docs/raster-tiling-plan.md). First-party

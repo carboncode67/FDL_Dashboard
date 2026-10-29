@@ -375,3 +375,40 @@ export function applyEpsgTransform(fc: FeatureCollection, epsg: number): Feature
     })),
   };
 }
+
+// Shared by the boundaries and layers routes (unified farm upload box): parse
+// any supported vector upload by extension, then reproject to WGS84 unless it's
+// KML/KMZ (always WGS84 per spec) or a loose shapefile with a .prj sidecar
+// (shpjs already reprojected it). A loose .shp arrives with its .dbf/.prj/.cpg
+// as `sidecars`. Throws with a user-facing message.
+export const VECTOR_EXTENSIONS = [".geojson", ".json", ".zip", ".gpkg", ".kml", ".kmz", ".shp"];
+
+export async function parseVectorUpload(
+  filename: string,
+  buffer: Buffer,
+  epsg: number,
+  sidecars: { name: string; buffer: Buffer }[] = [],
+): Promise<FeatureCollection> {
+  const lower = filename.toLowerCase();
+  let fc: FeatureCollection;
+  if (lower.endsWith(".geojson") || lower.endsWith(".json")) fc = await parseGeojson(buffer);
+  else if (lower.endsWith(".zip")) fc = await parseShapefile(buffer);
+  else if (lower.endsWith(".gpkg")) fc = await parseGeopackage(buffer);
+  else if (lower.endsWith(".kml")) fc = await parseKml(buffer);
+  else if (lower.endsWith(".kmz")) fc = await parseKmz(buffer);
+  else if (lower.endsWith(".shp")) {
+    const part = (ext: string) => sidecars.find((s) => s.name.toLowerCase().endsWith(ext))?.buffer;
+    const prj = part(".prj");
+    const { default: shp } = await import("shpjs");
+    // shpjs 6 accepts a {shp, dbf, prj, cpg} object at runtime; @types/shpjs
+    // predates that overload, hence the cast.
+    const fromParts = shp as unknown as (parts: {
+      shp: Buffer; dbf?: Buffer; prj?: string; cpg?: string;
+    }) => Promise<FeatureCollection>;
+    fc = await fromParts({ shp: buffer, dbf: part(".dbf"), prj: prj?.toString("utf8"), cpg: part(".cpg")?.toString("utf8") });
+    if (prj) return fc;
+  } else throw new Error("Unsupported file type. Use .geojson, .json, .zip, .shp, .gpkg, .kml, or .kmz");
+
+  if (lower.endsWith(".kml") || lower.endsWith(".kmz")) return fc;
+  return applyEpsgTransform(fc, epsg);
+}

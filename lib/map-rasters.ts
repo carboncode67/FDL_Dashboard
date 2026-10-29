@@ -32,25 +32,43 @@ export function pipelineOutputToMapRaster(r: {
 export function basemapToMapRaster(b: {
   id: number;
   original_filename: string;
+  display_name?: string | null;
   source_filename: string;
   crs_status: string | null;
   footprint: unknown;
   min_zoom: number | null;
   max_zoom: number | null;
+  updated_at?: Date;
 }): MapRaster {
   return {
     id: b.id,
     source: "basemap",
-    url: `/api/basemaps/${b.id}/tiles/{z}/{x}/{y}.png`,
+    // ?v= busts the tile route's 24 h browser cache after a re-tile, which
+    // rewrites the tiles in place under the same {z}/{x}/{y} paths.
+    url: `/api/basemaps/${b.id}/tiles/{z}/{x}/{y}.png${b.updated_at ? `?v=${b.updated_at.getTime()}` : ""}`,
     // Not `url` (a tile template, not downloadable) — the "CRS unclear" link
     // in farm-map.tsx needs an actual single-file URL, same reasoning as the
     // downloadUrl doc comment on MapRaster.
     downloadUrl: `/api/files/basemap-sources/${b.source_filename}`,
-    label: b.original_filename,
+    label: b.display_name || b.original_filename,
     kind: "raster",
     crsStatus: b.crs_status === "ok" ? "ok" : b.crs_status === "unclear" ? "unclear" : null,
     footprint: (b.footprint as GeoJSON.Polygon | null) ?? null,
     minZoom: b.min_zoom,
     maxZoom: b.max_zoom,
+  };
+}
+
+// Farm_Layers row (unified farm upload box, migration 089) — reprojected to
+// EPSG:4326 at upload, so always crsStatus "ok". The GeoJSON itself is fetched
+// lazily by VectorLayer rather than passed through page props.
+export function farmLayerToMapRaster(l: { id: number; farm_id: number; name: string }): MapRaster {
+  return {
+    id: l.id,
+    source: "layer",
+    url: `/api/farms/${l.farm_id}/layers/${l.id}`,
+    label: l.name,
+    kind: "vector",
+    crsStatus: "ok",
   };
 }

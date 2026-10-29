@@ -180,7 +180,12 @@ export async function POST(request: Request) {
         download_url: `${baseUrl}/api/files/basemap-sources/${sourceFilename}`,
         callback_url: `${baseUrl}/api/basemaps/webhook`,
         farm_centroid: farmCentroid,
-      }).catch(async (err) => {
+      }).then(
+        // Processor accepted the job — "tiling" (vs "pending" = never sent)
+        // is what keeps the farm map's Retry link off a job already running.
+        // updateMany + status guard: a fast job's webhook may already have set ready/failed.
+        () => prisma.basemap.updateMany({ where: { id: basemap.id, tiling_status: "pending" }, data: { tiling_status: "tiling" } }).then(() => {}),
+      ).catch(async (err) => {
         console.error("[basemaps/intake POST] tiling trigger failed", err);
         await prisma.basemap.update({
           where: { id: basemap.id },

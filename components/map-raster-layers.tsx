@@ -28,7 +28,10 @@ export interface MapRaster {
   // is a {z}/{x}/{y} template, not a single-file URL. Also namespaces the
   // farm-map checklist's checkbox Set key (`${source}-${id}`), since
   // Basemap.id and PipelineOutputRaster.id are separate, colliding ID spaces.
-  source?: "pipeline" | "basemap"
+  // "layer" = a Farm_Layers row (unified farm upload box, migration 089): an
+  // uploaded vector/CSV overlay, already EPSG:4326, rendered via VectorLayer
+  // from GET /api/farms/[id]/layers/[layerId].
+  source?: "pipeline" | "basemap" | "layer"
   // Only ever set for source: "basemap" — bounds TiledBasemapLayer's tile
   // requests to the raster's actual extent. Unused (and unavailable) for a
   // "pipeline" row, which is geo-referenced from the file's own embedded
@@ -146,5 +149,21 @@ export function VectorLayer({ url }: { url: string }) {
     }
   }, [url])
   if (!data) return null
-  return <GeoJSON data={data} style={() => ({ color: "#0891b2", weight: 2, fillColor: "#06b6d4", fillOpacity: 0.25 })} />
+  // Point features as small circles rather than Leaflet's default image marker
+  // (whose icon URLs don't survive bundling) — matters for point-CSV farm layers.
+  return (
+    <GeoJSON
+      data={data}
+      style={() => ({ color: "#0891b2", weight: 2, fillColor: "#06b6d4", fillOpacity: 0.25 })}
+      pointToLayer={(_f, latlng) =>
+        L.circleMarker(latlng, { radius: 5, color: "#0e7490", weight: 1.5, fillColor: "#06b6d4", fillOpacity: 0.8 })
+      }
+      onEachFeature={(f, layer) => {
+        const props = Object.entries(f.properties ?? {}).slice(0, 12)
+        if (props.length === 0) return
+        const esc = (v: unknown) => String(v ?? "").replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`)
+        layer.bindPopup(props.map(([k, v]) => `<b>${esc(k)}</b>: ${esc(v)}`).join("<br/>"))
+      }}
+    />
+  )
 }

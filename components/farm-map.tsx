@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { MapContainer, GeoJSON, CircleMarker, Popup, Polyline, useMap } from "react-leaflet"
 import L from "leaflet"
+import { useRouter } from "next/navigation"
 import "leaflet/dist/leaflet.css"
 import { BasemapTileLayer } from "@/components/basemap-tile-layer"
 import { SatelliteToggleButton } from "@/components/satellite-toggle-button"
@@ -70,6 +71,14 @@ export interface FarmMapProps {
   farmId: number
   labUploads?: LabUploadPin[]
   rasters?: MapRaster[]
+  // Shows a remove button next to each uploaded map layer (source "layer").
+  canDeleteLayers?: boolean
+  // Basemaps not yet tiled (pending | tiling | failed) — listed under the map
+  // with their status instead of silently missing from the checklist.
+  processingBasemaps?: { id: number; label: string; status: string; error: string | null }[]
+  // PROCESSING_URL/KEY set — without it a "pending" basemap never starts.
+  processingConfigured?: boolean
+  canRetileBasemaps?: boolean
   // Newest GeoDaRT USGS 3DEP Context_Rasters row for this farm, if any — drives
   // the "Terrain" checkbox (server-rendered hillshade × elevation image).
   terrainRasterId?: number | null
@@ -279,7 +288,7 @@ function BoundsAdjuster({ bounds }: { bounds: L.LatLngBoundsExpression }) {
   return null
 }
 
-export default function FarmMap({ fields, zones, photos, notes, farmId, labUploads = [], rasters = [], terrainRasterId = null, hasContextTimeline = false, farmLat, farmLng }: FarmMapProps) {
+export default function FarmMap({ fields, zones, photos, notes, farmId, labUploads = [], rasters = [], canDeleteLayers = false, processingBasemaps = [], processingConfigured = false, canRetileBasemaps = false, terrainRasterId = null, hasContextTimeline = false, farmLat, farmLng }: FarmMapProps) {
   const [gpsTracks, setGpsTracks] = useState<GpsTrack[]>([])
   const [isSatellite, setIsSatellite] = useState(false)
   const mapRef = useRef<L.Map | null>(null)
@@ -337,6 +346,46 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
   const rasterKey = (r: MapRaster) => `${r.source ?? "pipeline"}-${r.id}`
   const pipelineOutputRasters = renderableRasters.filter((r) => (r.source ?? "pipeline") === "pipeline")
   const basemapRasters = renderableRasters.filter((r) => r.source === "basemap")
+  const farmLayers = renderableRasters.filter((r) => r.source === "layer")
+
+  // Layers start visible, including one added after mount (upload → router.refresh()
+  // keeps this component mounted); seenLayerKeys stops a layer the user has since
+  // unchecked from being re-checked on the next refresh.
+  const seenLayerKeys = useRef<Set<string>>(new Set())
+  const farmLayerKeys = farmLayers.map(rasterKey).join(",")
+  useEffect(() => {
+    const fresh = farmLayerKeys.split(",").filter((k) => k && !seenLayerKeys.current.has(k))
+    if (fresh.length === 0) return
+    fresh.forEach((k) => seenLayerKeys.current.add(k))
+    setVisibleRasterIds((prev) => new Set([...prev, ...fresh]))
+  }, [farmLayerKeys])
+
+  const router = useRouter()
+
+  // While a basemap is tiling, re-run the server component every 15 s so its
+  // checkbox appears as soon as the processor's webhook flips it to "ready".
+  const tilingInFlight = processingConfigured && processingBasemaps.some((b) => b.status === "pending" || b.status === "tiling")
+  useEffect(() => {
+    if (!tilingInFlight) return
+    const t = setInterval(() => router.refresh(), 15_000)
+    return () => clearInterval(t)
+  }, [tilingInFlight, router])
+
+  const [retiling, setRetiling] = useState<number | null>(null)
+  async function retile(id: number) {
+    setRetiling(id)
+    const res = await fetch(`/api/basemaps/${id}/retile`, { method: "POST" })
+    setRetiling(null)
+    if (res.ok) router.refresh()
+    else window.alert((await res.json().catch(() => null))?.error ?? "Couldn't restart tiling")
+  }
+
+  async function deleteLayer(r: MapRaster) {
+    if (!window.confirm(`Remove layer "${r.label}" from the map?`)) return
+    const res = await fetch(`/api/farms/${farmId}/layers/${r.id}`, { method: "DELETE" })
+    if (res.ok) router.refresh()
+    else window.alert((await res.json().catch(() => null))?.error ?? "Couldn't remove layer")
+  }
 
   const allLatLngs: [number, number][] = [
     ...fields.flatMap((f) => (f.geometry ? extractLatLngs(f.geometry) : [])),
@@ -404,6 +453,12 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
               fetch since these can be multi-GB sources. */}
           {basemapRasters.filter((r) => visibleRasterIds.has(rasterKey(r))).map((r) =>
             <TiledBasemapLayer key={rasterKey(r)} urlTemplate={r.url} footprint={r.footprint ?? null} minZoom={r.minZoom} maxZoom={r.maxZoom} />
+          )}
+
+          {/* Uploaded map layers (unified farm upload box) — on by default, since
+              the uploader explicitly asked to display them. */}
+          {farmLayers.filter((r) => visibleRasterIds.has(rasterKey(r))).map((r) =>
+            <VectorLayer key={rasterKey(r)} url={r.url} />
           )}
 
           {imageryMode !== "off" && frame && (
@@ -733,6 +788,75 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
               {r.label}
             </label>
           ))}
+        </div>
+      )}
+
+      {farmLayers.length > 0 && (
+        <div className="flex flex-wrap gap-3 px-1 text-sm">
+          <span className="text-stone-500">Layers:</span>
+          {farmLayers.map((r) => (
+            <span key={rasterKey(r)} className="flex items-center gap-1.5 text-stone-700">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={visibleRasterIds.has(rasterKey(r))}
+                  onChange={(e) =>
+                    setVisibleRasterIds((prev) => {
+                      const next = new Set(prev)
+                      if (e.target.checked) next.add(rasterKey(r))
+                      else next.delete(rasterKey(r))
+                      return next
+                    })
+                  }
+                />
+                {r.label}
+              </label>
+              {canDeleteLayers && (
+                <button
+                  type="button"
+                  onClick={() => deleteLayer(r)}
+                  className="text-stone-400 hover:text-red-600"
+                  title="Remove layer from map (the original file stays in Documents)"
+                  aria-label={`Remove layer ${r.label}`}
+                >
+                  ×
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {processingBasemaps.length > 0 && (
+        <div className="flex flex-wrap gap-3 px-1 text-sm">
+          <span className="text-stone-500">Basemaps processing:</span>
+          {processingBasemaps.map((b) => {
+            const stuck = b.status === "failed" || !processingConfigured
+            return (
+              <span key={b.id} className="flex items-center gap-1.5 text-stone-700">
+                {b.label}
+                <span className={stuck ? "text-amber-600" : "text-stone-400"} title={b.error ?? undefined}>
+                  {b.status === "failed"
+                    ? `— tiling failed${b.error ? `: ${b.error}` : ""}`
+                    : !processingConfigured
+                      ? "— waiting: no processing machine configured"
+                      : b.status === "tiling"
+                        ? "— tiling…"
+                        : "— queued for tiling…"}
+                </span>
+                {canRetileBasemaps && processingConfigured && b.status !== "tiling" && (
+                  <button
+                    type="button"
+                    onClick={() => retile(b.id)}
+                    disabled={retiling !== null}
+                    className="text-xs text-blue-600 hover:underline disabled:text-stone-400"
+                  >
+                    {retiling === b.id ? "Retrying…" : "Retry"}
+                  </button>
+                )}
+              </span>
+            )
+          })}
         </div>
       )}
 

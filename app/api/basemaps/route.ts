@@ -10,6 +10,7 @@ import { createHash } from "crypto";
 import { Readable } from "stream";
 import path from "path";
 import Busboy from "busboy";
+import { keepAsFarmDocument } from "@/lib/farm-document-copy";
 
 // Planned Changes items 6+7 (docs/raster-tiling-plan.md): a lab member
 // uploads a large raster (typically a drone orthomosaic GeoTIFF, 1-5 GB)
@@ -140,6 +141,12 @@ export async function POST(request: Request) {
       ? parseInt(fields.drone_flight_record_id, 10)
       : null;
 
+    // Unified farm upload dialog: optional layer name + uploader-named source
+    // CRS (blank = let PipelineProcessor's geo_sanity work it out, as before).
+    const displayName = fields.display_name?.trim() || null;
+    const crsOverride = fields.crs_override_epsg ? parseInt(fields.crs_override_epsg, 10) : NaN;
+    const crsOverrideEpsg = !isNaN(crsOverride) && crsOverride > 0 ? crsOverride : null;
+
     const basemap = await prisma.basemap.create({
       data: {
         farm_id: farmId,
@@ -149,6 +156,8 @@ export async function POST(request: Request) {
         source_filename: filename,
         bytes: BigInt(stat.size),
         sha256,
+        display_name: displayName,
+        crs_override_epsg: crsOverrideEpsg,
         tiling_status: "pending",
       },
     });
@@ -161,7 +170,13 @@ export async function POST(request: Request) {
         download_url: `${baseUrl}/api/files/basemap-sources/${filename}`,
         callback_url: `${baseUrl}/api/basemaps/webhook`,
         farm_centroid: farmCentroid,
-      }).catch(async (err) => {
+        crs_override_epsg: crsOverrideEpsg,
+      }).then(
+        // Processor accepted the job — "tiling" (vs "pending" = never sent)
+        // is what keeps the farm map's Retry link off a job already running.
+        // updateMany + status guard: a fast job's webhook may already have set ready/failed.
+        () => prisma.basemap.updateMany({ where: { id: basemap.id, tiling_status: "pending" }, data: { tiling_status: "tiling" } }).then(() => {}),
+      ).catch(async (err) => {
         console.error("[basemaps POST] tiling trigger failed", err);
         await prisma.basemap.update({
           where: { id: basemap.id },
@@ -171,6 +186,13 @@ export async function POST(request: Request) {
     }
     // If processing isn't configured, the row stays "pending" — same
     // no-op-when-unconfigured convention as automated pipelines.
+
+    // Also keep the original as a farm Document (hard link, no extra space).
+    if (fields.keep_document === "1") {
+      await keepAsFarmDocument({ farmId, originalName, description: fields.description, sourcePath: path.join(dir, filename) }).catch((err) =>
+        console.error("[basemaps POST] keeping document copy failed", err)
+      );
+    }
 
     return NextResponse.json({ ok: true, id: basemap.id, tiling_status: basemap.tiling_status });
   } catch (err) {

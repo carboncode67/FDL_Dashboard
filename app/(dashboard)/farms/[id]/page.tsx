@@ -24,11 +24,10 @@ import Link from "next/link";
 import { RelationPicker } from "@/components/relation-picker";
 import { UnlinkRelationButton } from "@/components/unlink-relation-button";
 import FarmMap from "@/components/farm-map-wrapper";
-import { pipelineOutputToMapRaster, basemapToMapRaster } from "@/lib/map-rasters";
+import { pipelineOutputToMapRaster, basemapToMapRaster, farmLayerToMapRaster } from "@/lib/map-rasters";
 import ReactMarkdown from "react-markdown";
 import { FarmExperimentsTab } from "@/components/farm-experiments-tab";
-import { FieldBoundaryUpload } from "@/components/field-boundary-upload";
-import { BasemapUpload } from "@/components/basemap-upload";
+import { FarmDataUpload } from "@/components/farm-data-upload";
 import { DocumentUpload } from "@/components/document-upload";
 import { AddContactButton } from "@/components/add-contact-button";
 import { DrawFieldButton } from "@/components/draw-field-button";
@@ -37,6 +36,7 @@ import { SamplingMapsTab } from "@/components/sampling-maps-tab";
 import { serializeContextJob } from "@/lib/context-types";
 import { geodartHasKey } from "@/lib/geodart";
 import { runWithTenant } from "@/lib/lab-db";
+import { processingConfigured } from "@/lib/processing";
 
 const STATUS_LABELS: Record<number, { label: string; variant: "default" | "secondary" | "outline" }> = {
   1: { label: "Unassigned", variant: "outline" },
@@ -109,8 +109,14 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
           orderBy: { created_at: "desc" },
           include: { Run: { select: { id: true, Pipeline: { select: { name: true } } } } },
         },
+        // All of them, not just "ready": the rest are listed under the map
+        // with their tiling status so a fresh upload doesn't silently vanish.
         Basemaps: {
-          where: { tiling_status: "ready" },
+          orderBy: { created_at: "desc" },
+        },
+        // Uploaded map layers — geojson itself is fetched lazily by the map.
+        FarmLayers: {
+          select: { id: true, farm_id: true, name: true },
           orderBy: { created_at: "desc" },
         },
         // Newest GeoDaRT terrain pull drives the map's Terrain layer.
@@ -257,8 +263,15 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
   // basemaps (items 6+7) merged into one list; see lib/map-rasters.ts.
   const mapRasters = [
     ...farm.PipelineOutputRasters.map(pipelineOutputToMapRaster),
-    ...farm.Basemaps.map(basemapToMapRaster),
+    ...farm.Basemaps.filter((b) => b.tiling_status === "ready").map(basemapToMapRaster),
+    ...farm.FarmLayers.map(farmLayerToMapRaster),
   ];
+  const processingBasemaps = farm.Basemaps.filter((b) => b.tiling_status !== "ready").map((b) => ({
+    id: b.id,
+    label: b.display_name || b.original_filename,
+    status: b.tiling_status,
+    error: b.error_message,
+  }));
   const terrainRasterId = farm.ContextRasters[0]?.id ?? null;
   const hasContextTimeline = farm._count.ContextRasters > 0;
 
@@ -579,6 +592,10 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             photos={[]}
             notes={[]}
             rasters={mapRasters}
+            canDeleteLayers={showDelete}
+            processingBasemaps={processingBasemaps}
+            processingConfigured={processingConfigured}
+            canRetileBasemaps={showCreate}
             terrainRasterId={terrainRasterId}
             hasContextTimeline={hasContextTimeline}
             farmId={farm.id}
@@ -586,17 +603,15 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             farmLng={farm.longitude ?? undefined}
           />
 
-          <FieldBoundaryUpload
-            farmId={farm.id}
-            fieldCount={farm.Fields.length}
-            drawButton={
-              showCreate ? <DrawFieldButton farmId={farm.id} /> : undefined
-            }
-          />
-
-          {showCreate && <BasemapUpload farmId={farm.id} />}
-
-          {showCreate && <DocumentUpload farmId={farm.id} />}
+          {/* One box for boundaries, basemaps, map layers and documents —
+              sorts the file by type and asks before displaying spatial data. */}
+          {showCreate && (
+            <FarmDataUpload
+              farmId={farm.id}
+              fieldCount={farm.Fields.length}
+              drawButton={<DrawFieldButton farmId={farm.id} />}
+            />
+          )}
 
           <SpatialContextCard
             farmId={farm.id}

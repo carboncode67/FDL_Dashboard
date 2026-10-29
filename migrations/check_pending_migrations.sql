@@ -127,4 +127,14 @@ SELECT
   EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'pgntarg2udzj1f3' AND table_name = 'Form_Responses' AND column_name = 'older_form_version'
+  )
+UNION ALL
+SELECT
+  'farm layers + basemap display name/CRS override (089)',
+  EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'pgntarg2udzj1f3' AND table_name = 'Farm_Layers'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'pgntarg2udzj1f3' AND table_name = 'Basemaps' AND column_name = 'crs_override_epsg'
   );

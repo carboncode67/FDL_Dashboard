@@ -70,6 +70,7 @@ model User {
   EquipmentLoansRented    EquipmentLoan[] @relation("EquipmentLoanRenter")
   ContextFetchJobs   ContextFetchJob[]
   UploadedBasemaps   Basemap[]
+  UploadedFarmLayers FarmLayer[]
   CreatedSamplingMaps SamplingMap[]
   SamplingMapAssignments SamplingMapAssignment[]
   SamplingPointCollections SamplingPointCollection[]
@@ -188,6 +189,7 @@ model Farm {
   PipelineRuns     PipelineRun[]
   PipelineOutputRasters PipelineOutputRaster[]
   Basemaps         Basemap[]
+  FarmLayers       FarmLayer[]
   SamplingMapAssignments SamplingMapAssignment[]
   SamplingMaps     SamplingMap[]
   TagLinks         FarmTagLink[]
@@ -1064,6 +1066,7 @@ model Document {
   Test      Test?      @relation(fields: [test_id], references: [id], onDelete: Cascade)
   DataTable DataTable? @relation(fields: [data_table_id], references: [id], onDelete: SetNull)
   Drone     Drone?     @relation(fields: [drone_id], references: [id], onDelete: SetNull)
+  FarmLayers FarmLayer[]
 
   @@index([data_table_id])
   @@index([drone_id])
@@ -1747,6 +1750,11 @@ model Basemap {
   crs_status             String?
   crs_epsg               Int?
   footprint              Json?    // GeoJSON Polygon, filled in once tiling reads the file
+  // Unified farm upload dialog (migration 089): optional layer name shown in
+  // map checklists (falls back to original_filename), and an uploader-named
+  // source CRS PipelineProcessor reprojects from instead of guessing.
+  display_name           String?
+  crs_override_epsg      Int?
   tiling_status          String   @default("pending") // pending | tiling | ready | failed
   tile_dir               String?  // e.g. "<id>" under DATA_DIR/basemap-tiles/
   min_zoom               Int?
@@ -1763,6 +1771,32 @@ model Basemap {
   @@index([farm_id])
   @@index([tiling_status])
   @@map("Basemaps")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Display-only vector overlay on a farm's map (migration 089) — a vector file
+// or lat/lon CSV uploaded through the unified farm upload box with "Map layer"
+// chosen, as opposed to "Field boundaries" (which creates Fields). geojson is a
+// FeatureCollection already reprojected to EPSG:4326.
+model FarmLayer {
+  id                Int      @id @default(autoincrement())
+  farm_id           Int
+  name              String
+  geometry_kind     String   // point | line | polygon | mixed
+  feature_count     Int
+  geojson           Json
+  original_filename String
+  source_epsg       Int?
+  document_id       Int?     // the original file, kept as a farm Document
+  uploaded_by_id    String?
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+
+  Farm       Farm      @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  Document   Document? @relation(fields: [document_id], references: [id], onDelete: SetNull)
+  UploadedBy User?     @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
+
+  @@index([farm_id])
+  @@map("Farm_Layers")
   @@schema("pgntarg2udzj1f3")
 }
 

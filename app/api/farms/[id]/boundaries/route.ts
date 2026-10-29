@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import {
-  parseGeojson,
-  parseShapefile,
-  parseGeopackage,
-  parseKml,
-  parseKmz,
-  applyEpsgTransform,
-} from "@/lib/parse-boundaries";
+import { parseVectorUpload } from "@/lib/parse-boundaries";
+import { keepAsFarmDocument } from "@/lib/farm-document-copy";
+import { canCreate } from "@/lib/roles";
 import type { Feature, Polygon, MultiPolygon } from "geojson";
 import { runWithTenant } from "@/lib/lab-db";
 
@@ -21,6 +16,7 @@ export async function POST(
   return runWithTenant(async () => {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canCreate(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
   const farmId = parseInt(id);
@@ -44,43 +40,18 @@ export async function POST(
     return NextResponse.json({ error: "Invalid EPSG code" }, { status: 400 });
   }
 
-  const filename = file.name.toLowerCase();
   const buffer = Buffer.from(await file.arrayBuffer());
-
-  // KML/KMZ coordinates are always WGS84 per spec — no EPSG lookup/reprojection
-  // applies to them, unlike GPKG/SHP/GeoJSON which may carry an arbitrary CRS.
-  const isKmlLike = filename.endsWith(".kml") || filename.endsWith(".kmz");
+  // .dbf/.prj/.cpg/.shx sent alongside a loose .shp
+  const sidecars = await Promise.all(
+    (formData.getAll("sidecar") as File[]).map(async (f) => ({ name: f.name, buffer: Buffer.from(await f.arrayBuffer()) })),
+  );
 
   let fc;
   try {
-    if (filename.endsWith(".geojson") || filename.endsWith(".json")) {
-      fc = await parseGeojson(buffer);
-    } else if (filename.endsWith(".zip")) {
-      fc = await parseShapefile(buffer);
-    } else if (filename.endsWith(".gpkg")) {
-      fc = await parseGeopackage(buffer);
-    } else if (filename.endsWith(".kml")) {
-      fc = await parseKml(buffer);
-    } else if (filename.endsWith(".kmz")) {
-      fc = await parseKmz(buffer);
-    } else {
-      return NextResponse.json(
-        { error: "Unsupported file type. Use .geojson, .json, .zip, .gpkg, .kml, or .kmz" },
-        { status: 400 },
-      );
-    }
+    fc = await parseVectorUpload(file.name, buffer, epsg, sidecars);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Parse error";
     return NextResponse.json({ error: `Failed to parse file: ${msg}` }, { status: 400 });
-  }
-
-  if (!isKmlLike) {
-    try {
-      fc = applyEpsgTransform(fc, epsg);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "CRS error";
-      return NextResponse.json({ error: msg }, { status: 400 });
-    }
   }
 
   const polygonFeatures = fc.features.filter(
@@ -118,6 +89,12 @@ export async function POST(
       });
     }),
   );
+
+  // Unified farm upload box: keep the original as a farm Document too.
+  if (formData.get("keep_document") === "1") {
+    await keepAsFarmDocument({ farmId, originalName: file.name, buffer, description: formData.get("description") as string | null });
+    for (const sc of sidecars) await keepAsFarmDocument({ farmId, originalName: sc.name, buffer: sc.buffer });
+  }
 
   return NextResponse.json({ ok: true, count: polygonFeatures.length });
   });
