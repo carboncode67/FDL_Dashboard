@@ -4,7 +4,9 @@
  * `advanceContextJobs()` is called on a node-cron interval (see lib/scheduler.ts).
  * It walks every in-flight Context_Fetch_Jobs row, polls its GeoDaRT job, and once
  * GeoDaRT reports done, streams the signed zip to disk, extracts each COG into
- * DATA_DIR/context/, and writes Context_Rasters rows.
+ * DATA_DIR/context/, and writes Context_Rasters rows. Sentinel-2 dates that are
+ * mostly cloud over the farm's fields are deleted on extraction and never get a
+ * row (lib/imagery-cloud.ts).
  */
 
 import fs from "fs";
@@ -24,6 +26,7 @@ import {
   TERMINAL_STATUSES,
   type ProductCode,
 } from "@/lib/geodart";
+import { cloudScore, farmFieldGeometries, MIN_FIELD_CLEAR_FRACTION } from "@/lib/imagery-cloud";
 
 const CONTEXT_DIR = path.join(DATA_DIR, "context");
 const CLAIM_STALE_MS = 5 * 60_000;
@@ -66,7 +69,10 @@ async function downloadZip(url: string, dest: string): Promise<void> {
   await streamPipeline(Readable.fromWeb(res.body as import("stream/web").ReadableStream), fs.createWriteStream(dest));
 }
 
-function extractTifs(zipPath: string, jobId: number): Promise<ExtractedRaster[]> {
+// Decides whether an extracted file is kept; a rejected file is deleted.
+type KeepFn = (r: ExtractedRaster, filePath: string) => Promise<boolean>;
+
+function extractTifs(zipPath: string, jobId: number, keep: KeepFn): Promise<ExtractedRaster[]> {
   return new Promise((resolve, reject) => {
     yauzl.open(zipPath, { lazyEntries: true }, (err, zip) => {
       if (err || !zip) return reject(err ?? new Error("bad zip"));
@@ -93,14 +99,20 @@ function extractTifs(zipPath: string, jobId: number): Promise<ExtractedRaster[]>
           const ws = fs.createWriteStream(dest);
           rs.pipe(ws);
           ws.on("error", reject);
-          ws.on("finish", () => {
-            out.push({
+          ws.on("finish", async () => {
+            const r: ExtractedRaster = {
               product,
               filename,
               bytes,
               sha256: hash.digest("hex"),
               captureDate: captureDateFromName(path.basename(entry.fileName)),
-            });
+            };
+            try {
+              if (await keep(r, dest)) out.push(r);
+              else await fs.promises.rm(dest, { force: true });
+            } catch (e) {
+              return reject(e);
+            }
             zip.readEntry();
           });
         });
@@ -168,7 +180,22 @@ async function advanceJob(job: NonNullable<Job>): Promise<void> {
     const tmp = path.join(os.tmpdir(), `ctx_${job.id}_${Date.now()}.zip`);
     try {
       await downloadZip(link, tmp);
-      rasters = await extractTifs(tmp, job.id);
+      const geoms = await farmFieldGeometries(job.farm_id);
+      let cloudy = 0;
+      rasters = await extractTifs(tmp, job.id, async (r, filePath) => {
+        if (r.product !== "Sentinel2") return true;
+        try {
+          const { clearFraction } = await cloudScore(filePath, r.sha256, geoms, r.captureDate);
+          if (clearFraction >= MIN_FIELD_CLEAR_FRACTION) return true;
+        } catch (err) {
+          // Unreadable SCL: keep the file rather than silently losing a date.
+          console.error(`[ContextFetch] couldn't cloud-score ${r.filename}:`, err);
+          return true;
+        }
+        cloudy++;
+        return false;
+      });
+      if (cloudy) console.log(`[ContextFetch] job ${job.id}: skipped ${cloudy} Sentinel-2 date(s) over 50% cloud on the fields`);
     } finally {
       fs.rm(tmp, { force: true }, () => {});
     }

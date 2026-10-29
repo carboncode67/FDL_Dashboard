@@ -113,6 +113,17 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
           where: { tiling_status: "ready" },
           orderBy: { created_at: "desc" },
         },
+        // Newest GeoDaRT terrain pull drives the map's Terrain layer.
+        ContextRasters: {
+          where: { product: { startsWith: "USGS3DEP" } },
+          orderBy: { fetched_at: "desc" },
+          take: 1,
+          select: { id: true },
+        },
+        // Dated GeoDaRT rasters (drought weeks, imagery) → the map's timeline.
+        _count: {
+          select: { ContextRasters: { where: { product: { in: ["USDroughtMonitor", "Sentinel2"] } } } },
+        },
         SamplingMaps: {
           orderBy: { updated_at: "desc" },
           include: { _count: { select: { Polygons: true, Points: true } } },
@@ -248,6 +259,8 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
     ...farm.PipelineOutputRasters.map(pipelineOutputToMapRaster),
     ...farm.Basemaps.map(basemapToMapRaster),
   ];
+  const terrainRasterId = farm.ContextRasters[0]?.id ?? null;
+  const hasContextTimeline = farm._count.ContextRasters > 0;
 
   // Lab upload map pins (GPS-tagged only)
   const labUploadPins = farm.LabMemberUploads.filter(
@@ -566,6 +579,8 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             photos={[]}
             notes={[]}
             rasters={mapRasters}
+            terrainRasterId={terrainRasterId}
+            hasContextTimeline={hasContextTimeline}
             farmId={farm.id}
             farmLat={farm.latitude ?? undefined}
             farmLng={farm.longitude ?? undefined}
@@ -756,6 +771,8 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             notes={contactNotesPins}
             labUploads={labUploadPins}
             rasters={mapRasters}
+            terrainRasterId={terrainRasterId}
+            hasContextTimeline={hasContextTimeline}
             farmId={farm.id}
             farmLat={farm.latitude ?? undefined}
             farmLng={farm.longitude ?? undefined}

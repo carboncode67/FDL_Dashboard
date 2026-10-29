@@ -16,6 +16,7 @@ import { prisma } from "@/lib/prisma";
 import { buildReportData, generateReportHtml } from "@/lib/report-generator";
 import { sendMail } from "@/lib/mailer";
 import { advanceContextJobs } from "@/lib/context-fetch";
+import { pruneCloudyImagery } from "@/lib/imagery-cloud";
 
 let started = false;
 
@@ -94,4 +95,14 @@ export function startScheduler() {
     advanceContextJobs().catch((e) => console.error("[ContextFetch]", e));
   });
   console.log("[Scheduler] Spatial-context job sweep started — every 2 minutes");
+
+  // Once per start: drop Sentinel-2 dates that are mostly cloud over the farm's
+  // fields — ones ingested before the filter, or whose fields changed since.
+  // Scores are disk-cached, so after the first run this only re-reads files for
+  // farms whose field geometry changed. See lib/imagery-cloud.ts.
+  pruneCloudyImagery()
+    .then(({ checked, removed }) => {
+      console.log(`[Scheduler] Cloudy imagery sweep: checked ${checked}, removed ${removed.length}`);
+    })
+    .catch((e) => console.error("[Scheduler] Cloudy imagery sweep failed:", e));
 }

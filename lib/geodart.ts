@@ -8,7 +8,7 @@
  */
 
 const GEODART_URL = (
-  process.env.GEODART_URL ?? "https://geodart-api.farmersdatalab.scienceversa.com"
+  process.env.GEODART_URL ?? "https://geodart-api.farmersdatalab.org"
 ).replace(/\/$/, "");
 
 // GeoDaRT has no account/key system yet — submit only needs *some* guid + email.
