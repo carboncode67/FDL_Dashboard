@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
 import { runWithLab } from "@/lib/lab-db";
+import { processingConfigured } from "@/lib/processing";
 
 // Map-ready rasters for one farm — the same two sources farms/[id]/page.tsx
 // merges for FarmMap (lib/map-rasters.ts): pipeline outputs and tiled
@@ -14,6 +15,11 @@ import { runWithLab } from "@/lib/lab-db";
 // "ready", and anything geo_sanity flagged crs_status "unclear" is left out
 // entirely (FarmMap lists those for manual download; a farmer-facing map
 // has no use for an unverified location).
+//
+// Alongside `rasters` (shape unchanged — older OFE builds read only that):
+// `layers` = the farm's Farm_Layers overlays (GeoJSON via ../layers/[layerId]),
+// and `processing` = basemaps not yet tiled, so OFE's map can list a fresh
+// upload with its status the way FarmMap does, plus `processing_configured`.
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateUpload(req);
   if ("error" in auth) return auth.error;
@@ -26,7 +32,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!farm) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const notUnclear = { OR: [{ crs_status: null }, { crs_status: { not: "unclear" } }] };
-    const [outputs, basemaps] = await Promise.all([
+    const [outputs, basemaps, layers, processing] = await Promise.all([
       prisma.pipelineOutputRaster.findMany({
         where: { farm_id: farmId, ...notUnclear },
         orderBy: { created_at: "desc" },
@@ -34,6 +40,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       }),
       prisma.basemap.findMany({
         where: { farm_id: farmId, tiling_status: "ready", ...notUnclear },
+        orderBy: { created_at: "desc" },
+      }),
+      prisma.farmLayer.findMany({
+        where: { farm_id: farmId },
+        select: { id: true, name: true, geometry_kind: true, feature_count: true },
+        orderBy: { created_at: "desc" },
+      }),
+      prisma.basemap.findMany({
+        where: { farm_id: farmId, tiling_status: { not: "ready" } },
+        select: { id: true, display_name: true, original_filename: true, tiling_status: true, error_message: true },
         orderBy: { created_at: "desc" },
       }),
     ]);
@@ -52,14 +68,24 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         ...basemaps.map((b) => ({
           source: "basemap" as const,
           id: b.id,
-          label: b.original_filename,
+          label: b.display_name || b.original_filename,
           kind: "raster" as const,
           footprint: b.footprint ?? null,
           min_zoom: b.min_zoom,
           max_zoom: b.max_zoom,
           created_at: b.created_at,
+          // Cache-buster for the tile URLs — a re-tile rewrites tiles in place.
+          updated_at: b.updated_at,
         })),
       ],
+      layers,
+      processing: processing.map((b) => ({
+        id: b.id,
+        label: b.display_name || b.original_filename,
+        status: b.tiling_status,
+        error: b.error_message,
+      })),
+      processing_configured: processingConfigured,
     });
   });
 }
