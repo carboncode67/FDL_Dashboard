@@ -37,6 +37,7 @@ import { serializeContextJob } from "@/lib/context-types";
 import { geodartHasKey } from "@/lib/geodart";
 import { runWithTenant } from "@/lib/lab-db";
 import { processingConfigured } from "@/lib/processing";
+import { yieldRunToProcessing } from "@/lib/yield-runs";
 
 const STATUS_LABELS: Record<number, { label: string; variant: "default" | "secondary" | "outline" }> = {
   1: { label: "Unassigned", variant: "outline" },
@@ -112,6 +113,12 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
         // All of them, not just "ready": the rest are listed under the map
         // with their tiling status so a fresh upload doesn't silently vanish.
         Basemaps: {
+          orderBy: { created_at: "desc" },
+        },
+        // Yield cards still being cleaned (lib/yield-runs.ts); a ready one is
+        // just a Farm_Layers row below.
+        YieldRuns: {
+          where: { status: { not: "ready" } },
           orderBy: { created_at: "desc" },
         },
         // Uploaded map layers — geojson itself is fetched lazily by the map.
@@ -266,12 +273,16 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
     ...farm.Basemaps.filter((b) => b.tiling_status === "ready").map(basemapToMapRaster),
     ...farm.FarmLayers.map(farmLayerToMapRaster),
   ];
-  const processingBasemaps = farm.Basemaps.filter((b) => b.tiling_status !== "ready").map((b) => ({
-    id: b.id,
-    label: b.display_name || b.original_filename,
-    status: b.tiling_status,
-    error: b.error_message,
-  }));
+  const processingBasemaps = [
+    ...farm.Basemaps.filter((b) => b.tiling_status !== "ready").map((b) => ({
+      id: b.id,
+      kind: "basemap" as const,
+      label: b.display_name || b.original_filename,
+      status: b.tiling_status,
+      error: b.error_message,
+    })),
+    ...farm.YieldRuns.map(yieldRunToProcessing),
+  ];
   const terrainRasterId = farm.ContextRasters[0]?.id ?? null;
   const hasContextTimeline = farm._count.ContextRasters > 0;
 

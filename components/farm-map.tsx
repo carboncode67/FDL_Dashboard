@@ -73,9 +73,11 @@ export interface FarmMapProps {
   rasters?: MapRaster[]
   // Shows a remove button next to each uploaded map layer (source "layer").
   canDeleteLayers?: boolean
-  // Basemaps not yet tiled (pending | tiling | failed) — listed under the map
-  // with their status instead of silently missing from the checklist.
-  processingBasemaps?: { id: number; label: string; status: string; error: string | null }[]
+  // Basemaps not yet tiled (pending | tiling | failed) and yield cards not yet
+  // cleaned (pending | processing | failed) — listed under the map with their
+  // status instead of silently missing from the checklist. `kind` picks the
+  // Retry route; absent = basemap.
+  processingBasemaps?: { id: number; kind?: "basemap" | "yield"; label: string; status: string; error: string | null }[]
   // PROCESSING_URL/KEY set — without it a "pending" basemap never starts.
   processingConfigured?: boolean
   canRetileBasemaps?: boolean
@@ -364,20 +366,21 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
 
   // While a basemap is tiling, re-run the server component every 15 s so its
   // checkbox appears as soon as the processor's webhook flips it to "ready".
-  const tilingInFlight = processingConfigured && processingBasemaps.some((b) => b.status === "pending" || b.status === "tiling")
+  const tilingInFlight = processingConfigured && processingBasemaps.some((b) => b.status === "pending" || b.status === "tiling" || b.status === "processing")
   useEffect(() => {
     if (!tilingInFlight) return
     const t = setInterval(() => router.refresh(), 15_000)
     return () => clearInterval(t)
   }, [tilingInFlight, router])
 
-  const [retiling, setRetiling] = useState<number | null>(null)
-  async function retile(id: number) {
-    setRetiling(id)
-    const res = await fetch(`/api/basemaps/${id}/retile`, { method: "POST" })
+  const [retiling, setRetiling] = useState<string | null>(null)
+  async function retile(b: { id: number; kind?: "basemap" | "yield" }) {
+    setRetiling(`${b.kind ?? "basemap"}-${b.id}`)
+    const url = b.kind === "yield" ? `/api/yield-runs/${b.id}/retry` : `/api/basemaps/${b.id}/retile`
+    const res = await fetch(url, { method: "POST" })
     setRetiling(null)
     if (res.ok) router.refresh()
-    else window.alert((await res.json().catch(() => null))?.error ?? "Couldn't restart tiling")
+    else window.alert((await res.json().catch(() => null))?.error ?? "Couldn't restart processing")
   }
 
   async function deleteLayer(r: MapRaster) {
@@ -829,29 +832,32 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
 
       {processingBasemaps.length > 0 && (
         <div className="flex flex-wrap gap-3 px-1 text-sm">
-          <span className="text-stone-500">Basemaps processing:</span>
+          <span className="text-stone-500">Processing:</span>
           {processingBasemaps.map((b) => {
             const stuck = b.status === "failed" || !processingConfigured
+            const key = `${b.kind ?? "basemap"}-${b.id}`
             return (
-              <span key={b.id} className="flex items-center gap-1.5 text-stone-700">
+              <span key={key} className="flex items-center gap-1.5 text-stone-700">
                 {b.label}
                 <span className={stuck ? "text-amber-600" : "text-stone-400"} title={b.error ?? undefined}>
                   {b.status === "failed"
-                    ? `— tiling failed${b.error ? `: ${b.error}` : ""}`
+                    ? `— ${b.kind === "yield" ? "cleaning" : "tiling"} failed${b.error ? `: ${b.error}` : ""}`
                     : !processingConfigured
                       ? "— waiting: no processing machine configured"
                       : b.status === "tiling"
                         ? "— tiling…"
-                        : "— queued for tiling…"}
+                        : b.status === "processing"
+                          ? "— cleaning…"
+                          : "— queued…"}
                 </span>
-                {canRetileBasemaps && processingConfigured && b.status !== "tiling" && (
+                {canRetileBasemaps && processingConfigured && b.status !== "tiling" && b.status !== "processing" && (
                   <button
                     type="button"
-                    onClick={() => retile(b.id)}
+                    onClick={() => retile(b)}
                     disabled={retiling !== null}
                     className="text-xs text-blue-600 hover:underline disabled:text-stone-400"
                   >
-                    {retiling === b.id ? "Retrying…" : "Retry"}
+                    {retiling === key ? "Retrying…" : "Retry"}
                   </button>
                 )}
               </span>

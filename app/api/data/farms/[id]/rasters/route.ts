@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
 import { runWithLab } from "@/lib/lab-db";
 import { processingConfigured } from "@/lib/processing";
+import { yieldRunToProcessing } from "@/lib/yield-runs";
 
 // Map-ready rasters for one farm — the same two sources farms/[id]/page.tsx
 // merges for FarmMap (lib/map-rasters.ts): pipeline outputs and tiled
@@ -18,7 +19,8 @@ import { processingConfigured } from "@/lib/processing";
 //
 // Alongside `rasters` (shape unchanged — older OFE builds read only that):
 // `layers` = the farm's Farm_Layers overlays (GeoJSON via ../layers/[layerId]),
-// and `processing` = basemaps not yet tiled, so OFE's map can list a fresh
+// and `processing` = basemaps not yet tiled and yield cards not yet cleaned
+// (each with a `kind`: "basemap" | "yield"), so OFE's map can list a fresh
 // upload with its status the way FarmMap does, plus `processing_configured`.
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateUpload(req);
@@ -32,7 +34,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!farm) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const notUnclear = { OR: [{ crs_status: null }, { crs_status: { not: "unclear" } }] };
-    const [outputs, basemaps, layers, processing] = await Promise.all([
+    const [outputs, basemaps, layers, processing, yieldRuns] = await Promise.all([
       prisma.pipelineOutputRaster.findMany({
         where: { farm_id: farmId, ...notUnclear },
         orderBy: { created_at: "desc" },
@@ -50,6 +52,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       prisma.basemap.findMany({
         where: { farm_id: farmId, tiling_status: { not: "ready" } },
         select: { id: true, display_name: true, original_filename: true, tiling_status: true, error_message: true },
+        orderBy: { created_at: "desc" },
+      }),
+      prisma.yieldRun.findMany({
+        where: { farm_id: farmId, status: { not: "ready" } },
+        select: { id: true, display_name: true, original_filename: true, status: true, error_message: true },
         orderBy: { created_at: "desc" },
       }),
     ]);
@@ -79,12 +86,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         })),
       ],
       layers,
-      processing: processing.map((b) => ({
-        id: b.id,
-        label: b.display_name || b.original_filename,
-        status: b.tiling_status,
-        error: b.error_message,
-      })),
+      processing: [
+        ...processing.map((b) => ({
+          id: b.id,
+          kind: "basemap" as const,
+          label: b.display_name || b.original_filename,
+          status: b.tiling_status,
+          error: b.error_message,
+        })),
+        ...yieldRuns.map(yieldRunToProcessing),
+      ],
       processing_configured: processingConfigured,
     });
   });

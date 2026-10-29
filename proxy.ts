@@ -22,6 +22,7 @@ export default auth((req) => {
                       nextUrl.pathname.startsWith("/api/whatsapp") ||
                       nextUrl.pathname === "/api/pipelines/webhook" ||
                       nextUrl.pathname === "/api/basemaps/webhook" ||
+                      nextUrl.pathname === "/api/yield-runs/webhook" ||
                       nextUrl.pathname === "/api/naip/packages/webhook" ||
                       (nextUrl.pathname.startsWith("/api/farms/") && (
                         nextUrl.pathname.endsWith("/summary") ||

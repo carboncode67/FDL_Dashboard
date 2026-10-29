@@ -16,6 +16,7 @@ import { matchDocumentToTemplate } from "@/lib/document-template-match";
 import { matchAndTriggerPipelines } from "@/lib/pipeline-match";
 import { receiveDocumentUpload, MAX_DOCUMENT_BYTES } from "@/lib/document-upload";
 import { authenticateUpload } from "@/lib/upload-auth";
+import { cn1CardName, startYieldRun, YIELD_SOURCES_DIRNAME } from "@/lib/yield-runs";
 import { runWithLab } from "@/lib/lab-db";
 
 // Request handling behind the unified farm upload box (components/farm-data-upload.tsx),
@@ -32,35 +33,21 @@ async function farmExists(farmId: number): Promise<boolean> {
   return (await prisma.farm.findUnique({ where: { id: farmId }, select: { id: true } })) != null;
 }
 
-// ── Basemaps (GeoTIFF → PipelineProcessor tiling) ────────────────────────────
-
-// `farmId` set = taken from the URL (the data route); otherwise read from the
-// form's farm_id field (POST /api/basemaps, which predates the farm-scoped path).
-export async function receiveBasemapUpload(
-  request: Request,
-  opts: { uploadedById: string | null; farmId?: number },
-): Promise<NextResponse> {
-  try {
-    const contentType = request.headers.get("content-type") ?? "";
-    if (!contentType.includes("multipart/form-data")) {
-      return NextResponse.json({ error: "Expected multipart/form-data" }, { status: 400 });
-    }
-    if (!request.body) {
-      return NextResponse.json({ error: "No request body" }, { status: 400 });
-    }
-
-    const dir = path.join(DATA_DIR, "basemap-sources");
-    fs.mkdirSync(dir, { recursive: true });
-
-    // Streamed to disk with busboy, never buffered in the Node heap — these
-    // files run 1-5 GB (see raster-tiling-plan.md), the same reasoning as the
-    // recording upload route's use of busboy over request.formData().
-    const { fields, filename, originalName, sha256 } = await new Promise<{
-      fields: Record<string, string>;
-      filename: string | null;
-      originalName: string | null;
-      sha256: string | null;
-    }>((resolve, reject) => {
+// Streams the multipart body's one file part to `dir` with busboy, never
+// buffering it in the Node heap — basemap sources run 1-5 GB (see
+// raster-tiling-plan.md), the same reasoning as the recording upload route's
+// use of busboy over request.formData(). A file whose extension isn't in
+// `exts` is drained and reported as filename: null. Caller checks
+// content-type and that request.body is present.
+async function streamUploadToDisk(request: Request, dir: string, exts: Set<string>): Promise<{
+  fields: Record<string, string>;
+  filename: string | null;
+  originalName: string | null;
+  sha256: string | null;
+}> {
+  fs.mkdirSync(dir, { recursive: true });
+  const contentType = request.headers.get("content-type") ?? "";
+  return new Promise((resolve, reject) => {
       const bb = Busboy({ headers: { "content-type": contentType } });
 
       const fields: Record<string, string> = {};
@@ -72,7 +59,7 @@ export async function receiveBasemapUpload(
 
       bb.on("file", (_fieldname, fileStream, info) => {
         const ext = path.extname(info.filename).toLowerCase();
-        if (!BASEMAP_EXTS.has(ext)) {
+        if (!exts.has(ext)) {
           rejectedEarly = true;
           fileStream.resume(); // drain so busboy can finish
           return;
@@ -112,7 +99,28 @@ export async function receiveBasemapUpload(
       Readable.fromWeb(
         request.body as Parameters<typeof Readable.fromWeb>[0]
       ).pipe(bb);
-    });
+  });
+}
+
+// ── Basemaps (GeoTIFF → PipelineProcessor tiling) ────────────────────────────
+
+// `farmId` set = taken from the URL (the data route); otherwise read from the
+// form's farm_id field (POST /api/basemaps, which predates the farm-scoped path).
+export async function receiveBasemapUpload(
+  request: Request,
+  opts: { uploadedById: string | null; farmId?: number },
+): Promise<NextResponse> {
+  try {
+    const contentType = request.headers.get("content-type") ?? "";
+    if (!contentType.includes("multipart/form-data")) {
+      return NextResponse.json({ error: "Expected multipart/form-data" }, { status: 400 });
+    }
+    if (!request.body) {
+      return NextResponse.json({ error: "No request body" }, { status: 400 });
+    }
+
+    const dir = path.join(DATA_DIR, "basemap-sources");
+    const { fields, filename, originalName, sha256 } = await streamUploadToDisk(request, dir, BASEMAP_EXTS);
 
     if (!filename || !originalName || !sha256) {
       return NextResponse.json(
@@ -456,6 +464,70 @@ export async function receiveFarmDocumentUpload(request: Request, farmId: number
   }).catch((err) => console.error("[farm document upload] pipeline trigger failed", err));
 
   return NextResponse.json({ ok: true, id: doc.id, matched_data_table_id: doc.data_table_id });
+}
+
+// ── Yield cards (zipped CN1 → PipelineProcessor yieldclean) ──────────────────
+
+// The unified box's "clean this yield card?" choice. A CN1 card is a folder,
+// so it arrives zipped; streamed to DATA_DIR/yield-sources/ like a basemap
+// source (cards run tens of MB, a whole display card more), checked to really
+// hold a *.cn1 folder, kept as a farm Document (hard link) and sent off to be
+// cleaned — see lib/yield-runs.ts.
+export async function receiveYieldCardUpload(
+  request: Request,
+  farmId: number,
+  uploadedById: string | null,
+): Promise<NextResponse> {
+  try {
+    const contentType = request.headers.get("content-type") ?? "";
+    if (!contentType.includes("multipart/form-data")) {
+      return NextResponse.json({ error: "Expected multipart/form-data" }, { status: 400 });
+    }
+    if (!request.body) return NextResponse.json({ error: "No request body" }, { status: 400 });
+
+    const dir = path.join(DATA_DIR, YIELD_SOURCES_DIRNAME);
+    const { fields, filename, originalName, sha256 } = await streamUploadToDisk(request, dir, new Set([".zip"]));
+    if (!filename || !originalName || !sha256) {
+      return NextResponse.json({ error: "Expected a .zip of a CN1 card (a *.cn1 folder)" }, { status: 400 });
+    }
+    const filePath = path.join(dir, filename);
+
+    if (!(await farmExists(farmId))) {
+      fs.unlinkSync(filePath);
+      return NextResponse.json({ error: "Farm not found" }, { status: 404 });
+    }
+    const cardName = await cn1CardName(filePath).catch(() => null);
+    if (!cardName) {
+      fs.unlinkSync(filePath);
+      return NextResponse.json({ error: "That zip doesn't contain a *.cn1 card folder" }, { status: 400 });
+    }
+
+    const sourceDocumentId = await keepAsFarmDocument({
+      farmId, originalName, description: fields.description, sourcePath: filePath,
+    }).catch((err) => {
+      console.error("[yield upload] keeping document copy failed", err);
+      return null;
+    });
+
+    const run = await prisma.yieldRun.create({
+      data: {
+        farm_id: farmId,
+        original_filename: originalName,
+        source_filename: filename,
+        bytes: BigInt(fs.statSync(filePath).size),
+        sha256,
+        display_name: fields.display_name?.trim() || cardName,
+        source_document_id: sourceDocumentId,
+        uploaded_by_id: uploadedById,
+      },
+    });
+    await startYieldRun(run.id);
+    const after = await prisma.yieldRun.findUnique({ where: { id: run.id }, select: { status: true, error_message: true } });
+    return NextResponse.json({ ok: true, id: run.id, status: after?.status, error: after?.error_message ?? null });
+  } catch (err) {
+    console.error("[yield upload]", err);
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+  }
 }
 
 // ── Bearer-token (service) wrapper for the app/api/data/farms/[id]/ twins ────

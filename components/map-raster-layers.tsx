@@ -134,6 +134,10 @@ export function TiledBasemapLayer({
 // CRS handling is needed here. Only .geojson actually renders this way: a .gpkg
 // vector output is a binary SQLite file the browser can't parse client-side, so it
 // silently renders nothing (still downloadable via the checklist link below).
+// One shared canvas renderer for point features — SVG markers bog down past a
+// few thousand points.
+const canvasRenderer = typeof window !== "undefined" ? L.canvas() : undefined
+
 export function VectorLayer({ url }: { url: string }) {
   const [data, setData] = useState<GeoJSON.GeoJsonObject | null>(null)
   useEffect(() => {
@@ -155,11 +159,16 @@ export function VectorLayer({ url }: { url: string }) {
     <GeoJSON
       data={data}
       style={() => ({ color: "#0891b2", weight: 2, fillColor: "#06b6d4", fillOpacity: 0.25 })}
-      pointToLayer={(_f, latlng) =>
-        L.circleMarker(latlng, { radius: 5, color: "#0e7490", weight: 1.5, fillColor: "#06b6d4", fillOpacity: 0.8 })
-      }
+      pointToLayer={(f, latlng) => {
+        // A cleaned yield layer (lib/yield-runs.ts) carries a per-point `_color`
+        // (yield quintile) and tens of thousands of points: canvas, no outline.
+        const c = f.properties?._color
+        return typeof c === "string"
+          ? L.circleMarker(latlng, { renderer: canvasRenderer, radius: 3, stroke: false, fillColor: c, fillOpacity: 0.9 })
+          : L.circleMarker(latlng, { renderer: canvasRenderer, radius: 5, color: "#0e7490", weight: 1.5, fillColor: "#06b6d4", fillOpacity: 0.8 })
+      }}
       onEachFeature={(f, layer) => {
-        const props = Object.entries(f.properties ?? {}).slice(0, 12)
+        const props = Object.entries(f.properties ?? {}).filter(([k]) => !k.startsWith("_")).slice(0, 12)
         if (props.length === 0) return
         const esc = (v: unknown) => String(v ?? "").replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`)
         layer.bindPopup(props.map(([k, v]) => `<b>${esc(k)}</b>: ${esc(v)}`).join("<br/>"))

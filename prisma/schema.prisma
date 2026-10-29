@@ -71,6 +71,7 @@ model User {
   ContextFetchJobs   ContextFetchJob[]
   UploadedBasemaps   Basemap[]
   UploadedFarmLayers FarmLayer[]
+  UploadedYieldRuns  YieldRun[]
   CreatedSamplingMaps SamplingMap[]
   SamplingMapAssignments SamplingMapAssignment[]
   SamplingPointCollections SamplingPointCollection[]
@@ -190,6 +191,7 @@ model Farm {
   PipelineOutputRasters PipelineOutputRaster[]
   Basemaps         Basemap[]
   FarmLayers       FarmLayer[]
+  YieldRuns        YieldRun[]
   SamplingMapAssignments SamplingMapAssignment[]
   SamplingMaps     SamplingMap[]
   TagLinks         FarmTagLink[]
@@ -1067,6 +1069,8 @@ model Document {
   DataTable DataTable? @relation(fields: [data_table_id], references: [id], onDelete: SetNull)
   Drone     Drone?     @relation(fields: [drone_id], references: [id], onDelete: SetNull)
   FarmLayers FarmLayer[]
+  YieldRunSources YieldRun[] @relation("YieldRunSource")
+  YieldRunResults YieldRun[] @relation("YieldRunResults")
 
   @@index([data_table_id])
   @@index([drone_id])
@@ -1794,9 +1798,44 @@ model FarmLayer {
   Farm       Farm      @relation(fields: [farm_id], references: [id], onDelete: Cascade)
   Document   Document? @relation(fields: [document_id], references: [id], onDelete: SetNull)
   UploadedBy User?     @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
+  YieldRuns  YieldRun[]
 
   @@index([farm_id])
   @@map("Farm_Layers")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// A zipped CN1 yield card sent through PipelineProcessor's yieldclean job
+// (migration 090, lib/yield-runs.ts).
+model YieldRun {
+  id                  Int      @id @default(autoincrement())
+  farm_id             Int
+  original_filename   String
+  source_filename     String   // under DATA_DIR/yield-sources/
+  bytes               BigInt
+  sha256              String
+  display_name        String?
+  status              String   @default("pending") // pending | processing | ready | failed
+  error_message       String?
+  preset              String?  // forage | grain, chosen by the processor from the card
+  yield_unit          String?
+  kept_points         Int?
+  summary             Json?    // the yieldclean manifest's per-field rows
+  layer_id            Int?
+  source_document_id  Int?
+  results_document_id Int?
+  uploaded_by_id      String?
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  Farm            Farm       @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  Layer           FarmLayer? @relation(fields: [layer_id], references: [id], onDelete: SetNull)
+  SourceDocument  Document?  @relation("YieldRunSource", fields: [source_document_id], references: [id], onDelete: SetNull)
+  ResultsDocument Document?  @relation("YieldRunResults", fields: [results_document_id], references: [id], onDelete: SetNull)
+  UploadedBy      User?      @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
+
+  @@index([farm_id])
+  @@map("Yield_Runs")
   @@schema("pgntarg2udzj1f3")
 }
 

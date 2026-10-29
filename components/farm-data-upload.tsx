@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 //   vector, layer    → POST /api/farms/[id]/layers (Farm_Layers overlay)
 //   vector, fields   → POST /api/farms/[id]/boundaries (creates Fields)
 //   point CSV        → POST /api/farms/[id]/layers
+//   CN1 card (.zip)  → POST /api/farms/[id]/yield (cleaned on PipelineProcessor; lib/yield-runs.ts)
 // each with keep_document=1 so the original also lands in the farm's Documents.
 // Anything non-spatial, or declined, goes to POST /api/farms/[id]/documents.
 
@@ -35,7 +36,7 @@ interface Props {
   drawButton?: React.ReactNode;
 }
 
-type SpatialKind = "raster" | "vector" | "csv";
+type SpatialKind = "raster" | "vector" | "csv" | "yield";
 
 interface Classified {
   kind: SpatialKind | "document";
@@ -108,11 +109,16 @@ async function classifyUpload(file: File, sidecars: File[]): Promise<Classified>
       : doc;
   }
   if (e === ".zip") {
+    // Entry names sit in the central directory at the end of the archive.
+    const tail = await readText(file.slice(Math.max(0, file.size - 1024 * 1024)));
+    // A zipped CNH CN1 yield card: a "<name>.cn1/" folder (shared/, log/, ...).
+    if (/\.cn1\//i.test(tail)) {
+      return { kind: "yield", detail: "CN1 yield card", defaultEpsg: "", crsFixed: "Positions come from the card's own GPS." };
+    }
     // A zipped shapefile: look for a .shp entry name in the central directory,
     // which sits at the end of the archive. The name runs straight into the next
     // record's bytes (often "PK" or "UT"), so no \b — just not a longer lowercase
     // extension.
-    const tail = await readText(file.slice(Math.max(0, file.size - 1024 * 1024)));
     return /\.(shp|SHP)(?![a-z])/.test(tail) ? { kind: "vector", detail: "Zipped shapefile", defaultEpsg: "4326" } : doc;
   }
   if (e === ".csv") {
@@ -156,6 +162,12 @@ export function FarmDataUpload({ farmId, fieldCount, drawButton }: Props) {
     if (files.length === 0) return;
     setStatus("idle");
     setMessage("");
+    // A CN1 yield card is a folder; a dropped folder arrives as one opaque entry.
+    if (files.some((f) => ext(f.name) === ".cn1")) {
+      setStatus("error");
+      setMessage("A .cn1 yield card is a folder — zip it first (right-click → Compress), then upload the .zip.");
+      return;
+    }
     // A loose shapefile arrives as several files; the .shp is the primary and
     // everything sharing its base name rides along as sidecars.
     const shp = files.find((f) => ext(f.name) === ".shp");
@@ -262,6 +274,18 @@ export function FarmDataUpload({ farmId, fieldCount, drawButton }: Props) {
     fd.append("keep_document", "1");
     if (description.trim()) fd.append("description", description.trim());
 
+    if (c.kind === "yield") {
+      fd.append("display_name", layerName.trim() || baseName(file.name));
+      if (description.trim()) fd.append("description", description.trim());
+      fd.append("file", file);
+      await post(
+        `/api/farms/${farmId}/yield`,
+        fd,
+        `Uploaded "${layerName || file.name}" — it's listed under the map while it's cleaned, and appears as a yield layer once done.`,
+      );
+      return;
+    }
+
     if (c.kind === "raster") {
       fd.append("farm_id", String(farmId));
       if (layerName.trim()) fd.append("display_name", layerName.trim());
@@ -287,6 +311,7 @@ export function FarmDataUpload({ farmId, fieldCount, drawButton }: Props) {
   const busy = status === "checking" || status === "uploading";
   const isRaster = classified?.kind === "raster";
   const showName = classified != null && !(classified.kind === "vector" && vectorTarget === "fields");
+  const isYield = classified?.kind === "yield";
   const epsgMissing = classified != null && !classified.crsFixed && !isRaster && epsg.trim() === "";
 
   return (
@@ -335,7 +360,7 @@ export function FarmDataUpload({ farmId, fieldCount, drawButton }: Props) {
               <div>
                 <p className="text-sm text-stone-500">Drop a file here or click to browse</p>
                 <p className="text-xs text-stone-400 mt-1">
-                  Spatial data (GeoTIFF, GeoPackage, shapefile, KML/KMZ, GeoJSON, CSV with lat/lon or x/y) can be shown on the map — anything else is saved to Documents.
+                  Spatial data (GeoTIFF, GeoPackage, shapefile, KML/KMZ, GeoJSON, CSV with lat/lon or x/y, zipped CN1 yield card) can be shown on the map — anything else is saved to Documents.
                 </p>
               </div>
             )}
@@ -376,10 +401,13 @@ export function FarmDataUpload({ farmId, fieldCount, drawButton }: Props) {
       <Dialog open={classified != null} onOpenChange={(open) => { if (!open) { setClassified(null); setStatus("idle"); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Do you want to display this data?</DialogTitle>
+            <DialogTitle>{isYield ? "Clean this yield card?" : "Do you want to display this data?"}</DialogTitle>
             <DialogDescription>
-              <span className="font-medium text-stone-700">{file?.name}</span> looks like spatial data
-              {classified ? ` (${classified.detail})` : ""}. Either way, the original file is saved to Documents.
+              <span className="font-medium text-stone-700">{file?.name}</span>{" "}
+              {isYield
+                ? "is a CN1 yield card. Cleaning runs it through yieldclean (Yield Editor AYCE) on the processing machine, split by this farm's fields, and shows the kept points on the map; the full results land in Documents."
+                : `looks like spatial data${classified ? ` (${classified.detail})` : ""}.`}{" "}
+              Either way, the original file is saved to Documents.
             </DialogDescription>
           </DialogHeader>
 
@@ -444,7 +472,7 @@ export function FarmDataUpload({ farmId, fieldCount, drawButton }: Props) {
 
           <DialogFooter>
             <Button variant="outline" onClick={uploadAsDocument}>No, just save to Documents</Button>
-            <Button onClick={uploadForDisplay} disabled={epsgMissing}>Display on map</Button>
+            <Button onClick={uploadForDisplay} disabled={epsgMissing}>{isYield ? "Clean and display" : "Display on map"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

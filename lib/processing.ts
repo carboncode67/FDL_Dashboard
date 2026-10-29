@@ -126,6 +126,25 @@ export async function triggerBasemapTiling(payload: TriggerBasemapTilingPayload)
   });
 }
 
+export interface TriggerYieldCleanPayload {
+  yield_run_id: number;
+  download_url: string;
+  callback_url: string;
+  farm_id: number;
+  // The farm's Fields — yieldclean splits the card by these polygons and
+  // carries `id` into every output as field_key. geometry is the raw GeoJSON
+  // string as stored.
+  boundaries: { id: number; Name: string; geometry: string | null }[];
+}
+
+// Yield-card cleaning (lib/yield-runs.ts): PipelineProcessor runs the lab's
+// yieldclean image on the card zip (its yield_clean.py) and calls back
+// yield_completed / yield_failed. A 503 here means the processor has no
+// image/plugin configured; lib/yield-runs.ts shows its detail to the user.
+export async function triggerYieldClean(payload: TriggerYieldCleanPayload): Promise<void> {
+  await processingFetch(`/yield-runs/${payload.yield_run_id}/clean`, { method: "POST", body: JSON.stringify(payload) });
+}
+
 // On-demand NAIP imagery tile (PipelineProcessor's GET /naip/tiles/{z}/{x}/{y},
 // naip_tiles.py) for the sampling-map bounding-box basemap feature. Returns
 // null when NAIP has no coverage there (processor 404); throws on any other

@@ -137,4 +137,11 @@ SELECT
   ) AND EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'pgntarg2udzj1f3' AND table_name = 'Basemaps' AND column_name = 'crs_override_epsg'
+  )
+UNION ALL
+SELECT
+  'yield runs (090)',
+  EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'pgntarg2udzj1f3' AND table_name = 'Yield_Runs'
   );
