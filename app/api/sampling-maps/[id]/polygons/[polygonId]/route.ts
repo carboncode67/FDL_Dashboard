@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { canEdit, canDelete } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
 import { runWithTenant } from "@/lib/lab-db";
+import { ofeLock } from "@/lib/ofe-sync";
 
 type Params = { params: Promise<{ id: string; polygonId: string }> };
 
@@ -14,6 +15,8 @@ export async function PUT(req: Request, { params }: Params) {
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { polygonId } = await params;
+  const ofeLocked = await ofeLock({ polygon: parseInt(polygonId) });
+  if (ofeLocked) return ofeLocked;
   const body = await req.json();
   const { label, purpose, geometry } = body;
 
@@ -37,6 +40,8 @@ export async function DELETE(_: Request, { params }: Params) {
   if (!canDelete(session.user.role, editMode)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { polygonId } = await params;
+  const ofeLocked = await ofeLock({ polygon: parseInt(polygonId) });
+  if (ofeLocked) return ofeLocked;
   // Points generated within this polygon are kept (polygon_id is nullable, ON DELETE SET NULL)
   // rather than cascade-deleted — deleting a stratum shouldn't silently destroy sample records.
   await prisma.samplingMapPolygon.delete({ where: { id: parseInt(polygonId) } });

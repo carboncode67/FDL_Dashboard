@@ -9,6 +9,7 @@ import { resolveGroupIdUpdate } from "@/lib/item-groups";
 import fs from "fs";
 import { naipPackagePath } from "@/lib/naip-package";
 import { parseNaipBbox, estimateNaipTiles, NAIP_MAX_TILES, NAIP_MAX_ZOOM, NAIP_DEFAULT_MAX_ZOOM } from "@/lib/naip-bbox";
+import { ofeLock } from "@/lib/ofe-sync";
 
 const INCLUDE = {
   Polygons: true,
@@ -44,6 +45,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
+  const ofeLocked = await ofeLock({ map: parseInt(id) });
+  if (ofeLocked) return ofeLocked;
   const body = await req.json();
   const { name, description, experiment_id, form_id, proximity_radius_m, basemap_id, basemap_buffer_m, basemap_max_zoom, naip_bbox, group_id } = body;
   const groupUpdate = await resolveGroupIdUpdate("sampling-maps", group_id);
@@ -101,6 +104,8 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   if (!canDelete(session.user.role, editMode)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
+  const ofeLocked = await ofeLock({ map: parseInt(id) });
+  if (ofeLocked) return ofeLocked;
   await prisma.samplingMap.delete({ where: { id: parseInt(id) } });
   fs.unlink(naipPackagePath(parseInt(id)), () => {}); // best-effort: the NAIP package, if any
   return new NextResponse(null, { status: 204 });

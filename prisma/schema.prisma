@@ -538,6 +538,7 @@ model Contact {
   GeofenceZoneTimeSessions GeofenceZoneTimeSession[]
   EquipmentLoans  EquipmentLoan[]
   SamplingMapAssignments SamplingMapAssignment[]
+  SamplingPointCollections SamplingPointCollection[]
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
@@ -1295,6 +1296,9 @@ model Form {
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
 
+  // Migration 091: set = OFE-owned (pushed by OFE_Dashboard, read-only here). See lib/ofe-sync.ts.
+  ofe_id Int? @unique
+
   CreatedBy        User?                 @relation("FormCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
   FieldDefinitions FormFieldDefinition[]
   Assignments      FormAssignment[]
@@ -1945,6 +1949,9 @@ model SamplingMap {
   naip_package_bytes        Int?
   naip_package_sha256       String?
 
+  // Migration 091: set = OFE-owned (pushed by OFE_Dashboard, read-only here). See lib/ofe-sync.ts.
+  ofe_id Int? @unique
+
   Farm       Farm            @relation(fields: [farm_id], references: [id], onDelete: Cascade)
   Experiment FarmExperiment? @relation(fields: [experiment_id], references: [id], onDelete: SetNull)
   CreatedBy  User?           @relation(fields: [created_by_id], references: [id], onDelete: SetNull)
@@ -1984,6 +1991,7 @@ model SamplingMapPolygon {
   source          String   @default("drawn")
   source_field_id Int?
   source_zone_id  Int?
+  ofe_id          Int? // migration 091
   created_at      DateTime @default(now())
 
   SamplingMap SamplingMap     @relation(fields: [sampling_map_id], references: [id], onDelete: Cascade)
@@ -1991,6 +1999,7 @@ model SamplingMapPolygon {
   SourceZone  ExperimentZone? @relation(fields: [source_zone_id], references: [id], onDelete: SetNull)
   Points      SamplingPoint[]
 
+  @@unique([sampling_map_id, ofe_id])
   @@index([sampling_map_id])
   @@map("Sampling_Map_Polygons")
   @@schema("pgntarg2udzj1f3")
@@ -2009,6 +2018,7 @@ model SamplingPoint {
   geometry           String
   placement_method   String   @default("manual")
   sample_index       Int?
+  ofe_id             Int? // migration 091; NULL on a phone-created point until OFE pulls it back
   created_at         DateTime @default(now())
   // Client-computed dedup key, same convention as Photos/Notes/Sampling_Point_Collections —
   // only ever set for placement_method = "field" (created on-device via the bearer API); the
@@ -2021,6 +2031,7 @@ model SamplingPoint {
   Collections    SamplingPointCollection[]
   FormResponses  FormResponse[]
 
+  @@unique([sampling_map_id, ofe_id])
   @@index([sampling_map_id])
   @@index([polygon_id])
   @@index([experiment_test_id])
@@ -2065,6 +2076,7 @@ model SamplingPointCollection {
   id                Int      @id @default(autoincrement())
   sampling_point_id Int
   user_id           String?
+  contact_id        Int? // migration 091; a farmer's QR-code login marking the point collected
   lat               Float
   lng               Float
   occurred_at       DateTime
@@ -2074,6 +2086,7 @@ model SamplingPointCollection {
 
   SamplingPoint SamplingPoint @relation(fields: [sampling_point_id], references: [id], onDelete: Cascade)
   User          User?         @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  Contact       Contact?      @relation(fields: [contact_id], references: [id], onDelete: SetNull)
 
   @@index([sampling_point_id])
   @@index([content_hash])

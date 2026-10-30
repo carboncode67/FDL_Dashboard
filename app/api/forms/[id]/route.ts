@@ -5,6 +5,7 @@ import { canEdit, canDelete, type Role } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
 import { runWithTenant } from "@/lib/lab-db";
 import { resolveGroupIdUpdate } from "@/lib/item-groups";
+import { ofeLock } from "@/lib/ofe-sync";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   return runWithTenant(async () => {
@@ -28,6 +29,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!canEdit(session.user.role as Role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
+  const ofeLocked = await ofeLock({ form: parseInt(id) });
+  if (ofeLocked) return ofeLocked;
   const body = await req.json() as { title?: string; description?: string | null; is_active?: boolean; group_id?: number | null };
   const groupUpdate = await resolveGroupIdUpdate("forms", body.group_id);
   if (groupUpdate === false) return NextResponse.json({ error: "Invalid group" }, { status: 400 });
@@ -57,6 +60,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   if (!canDelete(session.user.role as Role, editMode)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
+  const ofeLocked = await ofeLock({ form: parseInt(id) });
+  if (ofeLocked) return ofeLocked;
   const formId = parseInt(id);
   const responseCount = await prisma.formResponse.count({ where: { form_id: formId } });
   const confirmed = new URL(req.url).searchParams.get("confirm_exported") === "true";

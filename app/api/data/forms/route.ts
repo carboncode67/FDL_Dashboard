@@ -5,6 +5,7 @@ import { runWithLab } from "@/lib/lab-db";
 import {
   assignmentWhereForContact,
   assignmentWhereForLabMember,
+  samplingMapFormWhereForContact,
   samplingMapFormWhereForLabMember,
 } from "@/lib/forms";
 
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
   return runWithLab(auth.labSlug, async () => {
-    // Lab members also see any form linked to a Sampling Map that's been sent to them (see
+    // Lab members and Contacts also see any form linked to a Sampling Map that's been sent to them (see
     // lib/forms.ts's samplingMapFormWhereForLabMember) — without this OR branch, such a form
     // would be fetchable individually (isFormVisibleToLabMember covers it) but would get pruned
     // from the app's local cache on every list refresh, since upsertFormDefsFromList treats this
@@ -24,7 +25,10 @@ export async function GET(request: Request) {
       auth.kind === "contact"
         ? {
             is_active: true,
-            Assignments: assignmentWhereForContact(auth.contact),
+            OR: [
+              { Assignments: assignmentWhereForContact(auth.contact) },
+              { SamplingMaps: samplingMapFormWhereForContact(auth.contact) },
+            ],
           }
         : {
             is_active: true,

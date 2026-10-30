@@ -10,7 +10,7 @@ import {
   normalizeLabel,
 } from "@/lib/forms";
 import {
-  isSamplingMapVisibleToLabMember,
+  isSamplingMapVisibleToBearer,
   samplingMapIdForPoint,
 } from "@/lib/sampling-maps";
 
@@ -108,27 +108,24 @@ export async function POST(request: Request, { params }: Params) {
     const contentHash =
       typeof body.content_hash === "string" ? body.content_hash : null;
 
-    // Lab-member-only, mirroring Sampling_Point_Collections — not re-checked against
-    // SamplingMap.form_id (a queued offline submission may lag behind a since-changed map
-    // linkage); only that the point exists and its map is still visible to this lab member.
+    // Not re-checked against SamplingMap.form_id (a queued offline submission may lag behind a
+    // since-changed map linkage); only that the point exists and its map is still visible to
+    // this submitter — a lab member, or a farmer Contact the map was sent to.
     let samplingPointId: number | null = null;
     if (
       body.sampling_point_id !== undefined &&
       body.sampling_point_id !== null
     ) {
-      if (
-        typeof body.sampling_point_id !== "number" ||
-        auth.kind !== "labMember"
-      ) {
+      if (typeof body.sampling_point_id !== "number") {
         return NextResponse.json(
-          { error: "sampling_point_id must be a number, lab members only" },
+          { error: "sampling_point_id must be a number" },
           { status: 400 },
         );
       }
       const mapId = await samplingMapIdForPoint(body.sampling_point_id);
       if (
         mapId === null ||
-        !(await isSamplingMapVisibleToLabMember(mapId, auth.labMember.id))
+        !(await isSamplingMapVisibleToBearer(mapId, auth))
       ) {
         return NextResponse.json(
           { error: "Sampling point not found" },

@@ -13,6 +13,7 @@ import {
 import { pointInGeometry } from "@/lib/geo";
 import type { Feature, Polygon, MultiPolygon, Point } from "geojson";
 import { runWithTenant } from "@/lib/lab-db";
+import { ofeLock } from "@/lib/ofe-sync";
 
 export const runtime = "nodejs";
 
@@ -30,6 +31,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
+  const ofeLocked = await ofeLock({ map: parseInt(id) });
+  if (ofeLocked) return ofeLocked;
   const samplingMapId = parseInt(id);
   if (isNaN(samplingMapId)) {
     return NextResponse.json({ error: "Invalid sampling map id" }, { status: 400 });

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { canCreate, type Role } from "@/lib/roles";
 import { ASSIGNMENT_INCLUDE, resolveTargetLabel } from "@/lib/sampling-maps";
 import { runWithTenant } from "@/lib/lab-db";
+import { ofeLock } from "@/lib/ofe-sync";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -39,6 +40,8 @@ export async function POST(req: Request, { params }: Params) {
   if (!canCreate(session.user.role as Role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
+  const ofeLocked = await ofeLock({ map: parseInt(id) });
+  if (ofeLocked) return ofeLocked;
   const samplingMapId = parseInt(id);
   const body = (await req.json()) as {
     contact_id?: number | null;

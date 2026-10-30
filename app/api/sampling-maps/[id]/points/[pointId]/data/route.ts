@@ -53,7 +53,7 @@ export async function GET(_req: Request, { params }: Params) {
     }),
     prisma.samplingPointCollection.findMany({
       where: { sampling_point_id: pId },
-      include: { User: { select: { name: true, email: true } } },
+      include: { User: { select: { name: true, email: true } }, Contact: { select: { name: true } } },
       orderBy: { occurred_at: "desc" },
     }),
   ]);
@@ -96,7 +96,7 @@ export async function GET(_req: Request, { params }: Params) {
     collections: collections.map((c) => ({
       id: c.id,
       occurred_at: c.occurred_at.toISOString(),
-      collected_by: c.User?.name ?? c.User?.email ?? "Unknown",
+      collected_by: c.Contact?.name ?? c.User?.name ?? c.User?.email ?? "Unknown",
       note: c.note,
     })),
   });

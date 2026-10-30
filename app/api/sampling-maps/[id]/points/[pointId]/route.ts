@@ -5,6 +5,7 @@ import { canEdit, canDelete } from "@/lib/roles";
 import { getEditMode } from "@/lib/edit-mode";
 import { runWithTenant } from "@/lib/lab-db";
 import { getPointDataCounts } from "@/lib/sampling-point-data";
+import { ofeLock } from "@/lib/ofe-sync";
 
 type Params = { params: Promise<{ id: string; pointId: string }> };
 
@@ -15,6 +16,8 @@ export async function PUT(req: Request, { params }: Params) {
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { pointId } = await params;
+  const ofeLocked = await ofeLock({ point: parseInt(pointId) });
+  if (ofeLocked) return ofeLocked;
   const body = await req.json();
   const { label, geometry, experiment_test_id, polygon_id } = body;
 
@@ -52,6 +55,8 @@ export async function DELETE(_: Request, { params }: Params) {
   if (!canDelete(session.user.role, editMode)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { pointId } = await params;
+  const ofeLocked = await ofeLock({ point: parseInt(pointId) });
+  if (ofeLocked) return ofeLocked;
   await prisma.samplingPoint.delete({ where: { id: parseInt(pointId) } });
   return new NextResponse(null, { status: 204 });
   });
