@@ -422,6 +422,7 @@ export async function listOfeFormResponses(ofeFormId: number, afterId: number, l
     missing_required: r.missing_required,
     lat: r.lat,
     lng: r.lng,
+    fdl_farm_id: r.farm_id,
     submitted_by: {
       name: r.User?.name ?? r.Contact?.name ?? null,
       email: r.User?.email ?? r.Contact?.email ?? null,
