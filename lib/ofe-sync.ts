@@ -440,6 +440,46 @@ export async function listOfeFormResponses(ofeFormId: number, afterId: number, l
   }));
 }
 
+/**
+ * Phone "Mark Collected" events on an OFE-owned map's points, oldest first,
+ * after `afterId` (OFE's per-map cursor). Same point shape as a response's, so
+ * OFE can resolve -- or, for a point dropped on the phone, create -- the
+ * local point the same way.
+ */
+export async function listOfeMapCollections(ofeMapId: number, afterId: number, limit: number) {
+  const map = await prisma.samplingMap.findUnique({ where: { ofe_id: ofeMapId }, select: { id: true, ofe_id: true } });
+  if (!map) return null;
+  const collections = await prisma.samplingPointCollection.findMany({
+    where: { id: { gt: afterId }, SamplingPoint: { sampling_map_id: map.id } },
+    orderBy: { id: "asc" },
+    take: limit,
+    include: {
+      Contact: { select: { name: true, email: true } },
+      User: { select: { name: true, email: true } },
+      SamplingPoint: { select: { id: true, ofe_id: true, label: true, geometry: true, placement_method: true } },
+    },
+  });
+  return collections.map((c) => ({
+    id: c.id,
+    occurred_at: c.occurred_at,
+    lat: c.lat,
+    lng: c.lng,
+    note: c.note,
+    collected_by: {
+      name: c.User?.name ?? c.Contact?.name ?? null,
+      email: c.User?.email ?? c.Contact?.email ?? null,
+    },
+    point: {
+      fdl_id: c.SamplingPoint.id,
+      ofe_id: c.SamplingPoint.ofe_id,
+      ofe_map_id: map.ofe_id,
+      label: c.SamplingPoint.label,
+      geometry: c.SamplingPoint.geometry,
+      placement_method: c.SamplingPoint.placement_method,
+    },
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // Read-only lock for the web edit routes
 // ---------------------------------------------------------------------------
