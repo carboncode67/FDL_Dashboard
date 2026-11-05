@@ -1775,6 +1775,7 @@ model Basemap {
   DroneFlightRecord DroneFlightRecord? @relation(fields: [drone_flight_record_id], references: [id], onDelete: SetNull)
   UploadedBy        User?              @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
   SamplingMaps      SamplingMap[]
+  YieldRuns         YieldRun[]
 
   @@index([farm_id])
   @@index([tiling_status])
@@ -1828,6 +1829,12 @@ model YieldRun {
   layer_id            Int?
   source_document_id  Int?
   results_document_id Int?
+  // Migration 094: the kriged yield map (a tiled Basemap), what the processor
+  // reported about it (unit, legend, per-field kriging summary, or {error}),
+  // and the context fetch this run asked for (re-sent once when it lands).
+  basemap_id          Int?
+  interpolation       Json?
+  context_job_id      Int?
   uploaded_by_id      String?
   created_at          DateTime @default(now()) @db.Timestamptz(6)
   updated_at          DateTime @default(now()) @updatedAt @db.Timestamptz(6)
@@ -1836,9 +1843,12 @@ model YieldRun {
   Layer           FarmLayer? @relation(fields: [layer_id], references: [id], onDelete: SetNull)
   SourceDocument  Document?  @relation("YieldRunSource", fields: [source_document_id], references: [id], onDelete: SetNull)
   ResultsDocument Document?  @relation("YieldRunResults", fields: [results_document_id], references: [id], onDelete: SetNull)
+  Basemap         Basemap?   @relation(fields: [basemap_id], references: [id], onDelete: SetNull)
+  ContextJob      ContextFetchJob? @relation(fields: [context_job_id], references: [id], onDelete: SetNull)
   UploadedBy      User?      @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
 
   @@index([farm_id])
+  @@index([context_job_id])
   @@map("Yield_Runs")
   @@schema("pgntarg2udzj1f3")
 }
@@ -1867,6 +1877,7 @@ model ContextFetchJob {
   Farm      Farm            @relation(fields: [farm_id], references: [id], onDelete: Cascade)
   Requester User?           @relation(fields: [requested_by], references: [id], onDelete: SetNull)
   Rasters   ContextRaster[]
+  YieldRuns YieldRun[]
 
   @@index([status])
   @@index([farm_id])

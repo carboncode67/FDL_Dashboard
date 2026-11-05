@@ -27,6 +27,66 @@ import {
   type ProductCode,
 } from "@/lib/geodart";
 import { cloudScore, farmFieldGeometries, MIN_FIELD_CLEAR_FRACTION } from "@/lib/imagery-cloud";
+import { geojsonBounds, unionBounds, bboxRing } from "@/lib/geo";
+
+export class ContextRequestError extends Error {}
+
+/**
+ * Creates a Context_Fetch_Jobs row for a farm and submits it to GeoDaRT (the
+ * cron sweep retries the submit when GeoDaRT is unreachable). The AOI is the
+ * bbox of the farm's fields and zones plus bufferM. Throws
+ * ContextRequestError when the farm is missing or has no geometry.
+ */
+export async function requestContextFetch(args: {
+  farmId: number;
+  products: ProductCode[];
+  startDate: string; // YYYY-MM-DD
+  endDate: string;
+  bufferM?: number;
+  requestedBy?: string | null;
+}) {
+  const bufferM = args.bufferM ?? 150;
+  const farm = await prisma.farm.findUnique({
+    where: { id: args.farmId },
+    include: {
+      Fields: { select: { geometry: true } },
+      ExperimentZones: { select: { geometry: true } },
+    },
+  });
+  if (!farm) throw new ContextRequestError("Farm not found");
+  const bounds = unionBounds([
+    ...farm.Fields.map((f) => geojsonBounds(f.geometry)),
+    ...farm.ExperimentZones.map((z) => geojsonBounds(z.geometry)),
+  ]);
+  if (!bounds) throw new ContextRequestError("Farm has no field or zone geometry — draw a field boundary first");
+  const aoiRing = bboxRing(bounds, bufferM);
+
+  const jobData = {
+    farm_id: args.farmId,
+    requested_by: args.requestedBy ?? null,
+    products: args.products,
+    start_date: new Date(`${args.startDate}T00:00:00Z`),
+    end_date: new Date(`${args.endDate}T00:00:00Z`),
+    buffer_m: bufferM,
+    aoi: aoiRing,
+    export_format: "COG",
+  };
+  try {
+    const { jobId, requestId } = await submitJob({
+      aoiRing, startDate: args.startDate, endDate: args.endDate, products: args.products, exportFormat: "COG",
+    });
+    return await prisma.contextFetchJob.create({
+      data: { ...jobData, status: "submitted", geodart_job_id: jobId, geodart_request_id: requestId, submitted_at: new Date() },
+      include: { Rasters: true },
+    });
+  } catch (err) {
+    // GeoDaRT unreachable / slow — persist as pending; the cron sweep retries submit.
+    return prisma.contextFetchJob.create({
+      data: { ...jobData, status: "pending", error_message: err instanceof Error ? err.message : String(err) },
+      include: { Rasters: true },
+    });
+  }
+}
 
 const CONTEXT_DIR = path.join(DATA_DIR, "context");
 const CLAIM_STALE_MS = 5 * 60_000;
@@ -234,6 +294,16 @@ async function advanceJob(job: NonNullable<Job>): Promise<void> {
       finished_at: new Date(),
     },
   });
+
+  // A yield run that asked for this fetch (lib/yield-runs.ts) is re-sent once
+  // so its map can use the new rasters. Dynamic import: yield-runs imports
+  // this module.
+  if (rasters.length) {
+    const { resendYieldRunsForContextJob } = await import("@/lib/yield-runs");
+    await resendYieldRunsForContextJob(job.id).catch((err) =>
+      console.error(`[ContextFetch] job ${job.id}: re-sending yield runs failed`, err),
+    );
+  }
 }
 
 export async function advanceContextJobs(): Promise<void> {
