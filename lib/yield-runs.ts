@@ -230,7 +230,7 @@ async function fetchFromProcessor(url: string): Promise<Response> {
 }
 
 /** Removes a Documents row and its file under DATA_DIR/documents/. */
-async function deleteFarmDocument(id: number): Promise<void> {
+export async function deleteFarmDocument(id: number): Promise<void> {
   const doc = await prisma.document.findUnique({ where: { id }, select: { filename: true } });
   if (!doc) return;
   await prisma.document.delete({ where: { id } });
@@ -239,7 +239,7 @@ async function deleteFarmDocument(id: number): Promise<void> {
 }
 
 /** Removes a yield map Basemap: its row, tiles and source GeoTIFF. */
-async function deleteYieldMapBasemap(basemapId: number): Promise<void> {
+export async function deleteYieldMapBasemap(basemapId: number): Promise<void> {
   const bm = await prisma.basemap.findUnique({ where: { id: basemapId }, select: { source_filename: true } });
   if (!bm) return;
   await prisma.basemap.delete({ where: { id: basemapId } });

@@ -383,6 +383,19 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
     else window.alert((await res.json().catch(() => null))?.error ?? "Couldn't restart processing")
   }
 
+  // Clears a failed/queued upload from the "Processing:" list for good
+  // (lib/failed-uploads.ts) — Retry's counterpart.
+  async function deleteProcessing(b: { id: number; kind?: "basemap" | "yield"; label: string }) {
+    const what = b.kind === "yield" ? "this yield card upload (and its kept copy in Documents)" : "this basemap upload"
+    if (!window.confirm(`Delete ${what}: "${b.label}"?`)) return
+    setRetiling(`${b.kind ?? "basemap"}-${b.id}`)
+    const url = b.kind === "yield" ? `/api/yield-runs/${b.id}` : `/api/basemaps/${b.id}`
+    const res = await fetch(url, { method: "DELETE" })
+    setRetiling(null)
+    if (res.ok) router.refresh()
+    else window.alert((await res.json().catch(() => null))?.error ?? "Couldn't delete the upload")
+  }
+
   async function deleteLayer(r: MapRaster) {
     if (!window.confirm(`Remove layer "${r.label}" from the map?`)) return
     const res = await fetch(`/api/farms/${farmId}/layers/${r.id}`, { method: "DELETE" })
@@ -857,7 +870,17 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
                     disabled={retiling !== null}
                     className="text-xs text-blue-600 hover:underline disabled:text-stone-400"
                   >
-                    {retiling === key ? "Retrying…" : "Retry"}
+                    {retiling === key ? "Working…" : "Retry"}
+                  </button>
+                )}
+                {canRetileBasemaps && (b.status === "failed" || b.status === "pending") && (
+                  <button
+                    type="button"
+                    onClick={() => deleteProcessing(b)}
+                    disabled={retiling !== null}
+                    className="text-xs text-red-600 hover:underline disabled:text-stone-400"
+                  >
+                    Delete
                   </button>
                 )}
               </span>
