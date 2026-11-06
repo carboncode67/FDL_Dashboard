@@ -115,10 +115,10 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
         Basemaps: {
           orderBy: { created_at: "desc" },
         },
-        // Yield cards still being cleaned (lib/yield-runs.ts); a ready one is
-        // just a Farm_Layers row below.
+        // Yield cards (lib/yield-runs.ts): not-ready ones join "Processing:";
+        // a ready one shows as its Farm_Layers row + yield map Basemap, which
+        // carry its id so their × deletes the whole run.
         YieldRuns: {
-          where: { status: { not: "ready" } },
           orderBy: { created_at: "desc" },
         },
         // Uploaded map layers — geojson itself is fetched lazily by the map.
@@ -268,10 +268,15 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
 
   // Rasters for the map — pipeline outputs (item 90) and directly-uploaded
   // basemaps (items 6+7) merged into one list; see lib/map-rasters.ts.
+  const yieldRunByBasemap = new Map(farm.YieldRuns.filter((r) => r.basemap_id != null).map((r) => [r.basemap_id!, r.id]));
+  const yieldRunByLayer = new Map(farm.YieldRuns.filter((r) => r.layer_id != null).map((r) => [r.layer_id!, r.id]));
   const mapRasters = [
     ...farm.PipelineOutputRasters.map(pipelineOutputToMapRaster),
-    ...farm.Basemaps.filter((b) => b.tiling_status === "ready").map(basemapToMapRaster),
-    ...farm.FarmLayers.map(farmLayerToMapRaster),
+    ...farm.Basemaps.filter((b) => b.tiling_status === "ready").map((b) => ({
+      ...basemapToMapRaster(b),
+      yieldRunId: yieldRunByBasemap.get(b.id),
+    })),
+    ...farm.FarmLayers.map((l) => ({ ...farmLayerToMapRaster(l), yieldRunId: yieldRunByLayer.get(l.id) })),
   ];
   const processingBasemaps = [
     ...farm.Basemaps.filter((b) => b.tiling_status !== "ready").map((b) => ({
@@ -281,7 +286,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
       status: b.tiling_status,
       error: b.error_message,
     })),
-    ...farm.YieldRuns.map(yieldRunToProcessing),
+    ...farm.YieldRuns.filter((r) => r.status !== "ready").map(yieldRunToProcessing),
   ];
   const terrainRasterId = farm.ContextRasters[0]?.id ?? null;
   const hasContextTimeline = farm._count.ContextRasters > 0;

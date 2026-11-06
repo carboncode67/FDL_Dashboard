@@ -34,7 +34,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!farm) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const notUnclear = { OR: [{ crs_status: null }, { crs_status: { not: "unclear" } }] };
-    const [outputs, basemaps, layers, processing, yieldRuns] = await Promise.all([
+    const [outputs, basemaps, layers, processing, yieldRuns, readyYield] = await Promise.all([
       prisma.pipelineOutputRaster.findMany({
         where: { farm_id: farmId, ...notUnclear },
         orderBy: { created_at: "desc" },
@@ -59,7 +59,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         select: { id: true, display_name: true, original_filename: true, status: true, error_message: true },
         orderBy: { created_at: "desc" },
       }),
+      // Links a points layer / yield map to its run (`yield_run_id`), so
+      // OFE's × deletes the whole run like FarmMap's does.
+      prisma.yieldRun.findMany({
+        where: { farm_id: farmId },
+        select: { id: true, layer_id: true, basemap_id: true },
+      }),
     ]);
+    const runByBasemap = new Map(readyYield.filter((r) => r.basemap_id != null).map((r) => [r.basemap_id!, r.id]));
+    const runByLayer = new Map(readyYield.filter((r) => r.layer_id != null).map((r) => [r.layer_id!, r.id]));
 
     return NextResponse.json({
       rasters: [
@@ -83,9 +91,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           created_at: b.created_at,
           // Cache-buster for the tile URLs — a re-tile rewrites tiles in place.
           updated_at: b.updated_at,
+          yield_run_id: runByBasemap.get(b.id) ?? null,
         })),
       ],
-      layers,
+      layers: layers.map((l) => ({ ...l, yield_run_id: runByLayer.get(l.id) ?? null })),
       processing: [
         ...processing.map((b) => ({
           id: b.id,
