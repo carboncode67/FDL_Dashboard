@@ -38,3 +38,6 @@ npm-debug.log*
 
 # Syncthing conflict duplicates
 *sync-conflict*
+
+# Local-dev Garage (scripts/garage-local-init.sh)
+.garage-local/

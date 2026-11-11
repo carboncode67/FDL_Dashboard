@@ -5,6 +5,7 @@ import { Readable } from "stream";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { runWithTenant } from "@/lib/lab-db";
+import { s3Configured, presignUserDownload } from "@/lib/s3";
 
 export const runtime = "nodejs";
 
@@ -62,6 +63,18 @@ export async function GET(
   }
 
   const filePath = path.join(DATA_DIR, type, safe);
+  // A basemap uploaded straight to the S3 bucket (migration 093) has no file
+  // on disk: redirect to a short-lived presigned GET instead of streaming the
+  // multi-GB object through this app. Range requests ride along on the redirect.
+  if (type === "basemap-sources" && !fs.existsSync(filePath) && s3Configured) {
+    const bm = await prisma.basemap.findFirst({
+      where: { source_filename: safe, source_storage: "s3" },
+      select: { source_s3_key: true, original_filename: true },
+    });
+    if (bm?.source_s3_key) {
+      return NextResponse.redirect(await presignUserDownload(bm.source_s3_key, bm.original_filename), 302);
+    }
+  }
   if (!fs.existsSync(filePath)) {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,12 +17,15 @@ import {
 import { BasemapIntakeRegister } from "@/components/basemap-intake-register";
 import { detectCoordColumns, splitCsvLine } from "@/lib/csv-points";
 import { cn } from "@/lib/utils";
+import { uploadBasemapMultipart, UploadCancelled, type MultipartProgress } from "@/lib/s3-multipart-client";
 
 // Unified farm upload box (farm page Overview tab) — replaces the separate
 // Field Boundaries / Basemap / Document cards. The chosen file is sniffed
 // client-side (classifyUpload below); if it looks spatial the uploader is asked
 // whether to display it, and with what name and CRS:
-//   GeoTIFF          → POST /api/basemaps (tiled on PipelineProcessor)
+//   GeoTIFF          → POST /api/basemaps (tiled on PipelineProcessor), or with
+//                      directUpload a presigned multipart upload straight to the
+//                      S3 bucket (lib/s3-multipart-client.ts, /api/s3-uploads)
 //   vector, layer    → POST /api/farms/[id]/layers (Farm_Layers overlay)
 //   vector, fields   → POST /api/farms/[id]/boundaries (creates Fields)
 //   point CSV        → POST /api/farms/[id]/layers
@@ -34,6 +37,17 @@ interface Props {
   farmId: number;
   fieldCount: number;
   drawButton?: React.ReactNode;
+  // S3 storage configured (lib/s3.ts s3Configured): GeoTIFFs go straight to
+  // the bucket in resumable parts instead of one huge POST.
+  directUpload?: boolean;
+}
+
+const MAX_DIRECT_BYTES = 20 * 1024 ** 3; // lib/s3-uploads.ts MAX_S3_UPLOAD_BYTES
+
+function formatBytes(n: number): string {
+  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(2)} GB`;
+  if (n >= 1024 ** 2) return `${(n / 1024 ** 2).toFixed(0)} MB`;
+  return `${Math.max(1, Math.round(n / 1024))} KB`;
 }
 
 type SpatialKind = "raster" | "vector" | "csv" | "yield";
@@ -133,7 +147,7 @@ async function classifyUpload(file: File, sidecars: File[]): Promise<Classified>
   return doc;
 }
 
-export function FarmDataUpload({ farmId, fieldCount, drawButton }: Props) {
+export function FarmDataUpload({ farmId, fieldCount, drawButton, directUpload = false }: Props) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -148,6 +162,18 @@ export function FarmDataUpload({ farmId, fieldCount, drawButton }: Props) {
   const [vectorTarget, setVectorTarget] = useState<"layer" | "fields">("layer");
   const [layerName, setLayerName] = useState("");
   const [epsg, setEpsg] = useState("");
+
+  // Direct-to-storage upload in flight
+  const [progress, setProgress] = useState<MultipartProgress | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    if (!progress) return;
+    // Closing the tab mid-upload is recoverable (drop the file again to
+    // resume), but warn anyway: it's easy to lose an hour of uploading.
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [progress]);
 
   function reset() {
     setFile(null);
@@ -286,6 +312,11 @@ export function FarmDataUpload({ farmId, fieldCount, drawButton }: Props) {
       return;
     }
 
+    if (c.kind === "raster" && directUpload) {
+      await uploadRasterDirect();
+      return;
+    }
+
     if (c.kind === "raster") {
       fd.append("farm_id", String(farmId));
       if (layerName.trim()) fd.append("display_name", layerName.trim());
@@ -305,6 +336,46 @@ export function FarmDataUpload({ farmId, fieldCount, drawButton }: Props) {
     } else {
       fd.append("name", layerName.trim() || baseName(file.name));
       await post(`/api/farms/${farmId}/layers`, fd, `Added layer "${layerName || file.name}" ({count} features)`);
+    }
+  }
+
+  async function uploadRasterDirect() {
+    if (!file) return;
+    if (file.size > MAX_DIRECT_BYTES) {
+      setStatus("error");
+      setMessage(`Basemaps are limited to 20 GB — "${file.name}" is ${formatBytes(file.size)}`);
+      return;
+    }
+    const name = layerName.trim() || file.name;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setStatus("uploading");
+    setMessage("");
+    setProgress({ loaded: 0, total: file.size, resumed: false });
+    try {
+      await uploadBasemapMultipart(
+        file,
+        { farmId, displayName: layerName.trim() || undefined, crsOverrideEpsg: epsg.trim() || undefined },
+        { signal: controller.signal, onProgress: setProgress },
+      );
+      const msg = `Uploaded "${name}" — it's listed under the map while it tiles, and gets a checkbox once ready.`;
+      setStatus("success");
+      setMessage(msg);
+      toast.success(msg);
+      reset();
+      router.refresh();
+    } catch (e) {
+      setStatus("error");
+      if (e instanceof UploadCancelled) {
+        setMessage("Upload cancelled");
+      } else {
+        const why = e instanceof Error ? e.message : "Upload failed";
+        setMessage(`${why}. Drop the same file again to resume where it stopped.`);
+        toast.error(why);
+      }
+    } finally {
+      abortRef.current = null;
+      setProgress(null);
     }
   }
 
@@ -374,6 +445,27 @@ export function FarmDataUpload({ farmId, fieldCount, drawButton }: Props) {
             className="w-full rounded-md border border-stone-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
 
+          {progress && (
+            <div className="space-y-1.5">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-stone-100">
+                <div
+                  className="h-full bg-blue-600 transition-[width] duration-300"
+                  style={{ width: `${progress.total ? (100 * progress.loaded) / progress.total : 0}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-xs text-stone-500">
+                <span>
+                  {progress.resumed ? "Resumed — " : ""}
+                  {formatBytes(progress.loaded)} of {formatBytes(progress.total)} (
+                  {Math.floor((100 * progress.loaded) / Math.max(1, progress.total))}%)
+                </span>
+                <button type="button" className="text-red-600 hover:underline" onClick={() => abortRef.current?.abort()}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
           {status === "success" && <p className="text-sm text-green-600 font-medium">{message}</p>}
           {status === "error" && <p className="text-sm text-red-600">{message}</p>}
 
@@ -407,7 +499,9 @@ export function FarmDataUpload({ farmId, fieldCount, drawButton }: Props) {
               {isYield
                 ? "is a CN1 yield card. Cleaning runs it through yieldclean (Yield Editor AYCE) on the processing machine, split by this farm's fields, and shows the kept points on the map; the full results land in Documents."
                 : `looks like spatial data${classified ? ` (${classified.detail})` : ""}.`}{" "}
-              Either way, the original file is saved to Documents.
+              {isRaster && directUpload
+                ? "It uploads straight to lab storage in resumable parts; the original stays downloadable from the basemap."
+                : "Either way, the original file is saved to Documents."}
             </DialogDescription>
           </DialogHeader>
 
