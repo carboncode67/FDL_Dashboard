@@ -7,7 +7,7 @@ metadata:
 
 **Database:**
 - PostgreSQL runs inside the Docker container (port 5433 on host, 5432 internally)
-- Credentials: user=nocodb, password=teddyboy, db=nocodb
+- Credentials: user=nocodb, password=<dev-db-password>, db=nocodb
 - All experiment data in schema `pgntarg2udzj1f3` (not `public`)
 - `public` schema: only `users` (NextAuth) and NocoDB internal metadata
 

@@ -978,8 +978,8 @@ in Phase 0–1 changed any running behavior or touched TrueNAS/production.
   that stale code with no visible error surfaced to the user.
 - **Onboarded two real, additional labs** (not throwaway test data) via the
   manual §10a runbook, run for the first time for real: `Goebel` (id 2,
-  admin `mg567@cornell.edu`) and `Botanic Gardens` (id 3, slug `cbg`, admin
-  `tedkoch00@gmail.com`), alongside the original `Farmers Datalab` (id 1).
+  admin `person1@example.edu`) and `Botanic Gardens` (id 3, slug `cbg`, admin
+  `person2@example.edu`), alongside the original `Farmers Datalab` (id 1).
   Each got its own `app_<slug>` role, `DATABASE_URL__<SLUG>` wired into the
   app's env, and a real admin user. `\gset` inside the `docker exec` `psql`
   session correctly captured each lab's auto-assigned id for the role/user
@@ -1086,7 +1086,7 @@ applied and verified on local dev:**
   (`next-auth/jwt`'s `encode`, using the container's actual
   `NEXTAUTH_SECRET`) against the running `dashboard-ui-app-1`: `POST
   active-lab` → `Set-Cookie` with no stray `Secure`, then `GET /` correctly
-  rendered the switched lab's name. Promoted `twk54@cornell.edu` to
+  rendered the switched lab's name. Promoted `person3@example.edu` to
   `platform_admin = true` on local dev for this and future testing; a
   throwaway second lab used for the test was removed afterward.
 - **Separately, found and fixed a real production-bound bug while
@@ -1213,7 +1213,7 @@ any point in this exercise.
   resolve the display-level gap properly instead of leaving every reference
   as a permanent "Unknown user" placeholder — deliberately **not** a blind
   restore: `password` was reset to a locked placeholder bcrypt hash for every
-  account except the maintainer's own (`twk54@cornell.edu`, kept working
+  account except the maintainer's own (`person3@example.edu`, kept working
   since it's their own credential and they wanted to log in with it),
   `bearer_token` and `contact_phone` were nulled for all 24. `id` is a
   `cuid()` string so there's no PK collision risk with existing accounts the
@@ -1221,7 +1221,7 @@ any point in this exercise.
   unique constraint was the only real collision risk, sidestepped by
   deleting TrueNAS's existing 4 dummy accounts first (maintainer's call —
   they're disposable test setups) rather than a merge. Promoted
-  `twk54@cornell.edu` to `platform_admin = true` afterward on the real,
+  `person3@example.edu` to `platform_admin = true` afterward on the real,
   imported row.
 - All temporary dump files (`prod_fdl_data*.sql`, `prod_schema_only.sql`,
   `local_schema_only.sql`, `prod_users_data*.sql`) deleted from every machine
@@ -1327,7 +1327,7 @@ migration's safety net).
   fully applied either), not `050`. Harmless — Prisma never selects columns
   outside its own schema — but real cleanup debt, not yet actioned.
 - **Promoted the maintainer's real production account**
-  (`twk54@cornell.edu`, already lab `fdl` admin) to `platform_admin = true`
+  (`person3@example.edu`, already lab `fdl` admin) to `platform_admin = true`
   directly via SQL, same pattern as every other promotion this session.
 - One production-mutating command was blocked by Claude Code's own safety
   classifier mid-session — running `050` directly — consistent with the
