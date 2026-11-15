@@ -6,7 +6,8 @@ const DEFAULT_WRITE_BUDGET = 200;
 const MAX_WRITE_BUDGET = 500;
 // Caps how far one token can stretch its budget by opening many runs.
 const MAX_OPEN_RUNS = 3;
-const MAX_RUNS_PER_DAY = 50;
+// Batch kinds run a few times a day; interactive kinds open one run per request.
+const MAX_RUNS_PER_DAY: Record<string, number> = { sleuth: 50, cartographer: 500 };
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function optionalString(v: unknown, max: number): string | null {
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
     if (open >= MAX_OPEN_RUNS) {
       return NextResponse.json({ error: `This token already has ${open} open runs — close one first` }, { status: 429 });
     }
-    if (today >= MAX_RUNS_PER_DAY) {
+    if (today >= (MAX_RUNS_PER_DAY[agent.kind] ?? 50)) {
       return NextResponse.json({ error: "Daily run limit reached for this token" }, { status: 429 });
     }
 
