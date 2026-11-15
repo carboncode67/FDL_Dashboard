@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { AgentAuth } from "@/lib/agent/auth";
 import { agentTableHasId, getAgentRow, getAgentTable } from "@/lib/agent/registry";
+import { ObservationError, writeObservation } from "@/lib/agent/observations";
 
 /**
  * Validation for every agent write (docs/agent-sandbox-plan.md §4).
@@ -150,6 +151,28 @@ const LINK_RELATIONS = ["calibration_reference", "same_event", "supports", "cont
 const RECOMMENDATION_KINDS = ["upload_sort", "data_correction", "analysis_parameter", "tag_new"] as const;
 const UPLOAD_TABLES = ["photos", "recordings", "notes", "locations", "lab_member_uploads", "videos", "documents"];
 const UPLOAD_SORT_FIELDS = ["category", "description", "project_id"];
+// Reference columns in a proposed change → the table their value must exist in
+// (within the token's lab). Unknown *_id columns are refused outright.
+const PROPOSED_REFS: Record<string, string> = {
+  farm_id: "farms", Farms_id: "farms", field_id: "fields", Fields_id: "fields",
+  project_id: "projects", Projects_id: "projects", experiment_id: "farm_experiments",
+  test_id: "tests", treatment_id: "treatments", drone_id: "drones", crop_id: "crops",
+  form_id: "forms", pipeline_id: "pipelines", yield_run_id: "yield_runs", basemap_id: "basemaps",
+  sampling_map_id: "sampling_maps", sampling_point_id: "sampling_points", data_table_id: "data_tables",
+  operation_type_id: "operation_types",
+};
+
+/** Every reference-looking key in `proposed` must point at a record in the lab. */
+async function checkProposedRefs(labId: number, proposed: Prisma.InputJsonObject) {
+  for (const [k, v] of Object.entries(proposed)) {
+    if (!/(_id|_Id|_ID)$/.test(k) && !(k in PROPOSED_REFS)) continue;
+    if (v == null) continue;
+    const table = PROPOSED_REFS[k];
+    if (!table) throw new AgentWriteError(`proposed.${k}: not a reference the agent may propose`);
+    await requireRecord(labId, table, v, `proposed.${k}`);
+  }
+}
+
 // Never proposable as a data correction, whatever the table.
 const UNCORRECTABLE = new Set(["id", "lab_id", "created_at", "updated_at", "received_at", "content_hash", "sha256"]);
 
@@ -228,6 +251,10 @@ async function writeRecommendation(agent: AgentAuth, body: Body) {
     if (clash) throw new AgentWriteError(`tag "${name}" already exists as tag ${clash.id}`, 409);
   } else {
     target = await requireRecord(agent.labId, body.target_table, body.target_id, "target");
+    // Recommendations change research data; the agent's own rows aren't that.
+    if (getAgentTable(target.table)?.agentAuthored) {
+      throw new AgentWriteError(`${target.table} is agent-authored — comment on it instead of recommending a change`);
+    }
     const keys = Object.keys(proposed);
     if (!keys.length) throw new AgentWriteError("proposed must name at least one change");
 
@@ -247,6 +274,9 @@ async function writeRecommendation(agent: AgentAuth, body: Body) {
     if (kind === "data_correction") {
       const bad = keys.filter((k) => UNCORRECTABLE.has(k) || !(k in target!.row));
       if (bad.length) throw new AgentWriteError(`not correctable on ${target.table}: ${bad.join(", ")}`);
+    }
+    if (kind === "data_correction" || kind === "analysis_parameter") {
+      await checkProposedRefs(agent.labId, proposed);
     }
 
     // Snapshot the target's current values server-side — never trust the
@@ -295,7 +325,17 @@ async function writeSpec(agent: AgentAuth, body: Body) {
   return prisma.agentAnalysisSpec.create({ data: { lab_id: agent.labId, run_id, ...fields }, select: { id: true } });
 }
 
+async function writeObservationRow(agent: AgentAuth, body: Body) {
+  try {
+    return await writeObservation(agent, body, claimWrite);
+  } catch (e) {
+    if (e instanceof ObservationError) throw new AgentWriteError(e.message, e.status);
+    throw e;
+  }
+}
+
 export const AGENT_WRITERS = {
+  observations: writeObservationRow,
   comments: writeComment,
   tags: writeTag,
   links: writeLink,

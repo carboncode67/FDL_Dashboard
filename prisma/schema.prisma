@@ -2262,6 +2262,7 @@ model AgentRun {
   Links           AgentLink[]
   Recommendations AgentRecommendation[]
   Specs           AgentAnalysisSpec[]
+  Observations    AgentObservation[]
 
   @@index([lab_id, started_at(sort: Desc)])
   @@map("Agent_Runs")
@@ -2278,6 +2279,41 @@ model AgentTagVocabulary {
   Links AgentTagLink[]
 
   @@map("Agent_Tag_Vocabulary")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Agents' space-time observation map (migration 097, docs/agent-sandbox-plan.md §6a).
+// Pass 1 writes one current row per source upload; WHEN/WHERE are derived
+// server-side from the source record (lib/agent/observations.ts).
+model AgentObservation {
+  id                  Int       @id @default(autoincrement())
+  lab_id              Int
+  run_id              Int
+  source_table        String
+  source_id           Int
+  farm_id             Int?
+  field_id            Int?
+  latitude            Float?
+  longitude           Float?
+  location_source     String // gps | field | farm | content | unknown
+  observed_at         DateTime? @db.Timestamptz(6)
+  time_source         String // capture | upload | content | unknown
+  subjects            String[]  @default([])
+  crop                String?
+  growth_stage        String?
+  description         String
+  extracted_text      String?
+  suspected_injection Boolean   @default(false)
+  confidence          Float?    @db.Real
+  model               String?
+  prompt_sha256       String?   @db.Char(64)
+  status              String    @default("current") // current | superseded | dismissed
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+
+  Run AgentRun @relation(fields: [run_id], references: [id], onDelete: Cascade)
+
+  @@index([run_id])
+  @@map("Agent_Observations")
   @@schema("pgntarg2udzj1f3")
 }
 

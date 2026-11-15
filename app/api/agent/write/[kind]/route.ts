@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withAgent } from "@/lib/agent/auth";
 import { AGENT_WRITERS, AgentWriteError, isAgentWriteKind } from "@/lib/agent/writes";
 
-// POST /api/agent/write/{comments|tags|links|recommendations|specs}
+// POST /api/agent/write/{observations|comments|tags|links|recommendations|specs}
 // The agent's only write path, and only into the Agent_* tables. Validation
 // (run ownership, budget, lab-checked references, plain text) is in
 // lib/agent/writes.ts.

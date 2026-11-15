@@ -328,6 +328,41 @@ values (or the spec) and the run it came from. The actions are:
   free-form chat with the autonomous token. Interactive `agent.py chat` stays a
   separate, human-driven tool running under the human's own token.
 
+## 6a. Two passes over a space-time observation map (2026-11-15)
+
+Replaces "explore each item with a tool loop and connect it to everything" as
+the main way agents work through the lab's data.
+
+**Pass 1, `observe`** (`runner.py observe`): for each upload with no current
+observation (`GET /api/agent/observations/pending`), ONE tool-less model call
+with a fixed prompt and a JSON schema returns WHAT the item shows (subjects
+from a fixed vocabulary, crop, growth stage, ≤600-char description, verbatim
+visible text, `suspected_injection`, confidence, optionally a date the item
+states). The runner writes it (`POST /api/agent/write/observations`). WHEN and
+WHERE are derived **server-side** from the source record (`lib/agent/observations.ts`
+`deriveWhenWhere`): capture timestamp else upload time; GPS (point matched to
+one of that farm's field polygons) else the record's field else its farm. A
+stated date (`content_date`) is accepted only on/before the item's own date and
+within 400 days; a stated field only for farm-level items and only one of that
+farm's fields. One current row per source; re-observing (new prompt hash)
+supersedes the old row. Table `Agent_Observations`, migration 097.
+
+**Pass 2, `synthesize`** (`runner.py synthesize [--farm-id] [--from] [--to]`):
+per farm, the model gets compact observation lines plus fields, experiments,
+management events (now readable: `management_events`, `operation_types`, with
+who-entered-it columns omitted) and yield runs, and looks for patterns across
+time and space. Its output is the usual recommend-only set. **It never sees raw
+upload content**: the runner blocks `read_text`/`describe_image`/`semantic_search`
+and reads/searches of the upload tables, `form_responses` and `agent_comments`
+in this pass, and flagged observations reach it with their content withheld.
+So an injected instruction can at most shape one observation's text in pass 1,
+whose only possible write is that one observation.
+
+Also tightened while building this: recommendations can't target agent-authored
+tables, and any reference (`*_id`) inside a `data_correction` /
+`analysis_parameter` proposal must exist in the token's lab (a test run had
+proposed another lab's farm id in a correction; it is now refused).
+
 ## 7. Sandbox configuration on Datamachine
 
 Datamachine (`128.84.17.58`) already runs PipelineProcessor as user `fdl` (in

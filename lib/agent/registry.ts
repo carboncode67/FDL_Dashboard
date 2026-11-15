@@ -151,12 +151,31 @@ export const AGENT_TABLES: Record<string, AgentTable> = {
   farm_tags: { model: "FarmTag", scope: lab },
   farm_tag_links: { model: "FarmTagLink", scope: viaFarm },
 
+  // Farmer management events synced from OFE (migration 096). Who entered an
+  // event is contact data, so those columns are omitted.
+  operation_categories: { model: "OperationCategory", scope: lab, title: "name" },
+  operation_types: { model: "OperationType", scope: lab, search: ["name"], title: "name" },
+  management_events: {
+    model: "ManagementEvent",
+    scope: viaFarm,
+    omit: ["created_by_email", "created_by_name", "entered_on_behalf_of_email"],
+    search: ["notes"],
+    title: "notes",
+  },
+  management_event_fields: { model: "ManagementEventField", scope: (l) => ({ Event: viaFarm(l) }) },
   agent_tag_vocabulary: { model: "AgentTagVocabulary", scope: lab },
   agent_comments: { model: "AgentComment", scope: lab, agentAuthored: true },
   agent_tag_links: { model: "AgentTagLink", scope: lab, agentAuthored: true },
   agent_links: { model: "AgentLink", scope: lab, agentAuthored: true },
   agent_recommendations: { model: "AgentRecommendation", scope: lab, agentAuthored: true },
   agent_analysis_specs: { model: "AgentAnalysisSpec", scope: lab, agentAuthored: true },
+  agent_observations: {
+    model: "AgentObservation",
+    scope: lab,
+    agentAuthored: true,
+    search: ["description", "crop", "extracted_text"],
+    title: "description",
+  },
 };
 
 // ── DMMF-derived column metadata ─────────────────────────────────────────────
