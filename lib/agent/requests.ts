@@ -351,9 +351,10 @@ export async function undoDraft(draftId: number) {
     if (withData.length) {
       throw new RequestError(`${withData.length} of these points already have collected data — remove them by hand if you're sure`, 409);
     }
-    const removedPoints = await tx.samplingPoint.deleteMany({ where: { agent_draft_id: draftId } });
-    const removedPolygons = await tx.samplingMapPolygon.deleteMany({ where: { agent_draft_id: draftId } });
+    const polys = await tx.samplingMapPolygon.findMany({ where: { agent_draft_id: draftId }, select: { id: true } });
+    await tx.samplingPoint.deleteMany({ where: { agent_draft_id: draftId } });
+    await tx.samplingMapPolygon.deleteMany({ where: { agent_draft_id: draftId } });
     await tx.agentGeometryDraft.update({ where: { id: draftId }, data: { status: "undone" } });
-    return { draft_id: draftId, removed_points: removedPoints.count, removed_polygons: removedPolygons.count };
+    return { draft_id: draftId, removed_point_ids: pts.map((p) => p.id), removed_polygon_ids: polys.map((p) => p.id) };
   });
 }

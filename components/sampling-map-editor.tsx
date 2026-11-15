@@ -17,6 +17,7 @@ import { ImportBoundaryDialog, type ImportableBoundary } from "@/components/impo
 import { SamplingMapUploadDialog, type UploadedPolygon, type UploadedPoint } from "@/components/sampling-map-upload-dialog"
 import { DeleteEntitySection } from "@/components/delete-entity-section"
 import { SamplingPointDataDialog } from "@/components/sampling-point-data-dialog"
+import { CartographerPanel, type CartographerDraft } from "@/components/cartographer-panel"
 import { SamplingMapAssignmentPicker } from "@/components/sampling-map-assignment-picker"
 import { resolveMapFormId } from "@/components/map-form-select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -525,6 +526,10 @@ export default function SamplingMapEditor({
   const layersApiRef = useRef<MapDrawLayersHandle>(null)
   // Point whose collected data (responses + photos) is open in SamplingPointDataDialog.
   const [dataPointId, setDataPointId] = useState<number | null>(null)
+  // Cartographer: the point last clicked on the map (offered as a request's focus)
+  // and the draft currently overlaid on the map.
+  const [lastPointId, setLastPointId] = useState<number | null>(null)
+  const [cartoPreview, setCartoPreview] = useState<CartographerDraft | null>(null)
 
   // Every point on the map (existing, or created ad hoc in the field) is filled out against
   // this one form — see Sampling_Maps.form_id. Submitting it there also marks the point
@@ -1271,7 +1276,10 @@ export default function SamplingMapEditor({
               onEditPolygon={handleEditPolygonGeometry}
               onCreatePoint={handleCreatePoint}
               onEditPoint={handleEditPointGeometry}
-              onPointClick={setDataPointId}
+              onPointClick={(id) => {
+                setDataPointId(id)
+                setLastPointId(id)
+              }}
               editable={!readOnly}
             />
 
@@ -1293,6 +1301,22 @@ export default function SamplingMapEditor({
             {/* Grid/random generation preview — plain declarative markers (not
                 geoman-managed like accepted points) since nothing here is persisted
                 yet; dashed outline distinguishes them from real, saved points. */}
+            {/* Cartographer draft — orange, dashed, not editable until applied. */}
+            {cartoPreview && (
+              <GeoJSON
+                key={`carto-${cartoPreview.id}`}
+                data={cartoPreview.features as unknown as GeoJSON.FeatureCollection}
+                style={() => ({ color: "#d97706", weight: 2, fillOpacity: 0.08, dashArray: "6,4" })}
+                pointToLayer={(_f, latlng) =>
+                  L.circleMarker(latlng, { radius: 6, color: "#d97706", weight: 2, fillColor: "#d97706", fillOpacity: 0.4, dashArray: "2,2" })
+                }
+                onEachFeature={(f, layer) => {
+                  const label = (f.properties as { label?: string } | null)?.label
+                  if (label) layer.bindTooltip(label)
+                }}
+              />
+            )}
+
             {previewPoints.map((pt, i) => (
               <CircleMarker
                 key={`preview-${i}`}
@@ -1306,6 +1330,27 @@ export default function SamplingMapEditor({
 
         {!readOnly && (
         <div className="w-80 shrink-0 border-l border-stone-200 overflow-y-auto p-3 space-y-4">
+          <CartographerPanel
+            samplingMapId={samplingMapId}
+            points={points}
+            focusPointId={lastPointId}
+            onPreview={setCartoPreview}
+            onApplied={({ points: newPoints, polygons: newPolygons }) => {
+              const pts = newPoints as SamplingPointData[]
+              const polys = newPolygons as SamplingMapPolygonData[]
+              setPolygons((prev) => [...prev, ...polys])
+              polys.forEach((p) => layersApiRef.current?.addPolygon(p))
+              setPoints((prev) => [...prev, ...pts])
+              pts.forEach((p) => layersApiRef.current?.addPoint(p))
+            }}
+            onUndone={({ removed_point_ids, removed_polygon_ids }) => {
+              removed_point_ids.forEach((id) => layersApiRef.current?.removePoint(id))
+              removed_polygon_ids.forEach((id) => layersApiRef.current?.removePolygon(id))
+              setPoints((prev) => prev.filter((p) => !removed_point_ids.includes(p.id)))
+              setPolygons((prev) => prev.filter((p) => !removed_polygon_ids.includes(p.id)))
+            }}
+          />
+
           <div>
             <h3 className="text-sm font-semibold text-stone-900">Polygons ({polygons.length})</h3>
             <p className="text-xs text-stone-500 mt-0.5">
