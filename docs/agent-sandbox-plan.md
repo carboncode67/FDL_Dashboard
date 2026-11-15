@@ -335,6 +335,19 @@ the `docker` group, which is effectively root, and whose `.env` holds a
 service-account token with the full `/api/data/*` surface) and a host Ollama on
 `localhost:11434` with no auth. The sandbox must be isolated from **both**.
 
+> **Stage A (what's actually deployed first, 2026-11-15):** host setup is
+> `Client/agents/datamachine/setup-agents-host.sh` (source of truth). It differs
+> from the end state below in one way: **no containerized Ollama yet.** The
+> sandbox reaches the existing host `ollama.service` through a Caddy route on
+> `128.84.17.58:11436` that accepts only this host as client and only inference
+> endpoints (`chat`, `generate`, `embed(dings)`, `show`, `tags`, `version`), and
+> nftables lets uid `agents` reach that one port (`compose.override.datamachine.yaml`
+> relays to it). The same inference-only filter goes on the keyed `:11435`
+> relay, which until then forwarded model delete/pull/create to any key holder
+> (and the Mac test bed hands that key to the runner). The runner probes now
+> check this (`LLM relay refuses …`). Stage B — containerized GPU Ollama with
+> PipelineProcessor moved onto it, §7.2 — is deferred.
+
 ### 7.1 Host user
 
 ```bash
