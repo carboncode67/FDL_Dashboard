@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withSleuthAdmin } from "@/lib/agent/admin";
+import { withAgentAdmin } from "@/lib/agent/admin";
 
-// GET /api/admin/agent-tags — this lab's Data Sleuth tag vocabulary.
+// GET /api/admin/agent-tags — this lab's agent tag vocabulary.
 export async function GET() {
-  return withSleuthAdmin(async ({ labId }) => {
+  return withAgentAdmin(async ({ labId }) => {
     const tags = await prisma.agentTagVocabulary.findMany({ where: { lab_id: labId }, orderBy: { name: "asc" } });
     return NextResponse.json({ tags });
   });
@@ -13,7 +13,7 @@ export async function GET() {
 // POST /api/admin/agent-tags {name, description?} — the agent can only use
 // tags from this list; it proposes new ones as "tag_new" recommendations.
 export async function POST(req: Request) {
-  return withSleuthAdmin(async ({ labId }) => {
+  return withAgentAdmin(async ({ labId }) => {
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const name = typeof body.name === "string" ? body.name.trim().slice(0, 60) : "";
     if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });

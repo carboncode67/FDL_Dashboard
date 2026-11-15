@@ -2217,7 +2217,7 @@ model SamplingMapGroup {
   @@schema("pgntarg2udzj1f3")
 }
 
-// Data Sleuth agent (migration 092, docs/agent-sandbox-plan.md). An agent token
+// Agents (migration 092, docs/agent-sandbox-plan.md). An agent token
 // is not a User: only lib/agent/auth.ts accepts it, for /api/agent/* only.
 // created_by_id / decided_by_id / implemented_pipeline_id are plain scalars
 // (FKs exist in SQL) to keep User/Pipeline free of back-relations.

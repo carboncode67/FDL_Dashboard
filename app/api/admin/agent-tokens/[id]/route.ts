@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withSleuthAdmin } from "@/lib/agent/admin";
+import { withAgentAdmin } from "@/lib/agent/admin";
 
 // DELETE /api/admin/agent-tokens/:id — revoke (kept for the audit trail; its
 // runs and outputs stay attributable). Takes effect on the token's next request.
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  return withSleuthAdmin(async ({ labId }) => {
+  return withAgentAdmin(async ({ labId }) => {
     const id = Number.parseInt((await params).id, 10);
     if (Number.isNaN(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     const now = new Date();

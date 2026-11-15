@@ -1,12 +1,14 @@
-# Data Sleuth agent — sandbox and limited-access plan
+# Agents — sandbox and limited-access plan
 
-**Status:** phase 1 built on branch `data-sleuth-phase1` (2026-11-03): tokens, read/write API, migration 092, admin UI. Phase 2 test bed running on the Mac (sandbox stack in `Client/sleuth/`); 2b–5 not started.
+**Status:** phase 1 (tokens, read/write API, migration 092, admin UI) in production since 2026-11-15. Phase 2 test bed running on the Mac (sandbox stack in `Client/agents/`); 2b–5 not started.
+
+**Naming:** "Agents" is the platform: tokens, `/api/agent/*`, `Agent_*` tables, the Admin Panel card, the sandbox (`Client/agents/`, host user `agents`, `agents-*` containers and networks). **Data Sleuth** is the first agent built on it — its prompt and tasks (`sort`, `link`) live in the runner. Later agents reuse the same token, broker, proxy and sandbox; each is its own runner prompt/task set.
 **Components touched:** Dashboard-UI (identity, `/api/agent/*`, `Agent_*` tables, UI),
 Client (`agent.py` / `agent_tools.py` split into runner + broker), Datamachine (sandbox host).
 
 ## 1. Goal and threat model
 
-The Data Sleuth is a local, autonomous agent that reads lab data (uploads, notes,
+The Data Sleuth, the first agent on this platform, is a local, autonomous agent that reads lab data (uploads, notes,
 transcripts, photos, form responses, yield runs, experiments) and **recommends**
 organization: tags, comments, links between observations and analyses, upload
 sorts, and specs for analyses it would like to exist.
@@ -43,7 +45,7 @@ produces changes core data without a human clicking "apply" under their own sess
    compute from data. The model only compares results and explains them.
 5. **Quarantine untrusted media.** Images go through a tool-less vision step that
    emits only schema-constrained records.
-6. **Ephemeral runs.** Each sleuth run is a fresh container with no persistent
+6. **Ephemeral runs.** Each agent run is a fresh container with no persistent
    writable state, so a compromise doesn't outlive the run.
 
 ## 3. Identity and scope (Dashboard-UI) — built in phase 1
@@ -52,7 +54,7 @@ produces changes core data without a human clicking "apply" under their own sess
 `token_hash` (sha256), `token_prefix`, `scopes` (`read`, `write`),
 `created_by_id`, `expires_at`, `revoked_at`, `last_used_at`.
 
-- Issued and revoked only from **Admin Panel → Data Sleuth Agent**
+- Issued and revoked only from **Admin Panel → Agents**
   (`/api/admin/agent-tokens`, session + admin). No agent-reachable route can
   create, extend, or rescope a token. Tokens are `fdla_` + 64 hex chars and
   expire after 90 days by default (365 max). The raw value is shown once.
@@ -191,7 +193,7 @@ RLS keyed on `app.current_lab_id` is not a boundary for a session that can run
 
 - The list shows a small "Suggested" badge on uploads that have an open
   `upload_sort` recommendation.
-- The `EditPanel` slide-over shows a **Sleuth suggestions** card with the
+- The `EditPanel` slide-over shows a **Agent suggestions** card with the
   proposed category, description, and project, the rationale, the confidence,
   and links to the evidence. It also shows any `Agent_Links` touching the upload,
   e.g. "Calibration reference → Darling 2026 yield run #14, Field 7".
@@ -239,7 +241,7 @@ like a real link.
 
 ### Analysis specs (the agent asks for scripts; it doesn't write them)
 
-When the sleuth wants a calculation that no compute tool provides, it writes an
+When an agent wants a calculation that no compute tool provides, it writes an
 `Agent_Analysis_Specs` row instead of code:
 
 - **Contents:** the problem, the exact input entity IDs, the method in prose,
@@ -287,12 +289,12 @@ values (or the spec) and the run it came from. The actions are:
   `implemented_pipeline_id`.
 - **New compute tool:** for a reusable calculation, a developer adds a
   `/api/agent/compute/*` route through normal code review, then marks the spec
-  implemented. The next sleuth runs can call it.
+  implemented. The next agent runs can call it.
 
 ## 6. Agent pipeline inside the sandbox
 
 ```
-  tool-broker (holds token)                  sleuth-runner (no credentials)
+  tool-broker (holds token)                  agents-runner (no credentials)
   ─────────────────────────                  ──────────────────────────────
   fetch upload content ──► image? ──► decode/resize/strip EXIF ──► vision step
                                                                   (VLM, NO tools,
@@ -336,30 +338,30 @@ service-account token with the full `/api/data/*` surface) and a host Ollama on
 ### 7.1 Host user
 
 ```bash
-sudo useradd --create-home --shell /usr/sbin/nologin sleuth   # no sudo, NOT in docker group
-sudo chmod 700 /home/sleuth /home/fdl                         # verify fdl's home is private
-sudo loginctl enable-linger sleuth                            # user systemd without a login
-grep sleuth /etc/subuid /etc/subgid                           # rootless userns ranges exist
+sudo useradd --create-home --shell /usr/sbin/nologin agents   # no sudo, NOT in docker group
+sudo chmod 700 /home/agents /home/fdl                         # verify fdl's home is private
+sudo loginctl enable-linger agents                            # user systemd without a login
+grep agents /etc/subuid /etc/subgid                           # rootless userns ranges exist
 ```
 
-- Everything below runs as **rootless Podman under `sleuth`**. If a container
+- Everything below runs as **rootless Podman under `agents`**. If a container
   escapes, it lands as an unprivileged user with nothing in its home but the
   sandbox config.
-- No SSH key is authorized for `sleuth`. Admins manage it with `sudo -u sleuth`
-  / `machinectl shell sleuth@`.
+- No SSH key is authorized for `agents`. Admins manage it with `sudo -u agents`
+  / `machinectl shell agents@`.
 - The NVIDIA Container Toolkit with CDI (`nvidia-ctk cdi generate`) gives
   rootless containers the GPU without the docker group.
 
 ### 7.2 Containers and networks
 
 ```
-                  ┌───────────── net: sleuth-llm (internal) ─────────────┐
+                  ┌───────────── net: agents-llm (internal) ─────────────┐
                   │                                                      │
-   sleuth-runner ─┤                                              sleuth-ollama (GPU)
+   agents-runner ─┤                                              agents-ollama (GPU)
      │            └──────────────────────────────────────────────────────┘
      │ unix socket (named volume "broker-sock")
      ▼
-   sleuth-broker ── net: sleuth-egress (internal) ── sleuth-proxy ── net: sleuth-out ── internet
+   agents-broker ── net: agents-egress (internal) ── agents-proxy ── net: agents-out ── internet
                                                      (allowlist:            (only the proxy
                                                       fdl.farmersdatalab.org:443)  is on this)
 ```
@@ -372,7 +374,7 @@ grep sleuth /etc/subuid /etc/subgid                           # rootless userns 
   public Dashboard hostname over HTTPS. Use the public URL (Pangolin), not the
   lab-server IP, so the allowlist is one name.
 
-`~sleuth/sandbox/compose.yaml` (run with `podman compose`, or converted to Quadlet units):
+`~agents/sandbox/compose.yaml` (run with `podman compose`, or converted to Quadlet units):
 
 ```yaml
 x-hardening: &hardening
@@ -383,22 +385,22 @@ x-hardening: &hardening
   tmpfs: ["/tmp:rw,noexec,nosuid,size=512m"]
 
 networks:
-  sleuth-llm:    { internal: true }
-  sleuth-egress: { internal: true }
-  sleuth-out:    {}
+  agents-llm:    { internal: true }
+  agents-egress: { internal: true }
+  agents-out:    {}
 
 volumes:
   broker-sock: {}
   ollama-models: {}          # populated once by an admin, mounted read-only below
 
 secrets:
-  agent_token: { file: ./secrets/agent_token }   # chmod 600, owned by sleuth
+  agent_token: { file: ./secrets/agent_token }   # chmod 600, owned by agents
 
 services:
   ollama:
     <<: *hardening
     image: docker.io/ollama/ollama:<pinned-version>
-    networks: [sleuth-llm]
+    networks: [agents-llm]
     ports: ["127.0.0.1:11434:11434"]              # host loopback, for PipelineProcessor
     devices: ["nvidia.com/gpu=all"]               # CDI
     volumes: ["ollama-models:/root/.ollama:ro"]
@@ -412,9 +414,9 @@ services:
 
   broker:
     <<: *hardening
-    image: localhost/sleuth-broker:<tag>          # built locally from Client/, never pulled
+    image: localhost/agents-broker:<tag>          # built locally from Client/, never pulled
     user: "10001:10001"
-    networks: [sleuth-egress]
+    networks: [agents-egress]
     secrets: [agent_token]                        # /run/secrets/agent_token, broker only
     volumes: ["broker-sock:/run/broker"]
     environment:
@@ -424,9 +426,9 @@ services:
 
   runner:
     <<: *hardening
-    image: localhost/sleuth-runner:<tag>
+    image: localhost/agents-runner:<tag>
     user: "10002:10002"                           # different UID from broker
-    networks: [sleuth-llm]
+    networks: [agents-llm]
     volumes: ["broker-sock:/run/broker"]          # socket only, nothing else
     environment:
       OLLAMA_URL: "http://ollama:11434"
@@ -437,7 +439,7 @@ services:
   proxy:
     <<: *hardening
     image: docker.io/ubuntu/squid:<pinned-version>
-    networks: [sleuth-egress, sleuth-out]
+    networks: [agents-egress, agents-out]
     volumes: ["./squid.conf:/etc/squid/squid.conf:ro"]
     tmpfs: ["/var/spool/squid", "/var/log/squid", "/run"]
 ```
@@ -470,7 +472,7 @@ Notes:
   and PipelineProcessor can't reach *each other*:
   - Ollama is published on the host as `127.0.0.1:11434:11434` (loopback only).
     PipelineProcessor keeps `OLLAMA_URL=http://localhost:11434` unchanged.
-  - The runner reaches Ollama over `sleuth-llm`. PipelineProcessor isn't on that
+  - The runner reaches Ollama over `agents-llm`. PipelineProcessor isn't on that
     network, and the runner can't reach host loopback (pasta default + nftables
     §7.3), so it can't touch PipelineProcessor's `:8010`.
   - Ollama only answers requests and never relays them, so being reachable from
@@ -478,35 +480,35 @@ Notes:
     it is consume GPU time. It can't change models (volume `:ro`) or see
     PipelineProcessor's prompts (Ollama doesn't expose other clients'
     requests).
-  - Metashape and yieldclean still use the GPU outside Ollama. Schedule sleuth
+  - Metashape and yieldclean still use the GPU outside Ollama. Schedule agent
     runs at night (§7.4) and have PipelineProcessor's heavy jobs check free VRAM
     as they do today.
 - **Images are built locally** from reviewed source (`podman build` as
-  `sleuth`). Base images are pinned by digest. Nothing in the sandbox can pull
+  `agents`). Base images are pinned by digest. Nothing in the sandbox can pull
   or build images.
 - **Ollama model volume:** populated once by an admin with a temporary
   networked container (`ollama pull <model>`), then mounted `:ro`.
 
 ### 7.3 Host firewall (second layer, independent of container config)
 
-Rootless Podman traffic leaves the host as processes owned by `sleuth`
+Rootless Podman traffic leaves the host as processes owned by `agents`
 (pasta/slirp4netns), so nftables can match on the owner UID. Allow only DNS and
 the Dashboard's public address, and drop everything else, including loopback
 services, the lab subnet, and Tailscale/Pangolin ranges:
 
 ```
-table inet sleuth_egress {
+table inet agents_egress {
   set fdl_v4 { type ipv4_addr; }        # filled by a timer from `dig +short fdl.farmersdatalab.org`
 
   chain output {
     type filter hook output priority 0; policy accept;
-    meta skuid != "sleuth" accept
+    meta skuid != "agents" accept
     ct state established,related accept             # replies on the published Ollama port
 
     oifname "lo" drop                                   # host Ollama :11434, PipelineProcessor :8010, …
     ip daddr 127.0.0.53 udp dport 53 accept             # systemd-resolved
     ip daddr @fdl_v4 tcp dport 443 accept
-    counter log prefix "sleuth-egress-drop " drop
+    counter log prefix "agents-egress-drop " drop
   }
 }
 ```
@@ -519,16 +521,16 @@ table inet sleuth_egress {
 ### 7.4 Running it
 
 - **Ollama is the one long-lived container.** It's a Quadlet unit
-  (`~sleuth/.config/containers/systemd/ollama.container`), enabled at boot,
+  (`~agents/.config/containers/systemd/ollama.container`), enabled at boot,
   because PipelineProcessor needs it around the clock.
-- **Everything else is ephemeral.** A systemd **user** timer under `sleuth`
-  (e.g. nightly 01:00, plus an on-demand `systemctl --user start sleuth-run`)
+- **Everything else is ephemeral.** A systemd **user** timer under `agents`
+  (e.g. nightly 01:00, plus an on-demand `systemctl --user start agents-run`)
   brings up proxy, broker and runner, runs one batch, and removes them. No agent
   container lives between runs; the only persistent agent state is config.
 - Broker audit logs go to the Dashboard (`agent.Runs.tool_log`) and to
   journald, not to a writable volume the runner can see.
 - **Kill switch:** revoke the token in the Dashboard (takes effect on the next
-  request), or `sudo -u sleuth systemctl --user disable --now sleuth-run.timer`.
+  request), or `sudo -u agents systemctl --user disable --now agents-run.timer`.
 
 ### 7.5 Isolation acceptance checks
 
@@ -545,12 +547,12 @@ must fail.
 | any | `curl http://host.containers.internal:11434`, `:8010`, `http://10.0.2.2:8010` | no route |
 | any | `curl http://128.84.17.58:8010`, `http://100.96.128.8:5433` | no route |
 | ollama | `curl https://registry.ollama.ai` | no route |
-| host | `sudo -u sleuth curl https://example.com` | dropped by nftables |
-| host | `sudo -u sleuth ls /home/fdl` | permission denied |
+| host | `sudo -u agents curl https://example.com` | dropped by nftables |
+| host | `sudo -u agents ls /home/fdl` | permission denied |
 | Dashboard | agent token → `GET /api/data/farms`, `/api/users`, `PATCH /api/uploads/...` | 403 |
 | Dashboard | agent token → write with another lab's entity ID | 404/403 |
 
-Turn this table into a script (`Client/sleuth/probe.sh`) and run it at the start
+Turn this table into a script (`Client/agents/probe.sh`) and run it at the start
 of every run. If any probe succeeds unexpectedly, abort the run. Add one row for
 the shared Ollama: from the runner, `curl http://host.containers.internal:8010`
 and `http://127.0.0.1:8010` must fail, while PipelineProcessor (as `fdl`) can
@@ -565,7 +567,7 @@ Recommended, with these differences understood:
 | | Mac test bed | Datamachine |
 |---|---|---|
 | Dashboard | `fdl.casata.org` (TrueNAS dev), dev agent token | `fdl.farmersdatalab.org`, prod agent token |
-| Containers | Podman Desktop / `podman machine` (Linux VM, applehv) | Rootless Podman under `sleuth` |
+| Containers | Podman Desktop / `podman machine` (Linux VM, applehv) | Rootless Podman under `agents` |
 | LLM | **Native** Ollama on macOS (Metal + unified memory). Containers reach it via `host.containers.internal:11434`. Linux containers on a Mac can't use the GPU at useful speed | Containerized Ollama on the 3090 |
 | Egress control | squid allowlist (`fdl.casata.org`) only | squid + nftables skuid |
 | Isolation probes (§7.5) | Partly meaningful (proxy, socket, token). Host-firewall rows N/A | All rows required before the first prod token |
@@ -587,8 +589,8 @@ Recommended, with these differences understood:
   maintainer's Mac (2026-11-03). Two safeguards: `OLLAMA_UPSTREAM` in `.env`
   points the relay at the lab Ollama server (`128.84.17.58:11435` +
   `OLLAMA_KEY`), so the model leaves the Mac entirely. With native Ollama,
-  `sleuth.sh` refuses to start unless the model fits (`SLEUTH_MEM_HEADROOM_GB`),
-  kills the runner if free memory drops under `SLEUTH_MEM_FLOOR_PCT`, and
+  `agents.sh` refuses to start unless the model fits (`AGENTS_MEM_HEADROOM_GB`),
+  kills the runner if free memory drops under `AGENTS_MEM_FLOOR_PCT`, and
   unloads the model after every run. Verified 2026-11-03 against a local
   `next dev` on :3100: all 56 isolation probes pass, plus dry-run `sort` and
   `link` passes through the lab LLM (runs 39–41).
@@ -627,10 +629,10 @@ that no out-of-policy output appears:
    runner (model loop). Compose stack + squid, probe script, and semantic search
    via `/api/agent/read/semantic`. Phase 1 must be deployed to `fdl.casata.org`
    first.
-2b. **Datamachine.** `sleuth` user, rootless Podman + CDI, containerized Ollama
+2b. **Datamachine.** `agents` user, rootless Podman + CDI, containerized Ollama
    as a Quadlet unit, nftables, full §7.5 probes. Then switch PipelineProcessor
    to the container Ollama and retire `ollama.service`.
-3. **Review UX.** The review queue + actions table in §5: Sleuth suggestions in
+3. **Review UX.** The review queue + actions table in §5: Agent suggestions in
    the Data Sorting `EditPanel`, approve-and-apply for corrections, AI notes on
    entity pages, the AI Activity page with run revert, and the spec page (copy /
    download / create pipeline from spec).

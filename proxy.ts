@@ -20,7 +20,7 @@ export default auth((req) => {
                       nextUrl.pathname.startsWith("/api/data")     ||
                       nextUrl.pathname.startsWith("/api/contacts") ||
                       nextUrl.pathname.startsWith("/api/whatsapp") ||
-                      // Data Sleuth agent — lib/agent/auth.ts (Agent_Tokens only)
+                      // Agents — lib/agent/auth.ts (Agent_Tokens only)
                       nextUrl.pathname.startsWith("/api/agent/") ||
                       nextUrl.pathname === "/api/pipelines/webhook" ||
                       nextUrl.pathname === "/api/basemaps/webhook" ||

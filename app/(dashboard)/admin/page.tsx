@@ -9,9 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EditModeToggle } from "./edit-mode-toggle";
 import { OnboardingMessageEditor } from "./onboarding-message-editor";
 import { UserRolesTable } from "./user-roles-table";
-import { DataSleuthSettings } from "./data-sleuth-settings";
+import { AgentSettings } from "./agent-settings";
 import { effectiveLabSlug, runWithTenant } from "@/lib/lab-db";
-import { sleuthLabId } from "@/lib/agent/admin";
+import { agentLabId } from "@/lib/agent/admin";
 
 export default async function AdminPage() {
   return runWithTenant(async () => {
@@ -44,8 +44,8 @@ export default async function AdminPage() {
     prisma.userProjectFilter.findMany({ select: { user_id: true, project_id: true } }),
   ]);
 
-  const labId = await sleuthLabId(session, await effectiveLabSlug(session));
-  const [sleuthTokens, sleuthTags] =
+  const labId = await agentLabId(session, await effectiveLabSlug(session));
+  const [agentTokens, agentTags] =
     labId == null
       ? [[], []]
       : await Promise.all([
@@ -115,9 +115,9 @@ export default async function AdminPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Data Sleuth Agent</CardTitle>
+          <CardTitle className="text-base">Agents</CardTitle>
           <CardDescription>
-            Tokens for the local Data Sleuth agent and the tags it may use in this lab. See
+            Tokens for the lab's sandboxed local agents (Data Sleuth is the first) and the tags they may use in this lab. See
             docs/agent-sandbox-plan.md.
           </CardDescription>
         </CardHeader>
@@ -125,15 +125,15 @@ export default async function AdminPage() {
           {labId == null ? (
             <p className="text-sm text-stone-500">Your account has no lab, so there is nothing to configure.</p>
           ) : (
-            <DataSleuthSettings
-              initialTokens={sleuthTokens.map((t) => ({
+            <AgentSettings
+              initialTokens={agentTokens.map((t) => ({
                 ...t,
                 created_at: t.created_at.toISOString(),
                 expires_at: iso(t.expires_at),
                 revoked_at: iso(t.revoked_at),
                 last_used_at: iso(t.last_used_at),
               }))}
-              initialTags={sleuthTags}
+              initialTags={agentTags}
             />
           )}
         </CardContent>

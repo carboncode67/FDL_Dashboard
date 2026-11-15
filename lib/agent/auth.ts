@@ -5,7 +5,7 @@ import { basePrisma } from "@/lib/prisma";
 import { resolveLabSlug, runWithLab } from "@/lib/lab-db";
 
 /**
- * Data Sleuth agent authentication (docs/agent-sandbox-plan.md §3).
+ * Agent authentication (docs/agent-sandbox-plan.md §3).
  *
  * Deliberately separate from lib/upload-auth.ts: authenticateUpload() only
  * knows Contacts.token and users.bearer_token, so an agent token can never

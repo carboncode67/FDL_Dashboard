@@ -306,7 +306,7 @@ Prisma: models `OperationCategory`, `OperationType`, `ManagementEvent`, `Managem
 - **Experiment page.** The same list filtered by `experiment_id`.
 - **Timeline lane** (§2.1): an icon per operation category, reusing OFE's `operation-icons.ts` mapping (copied).
 - **Later / optional:**
-  - an `AGENT_TABLES` entry for Data Sleuth, scoped via `farm.lab_id`, with no people columns;
+  - an `AGENT_TABLES` entry for agents, scoped via `farm.lab_id`, with no people columns;
   - `management_events` in Client's file-tree export.
 
 ### 6.6 Consolidation notes

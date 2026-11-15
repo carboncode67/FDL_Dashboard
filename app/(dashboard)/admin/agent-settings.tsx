@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export interface SleuthTokenRow {
+export interface AgentTokenRow {
   id: number;
   name: string;
   token_prefix: string;
@@ -17,7 +17,7 @@ export interface SleuthTokenRow {
   last_used_at: string | null;
 }
 
-export interface SleuthTagRow {
+export interface AgentTagRow {
   id: number;
   name: string;
   description: string | null;
@@ -27,18 +27,18 @@ function fmt(d: string | null): string {
   return d ? new Date(d).toLocaleDateString() : "—";
 }
 
-function tokenState(t: SleuthTokenRow): { label: string; variant: "secondary" | "destructive" | "outline" } {
+function tokenState(t: AgentTokenRow): { label: string; variant: "secondary" | "destructive" | "outline" } {
   if (t.revoked_at) return { label: "Revoked", variant: "destructive" };
   if (t.expires_at && new Date(t.expires_at) <= new Date()) return { label: "Expired", variant: "outline" };
   return { label: "Active", variant: "secondary" };
 }
 
-export function DataSleuthSettings({
+export function AgentSettings({
   initialTokens,
   initialTags,
 }: {
-  initialTokens: SleuthTokenRow[];
-  initialTags: SleuthTagRow[];
+  initialTokens: AgentTokenRow[];
+  initialTags: AgentTagRow[];
 }) {
   const [tokens, setTokens] = useState(initialTokens);
   const [tags, setTags] = useState(initialTags);
@@ -72,7 +72,7 @@ export function DataSleuthSettings({
       body: JSON.stringify({ name: tokenName, read_only: readOnly }),
     });
     if (!json) return;
-    const { token, ...row } = json as unknown as SleuthTokenRow & { token: string };
+    const { token, ...row } = json as unknown as AgentTokenRow & { token: string };
     setTokens([{ ...row, revoked_at: null, last_used_at: null }, ...tokens]);
     setNewToken(token);
     setTokenName("");
@@ -89,7 +89,7 @@ export function DataSleuthSettings({
       body: JSON.stringify({ name: tagName, description: tagDescription }),
     });
     if (!json) return;
-    setTags([...tags, json as unknown as SleuthTagRow].sort((a, b) => a.name.localeCompare(b.name)));
+    setTags([...tags, json as unknown as AgentTagRow].sort((a, b) => a.name.localeCompare(b.name)));
     setTagName("");
     setTagDescription("");
   }
@@ -124,7 +124,7 @@ export function DataSleuthSettings({
         <div className="flex flex-wrap items-center gap-2">
           <Input
             className="w-64"
-            placeholder="Token name (e.g. Datamachine sleuth)"
+            placeholder="Token name (e.g. Datamachine agents)"
             value={tokenName}
             onChange={(e) => setTokenName(e.target.value)}
           />

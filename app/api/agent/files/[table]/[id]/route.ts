@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 // cap just keeps one request from pulling a multi-GB file.
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
-// Audio and video are deliberately absent: the sleuth reads recordings only
+// Audio and video are deliberately absent: agents read recordings only
 // through their transcripts.
 const DIR_BY_TABLE: Record<string, { dir: string; column: string }> = {
   photos: { dir: "photos", column: "filename" },

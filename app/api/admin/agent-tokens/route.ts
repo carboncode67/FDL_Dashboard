@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateAgentToken } from "@/lib/agent/auth";
-import { withSleuthAdmin } from "@/lib/agent/admin";
+import { withAgentAdmin } from "@/lib/agent/admin";
 
 const DEFAULT_EXPIRY_DAYS = 90;
 const MAX_EXPIRY_DAYS = 365;
 
-// GET /api/admin/agent-tokens — this lab's Data Sleuth tokens (never the secret).
+// GET /api/admin/agent-tokens — this lab's agent tokens (never the secret).
 export async function GET() {
-  return withSleuthAdmin(async ({ labId }) => {
+  return withAgentAdmin(async ({ labId }) => {
     const tokens = await prisma.agentToken.findMany({
       where: { lab_id: labId },
       select: {
@@ -24,7 +24,7 @@ export async function GET() {
 // POST /api/admin/agent-tokens {name, read_only?, expires_in_days?}
 // Returns the raw token exactly once; only its sha256 is stored.
 export async function POST(req: Request) {
-  return withSleuthAdmin(async ({ session, labId }) => {
+  return withAgentAdmin(async ({ session, labId }) => {
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const name = typeof body.name === "string" ? body.name.trim().slice(0, 100) : "";
     if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });

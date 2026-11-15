@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 /**
- * What the Data Sleuth agent can read (docs/agent-sandbox-plan.md §3).
+ * What an agent can read (docs/agent-sandbox-plan.md §3).
  *
  * Table level is an allowlist: a table not listed here is invisible to the
  * agent, so a new table stays out of reach until someone adds it on purpose.

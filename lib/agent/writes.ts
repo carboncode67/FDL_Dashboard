@@ -4,7 +4,7 @@ import type { AgentAuth } from "@/lib/agent/auth";
 import { agentTableHasId, getAgentRow, getAgentTable } from "@/lib/agent/registry";
 
 /**
- * Validation for every Data Sleuth write (docs/agent-sandbox-plan.md §4).
+ * Validation for every agent write (docs/agent-sandbox-plan.md §4).
  * The agent writes only to its own Agent_* tables, and every write must:
  *   - belong to an open run of the calling token (run_id),
  *   - fit in that run's write budget,
