@@ -5,8 +5,8 @@
 -- in docker-compose.yml and docker-compose.lab.yml before running this migration.
 --
 -- Run against both instances:
---   PGPASSWORD=teddyboy psql -h localhost -p 5433  -U nocodb -d nocodb -f migrations/033_interview_chunks.sql
---   PGPASSWORD=teddyboy psql -h localhost -p 15432 -U nocodb -d nocodb -f migrations/033_interview_chunks.sql
+--   PGPASSWORD=$FDL_DB_PASSWORD psql -h localhost -p 5433  -U nocodb -d nocodb -f migrations/033_interview_chunks.sql
+--   PGPASSWORD=$FDL_DB_PASSWORD psql -h localhost -p 15432 -U nocodb -d nocodb -f migrations/033_interview_chunks.sql
 
 CREATE EXTENSION IF NOT EXISTS vector;
 
