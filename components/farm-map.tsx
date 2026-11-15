@@ -10,8 +10,8 @@ import { SatelliteToggleButton } from "@/components/satellite-toggle-button"
 import { RasterLayer, VectorLayer, TiledBasemapLayer, type MapRaster } from "@/components/map-raster-layers"
 import { TERRAIN_RAMP_CSS } from "@/lib/terrain-ramp"
 import { NDVI_MAX, NDVI_MIN, NDVI_RAMP_CSS } from "@/lib/ndvi-ramp"
-import { ContextTimeline } from "@/components/context-timeline"
-import type { ContextTimeline as Timeline } from "@/lib/context-timeline"
+import { FarmTimeline } from "@/components/farm-timeline"
+import type { FarmTimeline as Timeline, TimelineEvent } from "@/lib/farm-timeline"
 
 export type { MapRaster }
 
@@ -84,9 +84,6 @@ export interface FarmMapProps {
   // Newest GeoDaRT USGS 3DEP Context_Rasters row for this farm, if any — drives
   // the "Terrain" checkbox (server-rendered hillshade × elevation image).
   terrainRasterId?: number | null
-  // Farm has dated GeoDaRT rasters (USDM drought, later imagery) — shows the
-  // timeline under the map, fetched lazily from /api/farms/[id]/context/timeline.
-  hasContextTimeline?: boolean
   farmLat?: number
   farmLng?: number
 }
@@ -290,7 +287,44 @@ function BoundsAdjuster({ bounds }: { bounds: L.LatLngBoundsExpression }) {
   return null
 }
 
-export default function FarmMap({ fields, zones, photos, notes, farmId, labUploads = [], rasters = [], canDeleteLayers = false, processingBasemaps = [], processingConfigured = false, canRetileBasemaps = false, terrainRasterId = null, hasContextTimeline = false, farmLat, farmLng }: FarmMapProps) {
+// A timeline event the user picked: fly there and mark it with an open popup.
+function EventFocus({ event }: { event: TimelineEvent }) {
+  const map = useMap()
+  const markerRef = useRef<L.CircleMarker | null>(null)
+  useEffect(() => {
+    map.flyTo([event.lat!, event.lng!], Math.max(map.getZoom(), 17), { duration: 0.6 })
+    const t = setTimeout(() => markerRef.current?.openPopup(), 650)
+    return () => clearTimeout(t)
+  }, [map, event])
+  return (
+    <CircleMarker
+      ref={markerRef}
+      center={[event.lat!, event.lng!]}
+      radius={10}
+      pathOptions={{ color: "#b45309", weight: 3, fillColor: "#f59e0b", fillOpacity: 0.35 }}
+    >
+      <Popup>
+        <strong>{event.label}</strong>
+        <br />
+        <span style={{ fontSize: "0.75rem" }}>{new Date(event.at).toLocaleString()}</span>
+        {event.detail && (
+          <>
+            <br />
+            {event.detail}
+          </>
+        )}
+        {event.href && (
+          <>
+            <br />
+            <a href={event.href} target="_blank" rel="noreferrer">Open</a>
+          </>
+        )}
+      </Popup>
+    </CircleMarker>
+  )
+}
+
+export default function FarmMap({ fields, zones, photos, notes, farmId, labUploads = [], rasters = [], canDeleteLayers = false, processingBasemaps = [], processingConfigured = false, canRetileBasemaps = false, terrainRasterId = null, farmLat, farmLng }: FarmMapProps) {
   const [gpsTracks, setGpsTracks] = useState<GpsTrack[]>([])
   const [isSatellite, setIsSatellite] = useState(false)
   const mapRef = useRef<L.Map | null>(null)
@@ -306,6 +340,7 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
   const handleTerrainError = useCallback(() => setTerrainFailed(true), [])
   const [timeline, setTimeline] = useState<Timeline | null>(null)
   const [timelineDate, setTimelineDate] = useState<string | null>(null)
+  const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
   const [imageryMode, setImageryMode] = useState<ImageryMode | "off">("ndvi")
   const [maskClouds, setMaskClouds] = useState(true)
   const [imageryOpacity, setImageryOpacity] = useState(0.85)
@@ -317,13 +352,14 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
   }, [])
   const handleImageryError = useCallback(() => setImageryFailed(true), [])
 
+  // Context lanes + data-collection events (lib/farm-timeline.ts). Fetched for
+  // every farm: a farm with uploads but no pulled context still has a timeline.
   useEffect(() => {
-    if (!hasContextTimeline) return
-    fetch(`/api/farms/${farmId}/context/timeline`)
+    fetch(`/api/farms/${farmId}/timeline`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data: Timeline | null) => setTimeline(data))
       .catch(() => {})
-  }, [farmId, hasContextTimeline])
+  }, [farmId])
 
   useEffect(() => {
     fetch(`/api/farms/${farmId}/gps-tracks`)
@@ -672,6 +708,7 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
               </Polyline>
             )
           })}
+          {selectedEvent?.lat != null && selectedEvent.lng != null && <EventFocus event={selectedEvent} />}
         </MapContainer>
       </div>
 
@@ -768,7 +805,15 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
         </div>
       )}
 
-      {timeline && <ContextTimeline timeline={timeline} value={timelineDate} onChange={setTimelineDate} />}
+      {timeline && (
+        <FarmTimeline
+          timeline={timeline}
+          value={timelineDate}
+          onChange={setTimelineDate}
+          selectedEventId={selectedEvent?.id ?? null}
+          onSelectEvent={setSelectedEvent}
+        />
+      )}
 
       {pipelineOutputRasters.length > 0 && (
         <div className="flex flex-wrap gap-3 px-1 text-sm">

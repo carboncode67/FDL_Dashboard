@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { runWithTenant } from "@/lib/lab-db";
-import { DATA_DIR } from "@/lib/data-api";
 import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
-import { ensureImageryRender, IMAGERY_MODES, RENDER_VERSION, type ImageryMode } from "@/lib/imagery-render";
-import { cloudScore, farmFieldGeometries } from "@/lib/imagery-cloud";
+import { RENDER_VERSION } from "@/lib/imagery-render";
+import { imageryResponse } from "@/lib/context-imagery-response";
 
 export const runtime = "nodejs";
 
@@ -25,13 +22,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (isNaN(rasterId)) return NextResponse.json({ error: "Invalid raster id" }, { status: 400 });
 
   const url = new URL(req.url);
-  const modeParam = url.searchParams.get("mode") ?? "ndvi";
-  if (!IMAGERY_MODES.includes(modeParam as ImageryMode)) {
-    return NextResponse.json({ error: "mode must be ndvi or rgb" }, { status: 400 });
-  }
-  const mode = modeParam as ImageryMode;
-  const mask = url.searchParams.get("mask") !== "0";
-
   const raster = await prisma.contextRaster.findUnique({
     where: { id: rasterId },
     select: { id: true, farm_id: true, product: true, filename: true, sha256: true, capture_date: true },
@@ -42,45 +32,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const scope = await getEffectiveScope(session.user.id, session.user.category);
   if (!scopeIncludesFarm(scope, raster.farm_id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const sourcePath = path.join(DATA_DIR, "context", path.basename(raster.filename));
-  let render;
-  try {
-    render = await ensureImageryRender(sourcePath, path.parse(raster.filename).name, {
-      mode,
-      mask,
-      captureDate: raster.capture_date,
-    });
-  } catch (err) {
-    console.error(`[imagery] render failed for context raster ${raster.id}:`, err);
-    return NextResponse.json({ error: "Imagery render failed" }, { status: 500 });
-  }
-
-  if (url.searchParams.get("format") === "image") {
-    const body = await fs.readFile(render.imagePath);
-    return new NextResponse(new Uint8Array(body), {
-      headers: {
-        "Content-Type": "image/webp",
-        // Safe to cache: the source raster never changes for a given id, and
-        // the URL carries mode, mask and RENDER_VERSION.
-        "Cache-Control": "private, max-age=86400",
-      },
-    });
-  }
-
-  let clearFraction = render.meta.clearFraction;
-  try {
-    clearFraction = (await cloudScore(sourcePath, raster.sha256, await farmFieldGeometries(raster.farm_id), raster.capture_date)).clearFraction;
-  } catch (err) {
-    console.error(`[imagery] cloud score failed for context raster ${raster.id}:`, err);
-  }
-
-  return NextResponse.json(
-    {
-      ...render.meta,
-      clearFraction,
-      imageUrl: `/api/context/rasters/${raster.id}/imagery?mode=${mode}&mask=${mask ? 1 : 0}&format=image&v=${RENDER_VERSION}`,
-    },
-    { headers: { "Cache-Control": "no-store" } }
+  return imageryResponse(raster, url, (mode, mask) =>
+    `/api/context/rasters/${raster.id}/imagery?mode=${mode}&mask=${mask ? 1 : 0}&format=image&v=${RENDER_VERSION}`,
   );
   });
 }

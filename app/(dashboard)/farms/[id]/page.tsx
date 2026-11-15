@@ -32,6 +32,9 @@ import { DocumentUpload } from "@/components/document-upload";
 import { AddContactButton } from "@/components/add-contact-button";
 import { DrawFieldButton } from "@/components/draw-field-button";
 import { SpatialContextCard } from "@/components/spatial-context-card";
+import { ManagementEventsCard } from "@/components/management-events-card";
+import { managementEventsForFarm } from "@/lib/management-events";
+import { getContextCoverage } from "@/lib/context-coverage";
 import { SamplingMapsTab } from "@/components/sampling-maps-tab";
 import { serializeContextJob } from "@/lib/context-types";
 import { geodartHasKey } from "@/lib/geodart";
@@ -132,10 +135,6 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
           orderBy: { fetched_at: "desc" },
           take: 1,
           select: { id: true },
-        },
-        // Dated GeoDaRT rasters (drought weeks, imagery) → the map's timeline.
-        _count: {
-          select: { ContextRasters: { where: { product: { in: ["USDroughtMonitor", "Sentinel2"] } } } },
         },
         SamplingMaps: {
           orderBy: { updated_at: "desc" },
@@ -289,7 +288,6 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
     ...farm.YieldRuns.filter((r) => r.status !== "ready").map(yieldRunToProcessing),
   ];
   const terrainRasterId = farm.ContextRasters[0]?.id ?? null;
-  const hasContextTimeline = farm._count.ContextRasters > 0;
 
   // Lab upload map pins (GPS-tagged only)
   const labUploadPins = farm.LabMemberUploads.filter(
@@ -395,6 +393,10 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
       take: 20,
     })
   ).map(serializeContextJob);
+  const [managementEvents, contextCoverage] = await Promise.all([
+    managementEventsForFarm(farmId),
+    getContextCoverage(farmId),
+  ]);
   const farmHasGeometry =
     farm.Fields.some((f) => f.geometry) || farm.ExperimentZones.some((z) => z.geometry);
 
@@ -613,7 +615,6 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             processingConfigured={processingConfigured}
             canRetileBasemaps={showCreate}
             terrainRasterId={terrainRasterId}
-            hasContextTimeline={hasContextTimeline}
             farmId={farm.id}
             farmLat={farm.latitude ?? undefined}
             farmLng={farm.longitude ?? undefined}
@@ -635,7 +636,10 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             canPull={showEdit}
             hasKey={geodartHasKey}
             initialJobs={contextJobs}
+            initialCoverage={contextCoverage}
           />
+
+          {managementEvents.length > 0 && <ManagementEventsCard events={managementEvents} />}
         </TabsContent>
 
         {/* ── Contacts ── */}
@@ -803,7 +807,6 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
             labUploads={labUploadPins}
             rasters={mapRasters}
             terrainRasterId={terrainRasterId}
-            hasContextTimeline={hasContextTimeline}
             farmId={farm.id}
             farmLat={farm.latitude ?? undefined}
             farmLng={farm.longitude ?? undefined}

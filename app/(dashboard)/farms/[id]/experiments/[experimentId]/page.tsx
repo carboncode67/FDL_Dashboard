@@ -6,6 +6,8 @@ import { canDelete as checkCanDelete, type Role } from "@/lib/roles";
 import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import ExperimentFormClient from "../experiment-form-client";
 import { runWithTenant } from "@/lib/lab-db";
+import { ManagementEventsCard } from "@/components/management-events-card";
+import { managementEventsForFarm } from "@/lib/management-events";
 
 export default async function EditExperimentPage({
   params,
@@ -93,7 +95,10 @@ export default async function EditExperimentPage({
     ...farmLabUps.map((l) => ({ id: l.id, lat: l.latitude!, lng: l.longitude!, type: "lab"   as const })),
   ];
 
+  const managementEvents = await managementEventsForFarm(farmId, { experimentId: expId });
+
   return (
+    <div className="space-y-6">
     <ExperimentFormClient
       farmId={farm.id}
       farmName={farm.Farm_Name}
@@ -185,6 +190,10 @@ export default async function EditExperimentPage({
         pointCount:   m._count.Points,
       }))}
     />
+    {managementEvents.length > 0 && (
+      <ManagementEventsCard events={managementEvents} title="Management events for this experiment" />
+    )}
+    </div>
   );
   });
 }

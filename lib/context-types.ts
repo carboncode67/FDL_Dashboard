@@ -15,6 +15,8 @@ export interface ContextRasterDTO {
 
 export interface ContextJobDTO {
   id: number;
+  mode: "pull" | "update" | "expand";
+  parent_job_id: number | null;
   products: string[];
   start_date: string;
   end_date: string;
@@ -36,6 +38,8 @@ function d(v: Date | null | undefined): string | null {
 export function serializeContextJob(job: any): ContextJobDTO {
   return {
     id: job.id,
+    mode: job.mode ?? "pull",
+    parent_job_id: job.parent_job_id ?? null,
     products: job.products ?? [],
     start_date: d(job.start_date) ?? "",
     end_date: d(job.end_date) ?? "",
@@ -59,4 +63,33 @@ export function serializeContextJob(job: any): ContextJobDTO {
       crs: r.crs ?? null,
     })),
   };
+}
+
+/** lib/context-coverage.ts — what a farm already has, per product. */
+export interface ContextProductCoverage {
+  static: boolean;
+  covered: boolean;
+  intervals: [string, string][]; // time-varying only, merged, YYYY-MM-DD
+}
+
+export interface ContextCoverageDTO {
+  hasGeometry: boolean;
+  aoi: [number, number][] | null; // AOI ring Update/Expand reuse
+  bufferM: number | null;
+  aoiChanged: boolean; // fields now extend past every earlier pull's AOI
+  inFlight: boolean; // a job is still pending/running: Update/Expand wait
+  anyCovered: boolean;
+  today: string;
+  products: Record<string, ContextProductCoverage>;
+}
+
+export interface ContextPlanGroup {
+  start: string;
+  end: string;
+  products: string[];
+}
+
+export interface ContextPlanSkip {
+  product: string;
+  reason: string;
 }

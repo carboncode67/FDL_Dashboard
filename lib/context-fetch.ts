@@ -27,7 +27,9 @@ import {
   type ProductCode,
 } from "@/lib/geodart";
 import { cloudScore, farmFieldGeometries, MIN_FIELD_CLEAR_FRACTION } from "@/lib/imagery-cloud";
-import { geojsonBounds, unionBounds, bboxRing } from "@/lib/geo";
+import { geojsonBounds, unionBounds, bboxRing, type Bounds } from "@/lib/geo";
+import { boundsContain, getContextCoverage, planContextRequests, withFarmContextLock, type PlanArgs } from "@/lib/context-coverage";
+import { PRODUCTS as GEODART_PRODUCTS, geodartHasKey } from "@/lib/geodart";
 
 export class ContextRequestError extends Error {}
 
@@ -44,6 +46,11 @@ export async function requestContextFetch(args: {
   endDate: string;
   bufferM?: number;
   requestedBy?: string | null;
+  // Update/Expand (lib/context-coverage.ts): reuse an earlier pull's exact AOI
+  // so the new rasters line up with the old ones.
+  aoiRing?: [number, number][];
+  mode?: "pull" | "update" | "expand";
+  parentJobId?: number | null;
 }) {
   const bufferM = args.bufferM ?? 150;
   const farm = await prisma.farm.findUnique({
@@ -54,14 +61,19 @@ export async function requestContextFetch(args: {
     },
   });
   if (!farm) throw new ContextRequestError("Farm not found");
-  const bounds = unionBounds([
-    ...farm.Fields.map((f) => geojsonBounds(f.geometry)),
-    ...farm.ExperimentZones.map((z) => geojsonBounds(z.geometry)),
-  ]);
-  if (!bounds) throw new ContextRequestError("Farm has no field or zone geometry — draw a field boundary first");
-  const aoiRing = bboxRing(bounds, bufferM);
+  let aoiRing = args.aoiRing;
+  if (!aoiRing) {
+    const bounds = unionBounds([
+      ...farm.Fields.map((f) => geojsonBounds(f.geometry)),
+      ...farm.ExperimentZones.map((z) => geojsonBounds(z.geometry)),
+    ]);
+    if (!bounds) throw new ContextRequestError("Farm has no field or zone geometry — draw a field boundary first");
+    aoiRing = bboxRing(bounds, bufferM);
+  }
 
   const jobData = {
+    mode: args.mode ?? "pull",
+    parent_job_id: args.parentJobId ?? null,
     farm_id: args.farmId,
     requested_by: args.requestedBy ?? null,
     products: args.products,
@@ -86,6 +98,58 @@ export async function requestContextFetch(args: {
       include: { Rasters: true },
     });
   }
+}
+
+/**
+ * Update / Expand: works out what the farm still lacks (lib/context-coverage.ts)
+ * and submits one job per distinct date range, all on the earlier pulls' AOI.
+ * The server alone decides the ranges, so a client can never re-request data
+ * the farm already has. `dryRun` returns the plan without submitting (the
+ * Expand dialog's preview uses it, so preview and request can't disagree).
+ */
+export async function requestContextExtension(args: {
+  farmId: number;
+  plan: PlanArgs;
+  requestedBy?: string | null;
+  dryRun?: boolean;
+}) {
+  return withFarmContextLock(args.farmId, async () => {
+    const coverage = await getContextCoverage(args.farmId);
+    if (!coverage.anyCovered || !coverage.aoi) {
+      throw new ContextRequestError("Nothing has been pulled for this farm yet — use Pull spatial context first");
+    }
+    if (coverage.aoiChanged) {
+      throw new ContextRequestError("Field boundaries changed since the last pull — use Pull spatial context");
+    }
+    const { groups, skipped } = planContextRequests(
+      coverage,
+      args.plan,
+      (p) => !GEODART_PRODUCTS[p].needsKey || geodartHasKey,
+    );
+    if (args.dryRun) return { coverage, groups, skipped, jobs: [] };
+    if (coverage.inFlight) {
+      throw new ContextRequestError("A spatial-context download is still running for this farm — try again when it finishes");
+    }
+
+    const jobs = [];
+    let parentJobId: number | null = null;
+    for (const g of groups) {
+      const job = await requestContextFetch({
+        farmId: args.farmId,
+        products: g.products as ProductCode[],
+        startDate: g.start,
+        endDate: g.end,
+        bufferM: coverage.bufferM ?? 150,
+        aoiRing: coverage.aoi,
+        mode: args.plan.mode,
+        parentJobId,
+        requestedBy: args.requestedBy,
+      });
+      parentJobId ??= job.id;
+      jobs.push(job);
+    }
+    return { coverage, groups, skipped, jobs };
+  });
 }
 
 const CONTEXT_DIR = path.join(DATA_DIR, "context");
@@ -188,8 +252,36 @@ function ring(job: NonNullable<Job>): [number, number][] {
   return Array.isArray(job.aoi) ? (job.aoi as [number, number][]) : [];
 }
 
+function ringBounds(r: unknown): Bounds | null {
+  if (!Array.isArray(r) || r.length < 3) return null;
+  const xs = r.map((p) => (Array.isArray(p) ? Number(p[0]) : NaN));
+  const ys = r.map((p) => (Array.isArray(p) ? Number(p[1]) : NaN));
+  if (xs.some(isNaN) || ys.some(isNaN)) return null;
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
+
 function iso(d: Date): string {
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * `product:YYYY-MM-DD` keys of dated rasters the farm already has from other
+ * jobs whose footprint covers this job's AOI — what a new download of the
+ * same date would only duplicate.
+ */
+async function existingDatedRasters(job: NonNullable<Job>): Promise<Set<string>> {
+  const mine = ringBounds(ring(job));
+  const rows = await prisma.contextRaster.findMany({
+    where: { farm_id: job.farm_id, job_id: { not: job.id }, capture_date: { not: null } },
+    select: { product: true, capture_date: true, footprint: true },
+  });
+  const out = new Set<string>();
+  for (const r of rows) {
+    const fp = r.footprint as { coordinates?: unknown[] } | null;
+    const theirs = ringBounds(fp?.coordinates?.[0]);
+    if (mine && theirs && boundsContain(theirs, mine)) out.add(`${r.product}:${iso(r.capture_date!)}`);
+  }
+  return out;
 }
 
 async function advanceJob(job: NonNullable<Job>): Promise<void> {
@@ -242,7 +334,17 @@ async function advanceJob(job: NonNullable<Job>): Promise<void> {
       await downloadZip(link, tmp);
       const geoms = await farmFieldGeometries(job.farm_id);
       let cloudy = 0;
+      const alreadyHave = await existingDatedRasters(job);
+      let repeats = 0;
       rasters = await extractTifs(tmp, job.id, async (r, filePath) => {
+        // Update/Expand overlap guard: GeoDaRT can return the boundary week
+        // either side of the range, and Update re-requests the last few days
+        // on purpose (lib/context-coverage.ts PUBLICATION_LAG_DAYS). A date the
+        // farm already has over this AOI is dropped, not stored twice.
+        if (r.captureDate && alreadyHave.has(`${r.product}:${iso(r.captureDate)}`)) {
+          repeats++;
+          return false;
+        }
         if (r.product !== "Sentinel2") return true;
         try {
           const { clearFraction } = await cloudScore(filePath, r.sha256, geoms, r.captureDate);
@@ -255,6 +357,7 @@ async function advanceJob(job: NonNullable<Job>): Promise<void> {
         cloudy++;
         return false;
       });
+      if (repeats) console.log(`[ContextFetch] job ${job.id}: skipped ${repeats} raster(s) the farm already has`);
       if (cloudy) console.log(`[ContextFetch] job ${job.id}: skipped ${cloudy} Sentinel-2 date(s) over 50% cloud on the fields`);
     } finally {
       fs.rm(tmp, { force: true }, () => {});
