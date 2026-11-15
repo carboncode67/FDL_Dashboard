@@ -2217,6 +2217,196 @@ model SamplingMapGroup {
   @@schema("pgntarg2udzj1f3")
 }
 
+// Data Sleuth agent (migration 092, docs/agent-sandbox-plan.md). An agent token
+// is not a User: only lib/agent/auth.ts accepts it, for /api/agent/* only.
+// created_by_id / decided_by_id / implemented_pipeline_id are plain scalars
+// (FKs exist in SQL) to keep User/Pipeline free of back-relations.
+model AgentToken {
+  id            Int       @id @default(autoincrement())
+  lab_id        Int
+  name          String
+  token_hash    String    @unique @db.Char(64)
+  token_prefix  String
+  scopes        String[]  @default(["read", "write"])
+  created_by_id String?
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at    DateTime? @db.Timestamptz(6)
+  revoked_at    DateTime? @db.Timestamptz(6)
+  last_used_at  DateTime? @db.Timestamptz(6)
+
+  Runs AgentRun[]
+
+  @@map("Agent_Tokens")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model AgentRun {
+  id            Int       @id @default(autoincrement())
+  lab_id        Int
+  token_id      Int
+  status        String    @default("open") // open | closed | aborted | reverted
+  task          String?
+  model         String?
+  vision_model  String?
+  prompt_sha256 String?   @db.Char(64)
+  write_budget  Int       @default(200)
+  write_count   Int       @default(0)
+  summary       String?
+  tool_log      Json?
+  started_at    DateTime  @default(now()) @db.Timestamptz(6)
+  ended_at      DateTime? @db.Timestamptz(6)
+
+  Token           AgentToken            @relation(fields: [token_id], references: [id], onDelete: Cascade)
+  Comments        AgentComment[]
+  TagLinks        AgentTagLink[]
+  Links           AgentLink[]
+  Recommendations AgentRecommendation[]
+  Specs           AgentAnalysisSpec[]
+
+  @@index([lab_id, started_at(sort: Desc)])
+  @@map("Agent_Runs")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model AgentTagVocabulary {
+  id          Int      @id @default(autoincrement())
+  lab_id      Int
+  name        String
+  description String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  Links AgentTagLink[]
+
+  @@map("Agent_Tag_Vocabulary")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model AgentComment {
+  id            Int       @id @default(autoincrement())
+  lab_id        Int
+  run_id        Int
+  target_table  String
+  target_id     Int
+  body          String
+  confidence    Float?    @db.Real
+  evidence      Json      @default("[]")
+  status        String    @default("open") // open | accepted | dismissed | superseded
+  decided_by_id String?
+  decided_at    DateTime? @db.Timestamptz(6)
+  decision_note String?
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+
+  Run AgentRun @relation(fields: [run_id], references: [id], onDelete: Cascade)
+
+  @@index([target_table, target_id])
+  @@index([run_id])
+  @@map("Agent_Comments")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model AgentTagLink {
+  id            Int       @id @default(autoincrement())
+  lab_id        Int
+  run_id        Int
+  target_table  String
+  target_id     Int
+  tag_id        Int
+  confidence    Float?    @db.Real
+  evidence      Json      @default("[]")
+  status        String    @default("open")
+  decided_by_id String?
+  decided_at    DateTime? @db.Timestamptz(6)
+  decision_note String?
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+
+  Run AgentRun           @relation(fields: [run_id], references: [id], onDelete: Cascade)
+  Tag AgentTagVocabulary @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+
+  @@index([target_table, target_id])
+  @@index([run_id])
+  @@map("Agent_Tag_Links")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model AgentLink {
+  id            Int       @id @default(autoincrement())
+  lab_id        Int
+  run_id        Int
+  source_table  String
+  source_id     Int
+  target_table  String
+  target_id     Int
+  relation      String // calibration_reference | same_event | supports | contradicts | input_to | duplicate_of
+  rationale     String
+  confidence    Float?    @db.Real
+  evidence      Json      @default("[]")
+  status        String    @default("open")
+  decided_by_id String?
+  decided_at    DateTime? @db.Timestamptz(6)
+  decision_note String?
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+
+  Run AgentRun @relation(fields: [run_id], references: [id], onDelete: Cascade)
+
+  @@index([source_table, source_id])
+  @@index([target_table, target_id])
+  @@index([run_id])
+  @@map("Agent_Links")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model AgentRecommendation {
+  id               Int       @id @default(autoincrement())
+  lab_id           Int
+  run_id           Int
+  kind             String // upload_sort | data_correction | analysis_parameter | tag_new
+  target_table     String?
+  target_id        Int?
+  proposed         Json
+  current_snapshot Json?
+  computation      Json?
+  rationale        String
+  confidence       Float?    @db.Real
+  evidence         Json      @default("[]")
+  status           String    @default("open") // open | accepted | rejected | dismissed | superseded
+  decided_by_id    String?
+  decided_at       DateTime? @db.Timestamptz(6)
+  decision_note    String?
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+
+  Run AgentRun @relation(fields: [run_id], references: [id], onDelete: Cascade)
+
+  @@index([target_table, target_id])
+  @@index([run_id])
+  @@map("Agent_Recommendations")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model AgentAnalysisSpec {
+  id                      Int       @id @default(autoincrement())
+  lab_id                  Int
+  run_id                  Int
+  title                   String
+  problem                 String
+  inputs                  Json      @default("[]")
+  method                  String
+  expected_outputs        String
+  validation              String?
+  open_questions          String?
+  status                  String    @default("open") // open | accepted | in_progress | implemented | dismissed
+  implemented_pipeline_id Int?
+  decided_by_id           String?
+  decided_at              DateTime? @db.Timestamptz(6)
+  decision_note           String?
+  created_at              DateTime  @default(now()) @db.Timestamptz(6)
+
+  Run AgentRun @relation(fields: [run_id], references: [id], onDelete: Cascade)
+
+  @@index([run_id])
+  @@map("Agent_Analysis_Specs")
+  @@schema("pgntarg2udzj1f3")
+}
+
 // OFE Dashboard -> FDB management events (migration 096, lib/ofe-management-sync.ts).
 // OFE-owned (ofe_id set) rows are read-only here. Column names follow OFE's so
 // a later consolidation is a straight copy.

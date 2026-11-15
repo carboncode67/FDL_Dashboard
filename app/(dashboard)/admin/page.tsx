@@ -9,7 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EditModeToggle } from "./edit-mode-toggle";
 import { OnboardingMessageEditor } from "./onboarding-message-editor";
 import { UserRolesTable } from "./user-roles-table";
-import { runWithTenant } from "@/lib/lab-db";
+import { DataSleuthSettings } from "./data-sleuth-settings";
+import { effectiveLabSlug, runWithTenant } from "@/lib/lab-db";
+import { sleuthLabId } from "@/lib/agent/admin";
 
 export default async function AdminPage() {
   return runWithTenant(async () => {
@@ -41,6 +43,27 @@ export default async function AdminPage() {
     }),
     prisma.userProjectFilter.findMany({ select: { user_id: true, project_id: true } }),
   ]);
+
+  const labId = await sleuthLabId(session, await effectiveLabSlug(session));
+  const [sleuthTokens, sleuthTags] =
+    labId == null
+      ? [[], []]
+      : await Promise.all([
+          prisma.agentToken.findMany({
+            where: { lab_id: labId },
+            select: {
+              id: true, name: true, token_prefix: true, scopes: true, created_at: true,
+              expires_at: true, revoked_at: true, last_used_at: true,
+            },
+            orderBy: { created_at: "desc" },
+          }),
+          prisma.agentTagVocabulary.findMany({
+            where: { lab_id: labId },
+            select: { id: true, name: true, description: true },
+            orderBy: { name: "asc" },
+          }),
+        ]);
+  const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
   const role = (session.user.role ?? "admin") as Role;
   const showDelete = canDelete(role, editMode);
@@ -87,6 +110,32 @@ export default async function AdminPage() {
         </CardHeader>
         <CardContent>
           <OnboardingMessageEditor initialMessage={onboardingMessage} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Data Sleuth Agent</CardTitle>
+          <CardDescription>
+            Tokens for the local Data Sleuth agent and the tags it may use in this lab. See
+            docs/agent-sandbox-plan.md.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {labId == null ? (
+            <p className="text-sm text-stone-500">Your account has no lab, so there is nothing to configure.</p>
+          ) : (
+            <DataSleuthSettings
+              initialTokens={sleuthTokens.map((t) => ({
+                ...t,
+                created_at: t.created_at.toISOString(),
+                expires_at: iso(t.expires_at),
+                revoked_at: iso(t.revoked_at),
+                last_used_at: iso(t.last_used_at),
+              }))}
+              initialTags={sleuthTags}
+            />
+          )}
         </CardContent>
       </Card>
 
