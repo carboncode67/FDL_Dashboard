@@ -20,7 +20,7 @@ import { USDM_CATEGORIES, USDM_COLORS } from "@/lib/usdm"
 //   to imagery dates, else drought weeks, and drives the map's imagery layer.
 //   `value`/`onChange` are unchanged from the old ContextTimeline.
 // - Zoom: presets, or ⌘/Ctrl + scroll around the cursor. Pan: drag the date
-//   axis, or the overview strip under it when zoomed in.
+//   axis, or the overview strip under it.
 // - Events are bucketed by pixel width. Clicking a single event selects it (the
 //   map flies to it); clicking a cluster zooms into it, or lists it once the
 //   view is down to a couple of days.
@@ -198,11 +198,26 @@ export interface FarmTimelineProps {
 }
 
 export function FarmTimeline({ timeline, value, onChange, selectedEventId, onSelectEvent }: FarmTimelineProps) {
-  const fullStart = dayMs(timeline.start)
-  const fullEnd = Math.max(dayMs(timeline.end) + DAY_MS, fullStart + DAY_MS)
+  // Presets: All = first data point − 1 month → today; 1 yr = the last 360
+  // days; Season = Jan 1 → today. The pannable extent covers all three, plus
+  // anything dated after today.
+  const [todayEnd] = useState(() => {
+    const n = new Date()
+    return Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() + 1)
+  })
+  const rawStart = dayMs(timeline.start)
+  const rawEnd = Math.max(dayMs(timeline.end) + DAY_MS, rawStart + DAY_MS)
+  const first = new Date(rawStart)
+  const allStart = Date.UTC(first.getUTCFullYear(), first.getUTCMonth() - 1, first.getUTCDate())
+  const yearStart = todayEnd - 360 * DAY_MS
+  const seasonStart = Date.UTC(new Date(todayEnd - DAY_MS).getUTCFullYear(), 0, 1)
+  const fullStart = Math.min(allStart, yearStart, seasonStart)
+  const fullEnd = Math.max(todayEnd, rawEnd)
+  const presetView = (kind: "all" | "year" | "season"): [number, number] =>
+    kind === "year" ? [yearStart, todayEnd] : kind === "season" ? [seasonStart, todayEnd] : [allStart, fullEnd]
 
   const [expanded, setExpanded] = useState(readExpanded)
-  const [view, setView] = useState<[number, number]>([fullStart, fullEnd])
+  const [view, setView] = useState<[number, number]>(() => presetView("all"))
   const [width, setWidth] = useState(600)
   const [hover, setHover] = useState<{ lane: string; bucket: Bucket } | null>(null)
   const [pickList, setPickList] = useState<TimelineEvent[] | null>(null)
@@ -326,13 +341,10 @@ export function FarmTimeline({ timeline, value, onChange, selectedEventId, onSel
 
   function preset(kind: "all" | "year" | "season") {
     setPickList(null)
-    if (kind === "all") return setView([fullStart, fullEnd])
-    if (kind === "year") return setView(clamp(fullEnd - 365 * DAY_MS, fullEnd))
-    const endYear = new Date(fullEnd).getUTCFullYear()
-    const y = fullEnd < Date.UTC(endYear, 2, 1) ? endYear - 1 : endYear
-    setView(clamp(Date.UTC(y, 2, 1), Date.UTC(y, 11, 1)))
+    setView(presetView(kind))
   }
-  const zoomed = vs > fullStart + DAY_MS || ve < fullEnd - DAY_MS
+
+
 
   // ----- event lanes -----
   const nBuckets = Math.max(20, Math.floor(width / BUCKET_PX))
@@ -360,13 +372,11 @@ export function FarmTimeline({ timeline, value, onChange, selectedEventId, onSel
       onSelectEvent(b.items[0])
       return
     }
-    if (span <= MIN_SPAN_MS * 1.01) {
-      setPickList(b.items)
-      return
-    }
-    const pad = (b.to - b.from) * 2
-    setView(clamp(b.from - pad, b.to + pad))
+    // A cluster lists its events; zooming stays with the presets and
+    // ⌘/Ctrl + scroll, so a click never drops the view to a few days.
+    setPickList(b.items)
   }
+
 
   const selectedEvent = selectedEventId ? timeline.events.find((e) => e.id === selectedEventId) ?? null : null
   const laneLabelW = "w-24 shrink-0"
@@ -469,6 +479,7 @@ export function FarmTimeline({ timeline, value, onChange, selectedEventId, onSel
           {/* event lanes */}
           {lanes.map((l) => (
             <div key={l.key} className={`relative border-b border-stone-100 ${expanded ? "h-7" : "h-6"}`}>
+              <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-stone-200" />
               {bucketize(l.events, vs, ve, nBuckets).map((b) => {
                 const n = b.items.length
                 const size = n === 1 ? 10 : Math.min(20, 11 + Math.log2(n) * 2.5)
@@ -511,8 +522,8 @@ export function FarmTimeline({ timeline, value, onChange, selectedEventId, onSel
             ))}
           </div>
 
-          {/* overview strip while zoomed */}
-          {zoomed && (
+          {/* overview strip: where the view sits in the whole extent; drag to pan */}
+          {(
             <div
               className="relative mt-0.5 h-2 cursor-grab touch-none rounded-full bg-stone-100"
               onPointerDown={(e) => startPan(e, true)}
