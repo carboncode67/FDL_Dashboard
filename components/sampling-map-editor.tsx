@@ -26,15 +26,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   geojsonAreaAcres,
   pointInGeojsonString,
-  generateGridPoints,
-  generateRandomPoints,
-  bufferGeojsonString,
   geojsonBounds,
   unionBounds,
   bboxRing,
-  type GeneratedPoint,
   type Bounds,
 } from "@/lib/geo"
+import {
+  bufferPolygon,
+  gridInPolygon,
+  newSeed,
+  pointsAround,
+  randomInPolygon,
+  shapeAround,
+  stratifiedRandom,
+  toAreaGeometry,
+  GeoToolError,
+  type AreaGeometry,
+  type PointPattern,
+} from "@/lib/geo-tools"
 import type { NaipPackageState } from "@/lib/naip-package"
 import { estimateNaipTiles, NAIP_DEFAULT_MAX_ZOOM, NAIP_MAX_TILES, NAIP_MAX_ZOOM, NAIP_MIN_ZOOM } from "@/lib/naip-bbox"
 
@@ -93,6 +102,26 @@ function styleFor(purpose: string) {
 // ring, matching the CircleMarker convention already used for pins on farm-map.tsx /
 // upload-point-map.tsx elsewhere in the app.
 const POINT_STYLE = { radius: 7, color: "#ffffff", weight: 2, fillColor: "#059669", fillOpacity: 1 }
+
+// Point-generation tools sharing one preview → accept flow (all geometry from
+// lib/geo-tools.ts — geodesic and seeded, the same code agents will call).
+type GenTool =
+  | { kind: "polygon"; polygonId: number }
+  | { kind: "stratified" }
+  | { kind: "pattern"; pointId: number }
+
+interface PreviewPoint {
+  lat: number
+  lng: number
+  label: string
+  polygon_id: number | null
+}
+
+const PATTERN_SIZE_LABEL: Record<PointPattern, string> = {
+  square_corners: "Square side (meters)",
+  cross: "Arm length (meters)",
+  ring: "Radius (meters)",
+}
 
 function pointLatLng(geojson: string): [number, number] | null {
   try {
@@ -650,17 +679,34 @@ export default function SamplingMapEditor({
     }
   }
 
-  // Grid/random point generation — a preview (client-side math only, nothing persisted
-  // yet) tied to one polygon at a time, accepted as a single batch POST or discarded.
-  const [generatingPolygonId, setGeneratingPolygonId] = useState<number | null>(null)
+  // Point generation — a preview (client-side math only, nothing persisted yet),
+  // accepted as one batch POST or discarded. One tool at a time: grid/random in a
+  // polygon, stratified across "stratum" polygons, or a pattern around one point.
+  const [genTool, setGenTool] = useState<GenTool | null>(null)
+  const generatingPolygonId = genTool?.kind === "polygon" ? genTool.polygonId : null
   const [genMethod, setGenMethod] = useState<"grid" | "random">("grid")
   const [genSpacing, setGenSpacing] = useState(30)
   const [genCount, setGenCount] = useState(10)
   const [genMinSpacing, setGenMinSpacing] = useState(0)
-  // Inward buffer applied to the polygon before generating — keeps points off the
+  // Edge buffer applied to the polygon before generating — keeps points off the
   // edge (e.g. of a field boundary). Negative = inward, default -10m.
   const [genBuffer, setGenBuffer] = useState(-10)
-  const [previewPoints, setPreviewPoints] = useState<GeneratedPoint[]>([])
+  // Grid rotation (e.g. to follow planting rows) / pattern rotation, degrees clockwise.
+  const [genRotation, setGenRotation] = useState(0)
+  // Random/stratified layouts are seeded: the same seed reproduces the same points.
+  const [genSeed, setGenSeed] = useState(() => newSeed())
+  const [stratMode, setStratMode] = useState<"per" | "proportional" | "equal">("per")
+  const [stratN, setStratN] = useState(3)
+  const [patPattern, setPatPattern] = useState<PointPattern>("square_corners")
+  const [patSize, setPatSize] = useState(10)
+  const [patCount, setPatCount] = useState(8)
+  const [patIncludeCenter, setPatIncludeCenter] = useState(false)
+  const [patAddSquare, setPatAddSquare] = useState(false)
+  const [previewPoints, setPreviewPoints] = useState<PreviewPoint[]>([])
+  const [previewMethod, setPreviewMethod] = useState("grid")
+  // Polygon to create alongside the points on accept (pattern: "also add the square").
+  const [previewShape, setPreviewShape] = useState<{ geometry: string; label: string } | null>(null)
+  const [previewNote, setPreviewNote] = useState<string | null>(null)
   const [previewBoundary, setPreviewBoundary] = useState<string | null>(null)
   const [genError, setGenError] = useState<string | null>(null)
   const [accepting, setAccepting] = useState(false)
@@ -758,57 +804,134 @@ export default function SamplingMapEditor({
     uploadedPoints.forEach((p) => layersApiRef.current?.addPoint(p))
   }
 
-  function openGenerator(polygonId: number) {
-    setGeneratingPolygonId(polygonId)
+  function clearPreview() {
     setPreviewPoints([])
     setPreviewBoundary(null)
+    setPreviewShape(null)
+    setPreviewNote(null)
     setGenError(null)
+  }
+
+  function openTool(tool: GenTool) {
+    setGenTool(tool)
+    clearPreview()
+  }
+
+  function openGenerator(polygonId: number) {
+    openTool({ kind: "polygon", polygonId })
   }
 
   function closeGenerator() {
-    setGeneratingPolygonId(null)
-    setPreviewPoints([])
-    setPreviewBoundary(null)
-    setGenError(null)
+    setGenTool(null)
+    clearPreview()
   }
 
-  function runPreview() {
-    const polygon = polygons.find((p) => p.id === generatingPolygonId)
-    if (!polygon) return
-    setGenError(null)
+  // The area points go into: grown by a positive buffer, or eroded by a negative
+  // one (as an edge buffer, so geo-tools reports "nothing left" clearly).
+  function genArea(geometry: string): { area: AreaGeometry; edge: number; display: string | null } {
+    const poly = toAreaGeometry(geometry)
+    const area = genBuffer > 0 ? bufferPolygon(poly, genBuffer) : poly
+    if (!area) throw new GeoToolError("Couldn't buffer this polygon.")
+    const edge = genBuffer < 0 ? -genBuffer : 0
+    const shown = edge ? bufferPolygon(area, -edge) : genBuffer > 0 ? area : null
+    return { area, edge, display: shown ? JSON.stringify(shown) : null }
+  }
 
-    const boundary = bufferGeojsonString(polygon.geometry, genBuffer)
-    if (!boundary) {
+  function runPreview(seed = genSeed) {
+    if (!genTool) return
+    clearPreview()
+    try {
+      let pts: PreviewPoint[] = []
+      let method = "grid"
+      let boundary: string | null = null
+      let note: string | null = null
+
+      if (genTool.kind === "polygon") {
+        const polygon = polygons.find((p) => p.id === genTool.polygonId)
+        if (!polygon) return
+        const { area, edge, display } = genArea(polygon.geometry)
+        boundary = display
+        const prefix = polygon.label || `Polygon ${polygon.id}`
+        if (genMethod === "grid") {
+          pts = gridInPolygon(area, genSpacing, { edgeBufferM: edge, rotationDeg: genRotation, labelPrefix: prefix })
+            .map((p) => ({ lat: p.lat, lng: p.lng, label: p.label, polygon_id: polygon.id }))
+        } else {
+          const r = randomInPolygon(area, genCount, { minSpacingM: genMinSpacing, edgeBufferM: edge, seed, labelPrefix: prefix })
+          pts = r.points.map((p) => ({ lat: p.lat, lng: p.lng, label: p.label, polygon_id: polygon.id }))
+          if (r.shortfall) note = `Only ${r.points.length} of ${genCount} fit at that spacing.`
+        }
+        method = genMethod
+      } else if (genTool.kind === "stratified") {
+        const strata = polygons.filter((p) => p.purpose === "stratum")
+        const res = stratifiedRandom(
+          strata.map((p) => ({ id: p.id, label: p.label || `Stratum ${p.id}`, polygon: toAreaGeometry(p.geometry) })),
+          stratMode === "per" ? { perStratum: stratN } : { total: stratN, mode: stratMode },
+          { minSpacingM: genMinSpacing, edgeBufferM: genBuffer < 0 ? -genBuffer : 0, seed },
+        )
+        pts = res.points.map((p) => ({ lat: p.lat, lng: p.lng, label: p.label, polygon_id: Number(p.meta?.stratum) }))
+        note = res.allocation
+          .map((a) => `${a.label}: ${a.placed}${a.placed < a.requested ? ` of ${a.requested}` : ""}`)
+          .join(" · ")
+        method = "stratified"
+      } else {
+        const point = points.find((p) => p.id === genTool.pointId)
+        const ll = point ? pointLatLng(point.geometry) : null
+        if (!point || !ll) return
+        const center = { lat: ll[0], lng: ll[1] }
+        const prefix = point.label || `Point ${point.id}`
+        pts = pointsAround(center, patPattern, patSize, {
+          rotationDeg: genRotation,
+          count: patCount,
+          includeCenter: patIncludeCenter,
+          labelPrefix: prefix,
+        }).map((p) => ({ lat: p.lat, lng: p.lng, label: p.label, polygon_id: polygonIdAt(p.lat, p.lng) }))
+        if (patPattern === "square_corners" && patAddSquare) {
+          boundary = JSON.stringify(shapeAround(center, "square", patSize, { rotationDeg: genRotation }))
+          setPreviewShape({ geometry: boundary, label: `${prefix} square` })
+        }
+        method = "pattern"
+      }
+      setPreviewPoints(pts)
+      setPreviewBoundary(boundary)
+      setPreviewMethod(method)
+      setPreviewNote(note)
+    } catch (e) {
       setPreviewPoints([])
       setPreviewBoundary(null)
-      setGenError(
-        genBuffer < 0
-          ? "Buffer too large — it erodes the polygon away entirely. Try a smaller inward buffer."
-          : "Couldn't buffer this polygon.",
-      )
-      return
+      setGenError(e instanceof GeoToolError ? e.message : "Couldn't generate points.")
     }
-    setPreviewBoundary(boundary)
+  }
 
-    const pts =
-      genMethod === "grid"
-        ? generateGridPoints(boundary, genSpacing)
-        : generateRandomPoints(boundary, genCount, genMinSpacing)
-    setPreviewPoints(pts)
+  function reroll() {
+    const s = newSeed()
+    setGenSeed(s)
+    runPreview(s)
   }
 
   async function handleAcceptGenerated() {
-    if (!generatingPolygonId || previewPoints.length === 0) return
+    if (!genTool || previewPoints.length === 0) return
     setAccepting(true)
     try {
+      if (previewShape) {
+        const res = await fetch(`/api/sampling-maps/${samplingMapId}/polygons`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ geometry: previewShape.geometry, label: previewShape.label, purpose: "boundary", source: "drawn" }),
+        })
+        if (!res.ok) return
+        const createdPolygon: SamplingMapPolygonData = await res.json()
+        setPolygons((prev) => [...prev, createdPolygon])
+        layersApiRef.current?.addPolygon(createdPolygon)
+      }
       const res = await fetch(`/api/sampling-maps/${samplingMapId}/points`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           points: previewPoints.map((pt, i) => ({
             geometry: JSON.stringify({ type: "Point", coordinates: [pt.lng, pt.lat] }),
-            polygon_id: generatingPolygonId,
-            placement_method: genMethod,
+            label: pt.label,
+            polygon_id: pt.polygon_id,
+            placement_method: previewMethod,
             sample_index: i,
           })),
         }),
@@ -821,6 +944,43 @@ export default function SamplingMapEditor({
     } finally {
       setAccepting(false)
     }
+  }
+
+  // Preview / accept controls shared by the three tools.
+  function previewControls(seeded: boolean) {
+    return (
+      <>
+        {seeded && (
+          <div className="flex items-center justify-between text-xs text-stone-500">
+            <span>Seed {genSeed}</span>
+            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={reroll}>
+              Re-roll
+            </Button>
+          </div>
+        )}
+        <Button size="sm" variant="outline" className="w-full h-7 text-xs" onClick={() => runPreview()}>
+          Preview
+        </Button>
+        {genError && <p className="text-xs text-red-500">{genError}</p>}
+        {previewPoints.length > 0 && (
+          <>
+            <p className="text-xs text-stone-500">
+              {previewPoints.length} point(s) previewed on the map
+              {genTool?.kind !== "pattern" && genBuffer !== 0 && ` (${genBuffer}m edge buffer applied)`}.
+            </p>
+            {previewNote && <p className="text-xs text-stone-500">{previewNote}</p>}
+            <div className="flex gap-1">
+              <Button size="sm" className="flex-1 h-7 text-xs" disabled={accepting} onClick={handleAcceptGenerated}>
+                {accepting ? "Saving…" : `Accept ${previewPoints.length}${previewShape ? " + square" : ""}`}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={clearPreview}>
+                Discard
+              </Button>
+            </div>
+          </>
+        )}
+      </>
+    )
   }
 
   // Which polygon (if any) the point falls inside, checked against the polygons
@@ -1361,16 +1521,27 @@ export default function SamplingMapEditor({
                     </label>
 
                     {genMethod === "grid" ? (
-                      <label className="block text-xs text-stone-500">
-                        Spacing (meters)
-                        <Input
-                          type="number"
-                          min={1}
-                          value={genSpacing}
-                          onChange={(e) => setGenSpacing(Math.max(1, Number(e.target.value) || 0))}
-                          className="h-8 text-sm mt-0.5"
-                        />
-                      </label>
+                      <>
+                        <label className="block text-xs text-stone-500">
+                          Spacing (meters)
+                          <Input
+                            type="number"
+                            min={1}
+                            value={genSpacing}
+                            onChange={(e) => setGenSpacing(Math.max(1, Number(e.target.value) || 0))}
+                            className="h-8 text-sm mt-0.5"
+                          />
+                        </label>
+                        <label className="block text-xs text-stone-500">
+                          Rotation (degrees clockwise, e.g. to follow rows)
+                          <Input
+                            type="number"
+                            value={genRotation}
+                            onChange={(e) => setGenRotation(Number(e.target.value) || 0)}
+                            className="h-8 text-sm mt-0.5"
+                          />
+                        </label>
+                      </>
                     ) : (
                       <>
                         <label className="block text-xs text-stone-500">
@@ -1396,38 +1567,7 @@ export default function SamplingMapEditor({
                       </>
                     )}
 
-                    <Button size="sm" variant="outline" className="w-full h-7 text-xs" onClick={runPreview}>
-                      Preview
-                    </Button>
-
-                    {genError && <p className="text-xs text-red-500">{genError}</p>}
-
-                    {previewPoints.length > 0 && (
-                      <>
-                        <p className="text-xs text-stone-500">
-                          {previewPoints.length} point(s) previewed on the map
-                          {genBuffer !== 0 && ` (${genBuffer}m edge buffer applied)`}.
-                        </p>
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            className="flex-1 h-7 text-xs"
-                            disabled={accepting}
-                            onClick={handleAcceptGenerated}
-                          >
-                            {accepting ? "Saving…" : `Accept ${previewPoints.length}`}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-xs"
-                            onClick={() => { setPreviewPoints([]); setPreviewBoundary(null) }}
-                          >
-                            Discard
-                          </Button>
-                        </div>
-                      </>
-                    )}
+                    {previewControls(genMethod === "random")}
                   </div>
                 )}
               </div>
@@ -1436,6 +1576,71 @@ export default function SamplingMapEditor({
               <p className="text-sm text-stone-400 italic">No polygons yet.</p>
             )}
           </div>
+
+          {polygons.some((p) => p.purpose === "stratum") && (
+            <div className="rounded border border-violet-200 p-2 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-stone-900">Stratified points</h3>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => (genTool?.kind === "stratified" ? closeGenerator() : openTool({ kind: "stratified" }))}
+                >
+                  {genTool?.kind === "stratified" ? "Cancel" : "Set up"}
+                </Button>
+              </div>
+              <p className="text-xs text-stone-500">
+                Random points in each of the {polygons.filter((p) => p.purpose === "stratum").length} Stratum
+                polygon(s), kept apart across strata.
+              </p>
+              {genTool?.kind === "stratified" && (
+                <div className="space-y-2">
+                  <Select value={stratMode} onValueChange={(v) => v && setStratMode(v as "per" | "proportional" | "equal")}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="per" label="Same number in each stratum">Same number in each stratum</SelectItem>
+                      <SelectItem value="proportional" label="Total, split by area">Total, split by area</SelectItem>
+                      <SelectItem value="equal" label="Total, split evenly">Total, split evenly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <label className="block text-xs text-stone-500">
+                    {stratMode === "per" ? "Points per stratum" : "Total points"}
+                    <Input
+                      type="number"
+                      min={1}
+                      value={stratN}
+                      onChange={(e) => setStratN(Math.max(1, Number(e.target.value) || 0))}
+                      className="h-8 text-sm mt-0.5"
+                    />
+                  </label>
+                  <label className="block text-xs text-stone-500">
+                    Edge buffer (meters, inward)
+                    <Input
+                      type="number"
+                      max={0}
+                      value={genBuffer}
+                      onChange={(e) => setGenBuffer(Math.min(0, Number(e.target.value) || 0))}
+                      className="h-8 text-sm mt-0.5"
+                    />
+                  </label>
+                  <label className="block text-xs text-stone-500">
+                    Min. spacing (meters, optional)
+                    <Input
+                      type="number"
+                      min={0}
+                      value={genMinSpacing}
+                      onChange={(e) => setGenMinSpacing(Math.max(0, Number(e.target.value) || 0))}
+                      className="h-8 text-sm mt-0.5"
+                    />
+                  </label>
+                  {previewControls(true)}
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <h3 className="text-sm font-semibold text-stone-900">Sampling Points ({points.length})</h3>
@@ -1495,12 +1700,80 @@ export default function SamplingMapEditor({
                 </Button>
                 <Button
                   size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs mr-2"
+                  onClick={() =>
+                    genTool?.kind === "pattern" && genTool.pointId === p.id ? closeGenerator() : openTool({ kind: "pattern", pointId: p.id })
+                  }
+                >
+                  {genTool?.kind === "pattern" && genTool.pointId === p.id ? "Cancel pattern" : "Pattern around…"}
+                </Button>
+                <Button
+                  size="sm"
                   variant="ghost"
                   className="text-red-600 hover:text-red-700 h-7 px-2 text-xs"
                   onClick={() => handleDeletePoint(p.id)}
                 >
                   Delete
                 </Button>
+                {genTool?.kind === "pattern" && genTool.pointId === p.id && (
+                  <div className="rounded bg-stone-50 border border-stone-200 p-2 space-y-2 mt-1">
+                    <Select value={patPattern} onValueChange={(v) => v && setPatPattern(v as PointPattern)}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="square_corners" label="Square corners (NE, SE, SW, NW)">Square corners (NE, SE, SW, NW)</SelectItem>
+                        <SelectItem value="cross" label="Cross (N, E, S, W)">Cross (N, E, S, W)</SelectItem>
+                        <SelectItem value="ring" label="Ring">Ring</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <label className="block text-xs text-stone-500">
+                      {PATTERN_SIZE_LABEL[patPattern]}
+                      <Input
+                        type="number"
+                        min={0.1}
+                        step={0.1}
+                        value={patSize}
+                        onChange={(e) => setPatSize(Math.max(0.1, Number(e.target.value) || 0))}
+                        className="h-8 text-sm mt-0.5"
+                      />
+                    </label>
+                    {patPattern === "ring" && (
+                      <label className="block text-xs text-stone-500">
+                        Points on the ring
+                        <Input
+                          type="number"
+                          min={3}
+                          max={360}
+                          value={patCount}
+                          onChange={(e) => setPatCount(Math.min(360, Math.max(3, Number(e.target.value) || 0)))}
+                          className="h-8 text-sm mt-0.5"
+                        />
+                      </label>
+                    )}
+                    <label className="block text-xs text-stone-500">
+                      Rotation (degrees clockwise)
+                      <Input
+                        type="number"
+                        value={genRotation}
+                        onChange={(e) => setGenRotation(Number(e.target.value) || 0)}
+                        className="h-8 text-sm mt-0.5"
+                      />
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-stone-600">
+                      <input type="checkbox" checked={patIncludeCenter} onChange={(e) => setPatIncludeCenter(e.target.checked)} />
+                      Also add a point at the centre
+                    </label>
+                    {patPattern === "square_corners" && (
+                      <label className="flex items-center gap-2 text-xs text-stone-600">
+                        <input type="checkbox" checked={patAddSquare} onChange={(e) => setPatAddSquare(e.target.checked)} />
+                        Also add the square as a polygon
+                      </label>
+                    )}
+                    {previewControls(false)}
+                  </div>
+                )}
               </div>
             ))}
             {points.length === 0 && (
