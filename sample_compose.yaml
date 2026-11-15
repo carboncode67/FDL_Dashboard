@@ -45,6 +45,22 @@ services:
       # log for why this exists. Mount the host path as a volume below and
       # point this at wherever it lands inside the container.
       BASEMAP_INTAKE_DIR: ${BASEMAP_INTAKE_DIR:-}
+      # Optional. S3-compatible storage (Garage) for direct-to-storage basemap
+      # uploads: the browser sends a GeoTIFF straight to the bucket in resumable
+      # parts instead of one huge POST — see docs/garage-s3-upload-plan.md.
+      # Disabled unless all of ENDPOINT_INTERNAL/PUBLIC, BUCKET and both keys
+      # are set. INTERNAL = the app's own API calls; PUBLIC = the host the
+      # browser reaches the bucket on (part URLs are signed for it);
+      # PROCESSOR = the host PipelineProcessor fetches sources from (defaults
+      # to INTERNAL). For the optional local garage service below, run
+      # scripts/garage-local-init.sh.
+      S3_ENDPOINT_INTERNAL: ${S3_ENDPOINT_INTERNAL:-}
+      S3_ENDPOINT_PUBLIC: ${S3_ENDPOINT_PUBLIC:-}
+      S3_ENDPOINT_PROCESSOR: ${S3_ENDPOINT_PROCESSOR:-}
+      S3_REGION: ${S3_REGION:-garage}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
       # Optional. Base URL of the OFEDashBot webhook service. Required for the
       # WhatsApp admin "send message" feature (POST /api/whatsapp/send).
       OFEDASHBOT_URL: ${OFEDASHBOT_URL:-}
@@ -102,6 +118,21 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # Optional local S3 (Garage) — only starts with: docker compose --profile s3 up -d garage
+  # Set up with scripts/garage-local-init.sh. From the app container use
+  # S3_ENDPOINT_INTERNAL=http://garage:3900; the browser needs
+  # S3_ENDPOINT_PUBLIC=http://localhost:3900.
+  garage:
+    image: dxflrs/garage:v2.5.0
+    profiles: ["s3"]
+    ports:
+      - "3900:3900"
+    volumes:
+      - ./.garage-local/garage.toml:/etc/garage.toml:ro
+      - ./.garage-local/meta:/var/lib/garage/meta
+      - ./.garage-local/data:/var/lib/garage/data
+    restart: unless-stopped
 
 volumes:
   upload-data:

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
 import { runWithLab } from "@/lib/lab-db";
-import { isSamplingMapVisibleToLabMember, samplingMapIdForPoint } from "@/lib/sampling-maps";
+import { isSamplingMapVisibleToBearer, samplingMapIdForPoint } from "@/lib/sampling-maps";
 
 type Params = { params: Promise<{ pointId: string }> };
 
@@ -15,8 +15,6 @@ export async function POST(request: Request, { params }: Params) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
   return runWithLab(auth.labSlug, async () => {
-  if (auth.kind !== "labMember") return NextResponse.json({ error: "Not found" }, { status: 404 });
-
   const { pointId } = await params;
   const samplingPointId = parseInt(pointId);
   if (isNaN(samplingPointId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
@@ -24,7 +22,9 @@ export async function POST(request: Request, { params }: Params) {
   const mapId = await samplingMapIdForPoint(samplingPointId);
   if (mapId === null) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const visible = await isSamplingMapVisibleToLabMember(mapId, auth.labMember.id);
+  const visible = await isSamplingMapVisibleToBearer(mapId, auth);
+  const submitter =
+    auth.kind === "contact" ? { contact_id: auth.contact.id } : { user_id: auth.labMember.id };
   if (!visible) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   let body: { lat?: unknown; lng?: unknown; occurred_at?: unknown; note?: unknown; content_hash?: unknown };
@@ -51,7 +51,7 @@ export async function POST(request: Request, { params }: Params) {
   // Dedup first — scoped to submitter, same as Note/Location/GeofenceEvent dedup.
   if (contentHash) {
     const existing = await prisma.samplingPointCollection.findFirst({
-      where: { sampling_point_id: samplingPointId, content_hash: contentHash, user_id: auth.labMember.id },
+      where: { sampling_point_id: samplingPointId, content_hash: contentHash, ...submitter },
     });
     if (existing) {
       return NextResponse.json({ ok: true, duplicate: true, id: existing.id });
@@ -61,7 +61,7 @@ export async function POST(request: Request, { params }: Params) {
   const collection = await prisma.samplingPointCollection.create({
     data: {
       sampling_point_id: samplingPointId,
-      user_id: auth.labMember.id,
+      ...submitter,
       lat,
       lng,
       occurred_at: occurredAt,

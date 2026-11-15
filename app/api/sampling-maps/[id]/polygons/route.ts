@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit } from "@/lib/roles";
 import { runWithTenant } from "@/lib/lab-db";
+import { ofeLock } from "@/lib/ofe-sync";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -13,6 +14,8 @@ export async function POST(req: Request, { params }: Params) {
   if (!canEdit(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
+  const ofeLocked = await ofeLock({ map: parseInt(id) });
+  if (ofeLocked) return ofeLocked;
   const samplingMapId = parseInt(id);
   const body = await req.json();
   const { label, purpose = "boundary", source = "drawn" } = body;

@@ -51,6 +51,10 @@ export interface MapRaster {
   // file instead (the mis-tiled pyramid itself isn't the useful artifact to
   // offer once CRS couldn't be confirmed).
   downloadUrl?: string
+  // Set on a yield run's points layer and yield map (farms/[id]/page.tsx):
+  // their × deletes the whole run (DELETE /api/yield-runs/[id]), not just
+  // the one layer.
+  yieldRunId?: number
 }
 
 // Fetches and parses a GeoTIFF (whole-file, not tiled COG streaming — fine for

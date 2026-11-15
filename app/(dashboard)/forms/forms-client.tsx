@@ -14,20 +14,23 @@ interface FormRow {
   field_count: number;
   assignment_count: number;
   response_count: number;
+  fromOfe: boolean;
 }
 
 export function FormsClient({
   data,
+  ofeData,
   groups,
   canEditGroups,
 }: {
   data: FormRow[];
+  ofeData: FormRow[];
   groups: ItemGroup[];
   canEditGroups: boolean;
 }) {
   const router = useRouter();
 
-  const columns = [
+  const baseColumns = [
     { key: "title", header: "Title", sortable: true },
     {
       key: "is_active",
@@ -52,6 +55,9 @@ export function FormsClient({
       header: "Responses",
       render: (row: Record<string, unknown>) => <span>{(row as unknown as FormRow).response_count}</span>,
     },
+  ];
+  const columns = [
+    ...baseColumns,
     ...(canEditGroups
       ? [{
           key: "group_id",
@@ -65,6 +71,7 @@ export function FormsClient({
   ];
 
   return (
+    <>
     <DataTable
       title="Custom Forms"
       data={data as unknown as Record<string, unknown>[]}
@@ -76,5 +83,19 @@ export function FormsClient({
       grouping={{ groups, groupKey: "group_id", storageKey: "fdl.forms.collapsed-groups" }}
       onRowClick={(row) => router.push(`/forms/${(row as unknown as FormRow).id}/edit`)}
     />
+
+    {ofeData.length > 0 && (
+      <div className="mt-8">
+        <DataTable
+          title="From OFE Dashboard"
+          data={ofeData as unknown as Record<string, unknown>[]}
+          columns={baseColumns}
+          searchKeys={["title"]}
+          actions={<span className="text-xs text-muted-foreground">Made by farmers in the OFE Dashboard — read-only here</span>}
+          onRowClick={(row) => router.push(`/forms/${(row as unknown as FormRow).id}/responses`)}
+        />
+      </div>
+    )}
+    </>
   );
 }

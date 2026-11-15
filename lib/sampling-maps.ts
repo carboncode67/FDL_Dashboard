@@ -82,3 +82,16 @@ export async function samplingMapIdForPoint(pointId: number): Promise<number | n
   });
   return point?.sampling_map_id ?? null;
 }
+
+// Either bearer identity. Farmer Contacts (QR-code login) get the same field workflow on a map
+// sent to them as lab members do -- drop a point, submit at a point, mark collected.
+export async function isSamplingMapVisibleToBearer(
+  samplingMapId: number,
+  auth:
+    | { kind: "contact"; contact: { id: number; farms_id: number | null; assigned_experiment_id: number | null } }
+    | { kind: "labMember"; labMember: { id: string } },
+): Promise<boolean> {
+  return auth.kind === "contact"
+    ? isSamplingMapVisibleToContact(samplingMapId, auth.contact)
+    : isSamplingMapVisibleToLabMember(samplingMapId, auth.labMember.id);
+}

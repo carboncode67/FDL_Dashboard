@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ASSIGNMENT_INCLUDE, resolveTargetLabel } from "@/lib/forms";
 import EditFormClient from "./edit-client";
 import { runWithTenant } from "@/lib/lab-db";
@@ -32,6 +32,8 @@ export default async function EditFormPage({ params }: { params: Promise<{ id: s
   ]);
 
   if (!form) notFound();
+  // OFE-owned (lib/ofe-sync.ts): edited only in the OFE Dashboard; the schema/assignment routes refuse it.
+  if (form.ofe_id != null) redirect(`/forms/${form.id}/responses`);
 
   return (
     <EditFormClient

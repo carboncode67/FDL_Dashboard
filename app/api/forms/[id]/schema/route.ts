@@ -6,6 +6,7 @@ import { canEdit, type Role } from "@/lib/roles";
 import { normalizeLabel } from "@/lib/forms";
 import { newFieldKey } from "@/lib/form-fields";
 import { runWithTenant } from "@/lib/lab-db";
+import { ofeLock } from "@/lib/ofe-sync";
 
 const FIELD_TYPES = new Set(["text", "number", "boolean", "date", "select", "multiselect", "photo"]);
 
@@ -39,6 +40,8 @@ export async function PUT(req: Request, { params }: Params) {
   if (!canEdit(session.user.role as Role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
+  const ofeLocked = await ofeLock({ form: parseInt(id) });
+  if (ofeLocked) return ofeLocked;
   const formId = parseInt(id);
   const { columns } = await req.json() as {
     columns: {

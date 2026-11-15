@@ -135,6 +135,8 @@ interface MapDrawLayersProps {
   onCreatePoint: (geojson: string) => Promise<SamplingPointData | null>
   onEditPoint: (id: number, geojson: string) => void
   onPointClick: (id: number) => void
+  // false = OFE-owned map (lib/ofe-sync.ts): no geoman toolbar, nothing draggable.
+  editable: boolean
 }
 
 // Polygons and points are both managed imperatively against the live Leaflet map
@@ -146,7 +148,7 @@ interface MapDrawLayersProps {
 // side panel (which owns metadata like label/purpose/linked test) add/remove/restyle
 // a layer after its own API call succeeds, without the map re-running its setup effect.
 const MapDrawLayers = forwardRef<MapDrawLayersHandle, MapDrawLayersProps>(function MapDrawLayers(
-  { initialPolygons, initialPoints, onCreatePolygon, onEditPolygon, onCreatePoint, onEditPoint, onPointClick },
+  { initialPolygons, initialPoints, onCreatePolygon, onEditPolygon, onCreatePoint, onEditPoint, onPointClick, editable },
   ref,
 ) {
   const map = useMap()
@@ -165,6 +167,7 @@ const MapDrawLayers = forwardRef<MapDrawLayersHandle, MapDrawLayersProps>(functi
       const geoLayer = L.geoJSON(parsed, { style: () => styleFor(p.purpose) })
       geoLayer.eachLayer((layer) => {
         layer.addTo(map)
+        if (!editable) return
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ;(layer as any).pm.enable()
         layer.on("pm:edit", () => {
@@ -183,7 +186,7 @@ const MapDrawLayers = forwardRef<MapDrawLayersHandle, MapDrawLayersProps>(functi
     if (!latlng) return
     // A point with attributed data is pinned: pmIgnore keeps geoman (including the global edit
     // mode toggle) from ever making it draggable. The API enforces the same rule.
-    const locked = (p.data_count ?? 0) > 0
+    const locked = !editable || (p.data_count ?? 0) > 0
     const layer = L.circleMarker(latlng, { ...POINT_STYLE, pmIgnore: locked } as L.CircleMarkerOptions)
     layer.addTo(map)
     if (!locked) {
@@ -224,6 +227,14 @@ const MapDrawLayers = forwardRef<MapDrawLayersHandle, MapDrawLayersProps>(functi
   useEffect(() => {
     if (initializedRef.current) return
     initializedRef.current = true
+
+    if (!editable) {
+      initialPolygons.forEach(addPolygonLayer)
+      initialPoints.forEach(addPointLayer)
+      const roBounds = boundsOfPolygons(initialPolygons)
+      if (roBounds) map.fitBounds(roBounds, { padding: [30, 30], maxZoom: 17 })
+      return
+    }
 
     map.pm.addControls({
       position: "topleft",
@@ -314,6 +325,9 @@ export interface SamplingMapEditorProps {
   naipPackage: NaipPackageState
   canDeleteMap: boolean
   editMode: boolean
+  // OFE-owned map (Sampling_Maps.ofe_id set, see lib/ofe-sync.ts): view-only here, since
+  // OFE re-pushes the whole map and the web edit routes refuse it.
+  readOnly?: boolean
 }
 
 export default function SamplingMapEditor({
@@ -346,6 +360,7 @@ export default function SamplingMapEditor({
   naipPackage,
   canDeleteMap,
   editMode,
+  readOnly = false,
 }: SamplingMapEditorProps) {
   const router = useRouter()
   const [polygons, setPolygons] = useState<SamplingMapPolygonData[]>(initialPolygons)
@@ -905,6 +920,12 @@ export default function SamplingMapEditor({
         <span className="text-stone-300 shrink-0">/</span>
         <span className="text-sm font-medium truncate">{mapName}</span>
         <div className="ml-auto flex items-center gap-2 shrink-0">
+          {readOnly && (
+            <span className="text-xs text-stone-500">
+              Made in the OFE Dashboard — view only here. Edit it there.
+            </span>
+          )}
+          {!readOnly && (<>
           <Select
             value={linkedFormId ? String(linkedFormId) : "none"}
             onValueChange={(v) => v && handleFormChange(v)}
@@ -1038,6 +1059,7 @@ export default function SamplingMapEditor({
           <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)}>
             Send to Phone{assignments.length > 0 ? ` (${assignments.length})` : ""}
           </Button>
+          </>)}
           {linkedFormId != null && (
             <Button
               size="sm"
@@ -1090,6 +1112,7 @@ export default function SamplingMapEditor({
               onCreatePoint={handleCreatePoint}
               onEditPoint={handleEditPointGeometry}
               onPointClick={setDataPointId}
+              editable={!readOnly}
             />
 
             {/* The buffered (eroded) boundary points are actually generated within —
@@ -1121,6 +1144,7 @@ export default function SamplingMapEditor({
           </MapContainer>
         </div>
 
+        {!readOnly && (
         <div className="w-80 shrink-0 border-l border-stone-200 overflow-y-auto p-3 space-y-4">
           <div>
             <h3 className="text-sm font-semibold text-stone-900">Polygons ({polygons.length})</h3>
@@ -1498,6 +1522,7 @@ export default function SamplingMapEditor({
             editMode={editMode}
           />
         </div>
+        )}
       </div>
 
       <SamplingPointDataDialog

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
 import { runWithLab } from "@/lib/lab-db";
-import { isSamplingMapVisibleToLabMember } from "@/lib/sampling-maps";
+import { isSamplingMapVisibleToBearer } from "@/lib/sampling-maps";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -22,18 +22,12 @@ export async function GET(request: Request, { params }: Params) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
   return runWithLab(auth.labSlug, async () => {
-    if (auth.kind !== "labMember")
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-
     const { id } = await params;
     const samplingMapId = parseInt(id);
     if (isNaN(samplingMapId))
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
-    const visible = await isSamplingMapVisibleToLabMember(
-      samplingMapId,
-      auth.labMember.id,
-    );
+    const visible = await isSamplingMapVisibleToBearer(samplingMapId, auth);
     if (!visible)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -53,7 +47,10 @@ export async function GET(request: Request, { params }: Params) {
         SamplingPoint: { sampling_map_id: samplingMapId },
         ...(since ? { received_at: { gt: since } } : {}),
       },
-      include: { User: { select: { name: true, email: true } } },
+      include: {
+        User: { select: { name: true, email: true } },
+        Contact: { select: { name: true } },
+      },
       orderBy: { received_at: "asc" },
       take: 1000,
     });
@@ -63,7 +60,7 @@ export async function GET(request: Request, { params }: Params) {
         id: r.id,
         sampling_point_id: r.sampling_point_id,
         user_id: r.user_id,
-        user_name: r.User?.name || r.User?.email || null,
+        user_name: r.User?.name || r.User?.email || r.Contact?.name || null,
         occurred_at: r.occurred_at.toISOString(),
         content_hash: r.content_hash,
         received_at: r.received_at.toISOString(),

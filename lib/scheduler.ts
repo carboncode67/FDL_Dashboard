@@ -17,6 +17,7 @@ import { buildReportData, generateReportHtml } from "@/lib/report-generator";
 import { sendMail } from "@/lib/mailer";
 import { advanceContextJobs } from "@/lib/context-fetch";
 import { pruneCloudyImagery } from "@/lib/imagery-cloud";
+import { sweepStaleS3Uploads } from "@/lib/s3-uploads";
 
 let started = false;
 
@@ -95,6 +96,14 @@ export function startScheduler() {
     advanceContextJobs().catch((e) => console.error("[ContextFetch]", e));
   });
   console.log("[Scheduler] Spatial-context job sweep started — every 2 minutes");
+
+  // Abandoned direct-to-storage uploads (lib/s3-uploads.ts): abort any with no
+  // activity for 48 h. No-op unless the S3_* env vars are set.
+  cron.schedule("17 * * * *", () => {
+    sweepStaleS3Uploads()
+      .then((n) => { if (n > 0) console.log(`[Scheduler] Aborted ${n} stale S3 upload(s)`); })
+      .catch((e) => console.error("[S3Uploads]", e));
+  });
 
   // Once per start: drop Sentinel-2 dates that are mostly cloud over the farm's
   // fields — ones ingested before the filter, or whose fields changed since.

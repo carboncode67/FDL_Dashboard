@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canEdit, type Role } from "@/lib/roles";
-import { geojsonBounds, unionBounds, bboxRing } from "@/lib/geo";
-import { submitJob, isProductCode, geodartHasKey, PRODUCTS, DEFAULT_PRODUCTS, type ProductCode } from "@/lib/geodart";
+import { requestContextFetch, ContextRequestError } from "@/lib/context-fetch";
+import { isProductCode, geodartHasKey, PRODUCTS, DEFAULT_PRODUCTS, type ProductCode } from "@/lib/geodart";
 import { serializeContextJob } from "@/lib/context-types";
 import { runWithTenant } from "@/lib/lab-db";
 
@@ -71,53 +71,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Dates must be YYYY-MM-DD" }, { status: 400 });
   }
 
-  const farm = await prisma.farm.findUnique({
-    where: { id: farmId },
-    include: {
-      Fields: { select: { geometry: true } },
-      ExperimentZones: { select: { geometry: true } },
-    },
-  });
-  if (!farm) return NextResponse.json({ error: "Farm not found" }, { status: 404 });
-
-  const bounds = unionBounds([
-    ...farm.Fields.map((f) => geojsonBounds(f.geometry)),
-    ...farm.ExperimentZones.map((z) => geojsonBounds(z.geometry)),
-  ]);
-  if (!bounds) {
-    return NextResponse.json(
-      { error: "Farm has no field or zone geometry — draw a field boundary first" },
-      { status: 400 },
-    );
-  }
-  const aoiRing = bboxRing(bounds, bufferM);
-
   const uid = (session.user as { id?: string }).id;
-  const jobData = {
-    farm_id: farmId,
-    requested_by: uid && uid !== "bootstrap" ? uid : null,
-    products,
-    start_date: new Date(`${startDate}T00:00:00Z`),
-    end_date: new Date(`${endDate}T00:00:00Z`),
-    buffer_m: bufferM,
-    aoi: aoiRing,
-    export_format: "COG",
-  };
-
   try {
-    const { jobId, requestId } = await submitJob({ aoiRing, startDate, endDate, products, exportFormat: "COG" });
-    const job = await prisma.contextFetchJob.create({
-      data: { ...jobData, status: "submitted", geodart_job_id: jobId, geodart_request_id: requestId, submitted_at: new Date() },
-      include: { Rasters: true },
+    const job = await requestContextFetch({
+      farmId, products, startDate, endDate, bufferM,
+      requestedBy: uid && uid !== "bootstrap" ? uid : null,
     });
     return NextResponse.json(serializeContextJob(job), { status: 201 });
   } catch (err) {
-    // GeoDaRT unreachable / slow — persist as pending; the cron sweep retries submit.
-    const job = await prisma.contextFetchJob.create({
-      data: { ...jobData, status: "pending", error_message: err instanceof Error ? err.message : String(err) },
-      include: { Rasters: true },
-    });
-    return NextResponse.json(serializeContextJob(job), { status: 201 });
+    if (err instanceof ContextRequestError) {
+      return NextResponse.json({ error: err.message }, { status: err.message === "Farm not found" ? 404 : 400 });
+    }
+    throw err;
   }
   });
 }

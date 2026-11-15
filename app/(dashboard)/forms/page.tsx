@@ -17,7 +17,7 @@ export default async function FormsPage() {
   ]);
   const role = (session?.user?.role ?? "viewer") as Role;
 
-  const data = forms.map((f) => ({
+  const rows = forms.map((f) => ({
     id: f.id,
     title: f.title,
     group_id: f.group_id,
@@ -25,8 +25,12 @@ export default async function FormsPage() {
     field_count: f._count.FieldDefinitions,
     assignment_count: f._count.Assignments,
     response_count: f._count.Responses,
+    fromOfe: f.ofe_id != null,
   }));
+  // OFE-owned forms (pushed by OFE_Dashboard, read-only here — lib/ofe-sync.ts) get their own table.
+  const data = rows.filter((r) => !r.fromOfe);
+  const ofeData = rows.filter((r) => r.fromOfe);
 
-  return <FormsClient data={data} groups={groups} canEditGroups={canEdit(role)} />;
+  return <FormsClient data={data} ofeData={ofeData} groups={groups} canEditGroups={canEdit(role)} />;
   });
 }

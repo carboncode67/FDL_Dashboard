@@ -135,6 +135,10 @@ export interface TriggerYieldCleanPayload {
   // carries `id` into every output as field_key. geometry is the raw GeoJSON
   // string as stored.
   boundaries: { id: number; Name: string; geometry: string | null }[];
+  // GeoDaRT context rasters (Context_Rasters rows) for regression kriging of
+  // the yield map; url is the /api/files/context/<file> route, fetched with
+  // the processor's FDL bearer. Empty = ordinary kriging only.
+  context_rasters: { id: number; product: string; capture_date: string | null; url: string }[];
 }
 
 // Yield-card cleaning (lib/yield-runs.ts): PipelineProcessor runs the lab's

@@ -101,6 +101,7 @@ export default async function SamplingMapDetailRoute({
   return (
     <SamplingMapEditorWrapper
       samplingMapId={map.id}
+      readOnly={map.ofe_id != null}
       farmId={farmId}
       farmName={map.Farm.Farm_Name ?? `Farm #${farmId}`}
       mapName={map.name}

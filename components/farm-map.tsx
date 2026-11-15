@@ -383,9 +383,31 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
     else window.alert((await res.json().catch(() => null))?.error ?? "Couldn't restart processing")
   }
 
+  // Clears a failed/queued upload from the "Processing:" list for good
+  // (lib/failed-uploads.ts) — Retry's counterpart.
+  async function deleteProcessing(b: { id: number; kind?: "basemap" | "yield"; label: string }) {
+    const what = b.kind === "yield" ? "this yield card upload (and its kept copy in Documents)" : "this basemap upload"
+    if (!window.confirm(`Delete ${what}: "${b.label}"?`)) return
+    setRetiling(`${b.kind ?? "basemap"}-${b.id}`)
+    const url = b.kind === "yield" ? `/api/yield-runs/${b.id}` : `/api/basemaps/${b.id}`
+    const res = await fetch(url, { method: "DELETE" })
+    setRetiling(null)
+    if (res.ok) router.refresh()
+    else window.alert((await res.json().catch(() => null))?.error ?? "Couldn't delete the upload")
+  }
+
+  // A yield run's points layer or yield map goes as the whole run (layer,
+  // map, results and the uploaded card — lib/failed-uploads.ts); a basemap
+  // takes its tiles and source file; any other layer just the layer.
   async function deleteLayer(r: MapRaster) {
-    if (!window.confirm(`Remove layer "${r.label}" from the map?`)) return
-    const res = await fetch(`/api/farms/${farmId}/layers/${r.id}`, { method: "DELETE" })
+    const [question, url] =
+      r.yieldRunId != null
+        ? [`Delete this yield run: its points layer, yield map, results and the uploaded card ("${r.label}")?`, `/api/yield-runs/${r.yieldRunId}`]
+        : r.source === "basemap"
+          ? [`Delete basemap "${r.label}" and its tiles?`, `/api/basemaps/${r.id}`]
+          : [`Remove layer "${r.label}" from the map?`, `/api/farms/${farmId}/layers/${r.id}`]
+    if (!window.confirm(question)) return
+    const res = await fetch(url, { method: "DELETE" })
     if (res.ok) router.refresh()
     else window.alert((await res.json().catch(() => null))?.error ?? "Couldn't remove layer")
   }
@@ -775,21 +797,34 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
         <div className="flex flex-wrap gap-3 px-1 text-sm">
           <span className="text-stone-500">Basemaps:</span>
           {basemapRasters.map((r) => (
-            <label key={rasterKey(r)} className="flex items-center gap-1.5 text-stone-700">
-              <input
-                type="checkbox"
-                checked={visibleRasterIds.has(rasterKey(r))}
-                onChange={(e) =>
-                  setVisibleRasterIds((prev) => {
-                    const next = new Set(prev)
-                    if (e.target.checked) next.add(rasterKey(r))
-                    else next.delete(rasterKey(r))
-                    return next
-                  })
-                }
-              />
-              {r.label}
-            </label>
+            <span key={rasterKey(r)} className="flex items-center gap-1.5 text-stone-700">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={visibleRasterIds.has(rasterKey(r))}
+                  onChange={(e) =>
+                    setVisibleRasterIds((prev) => {
+                      const next = new Set(prev)
+                      if (e.target.checked) next.add(rasterKey(r))
+                      else next.delete(rasterKey(r))
+                      return next
+                    })
+                  }
+                />
+                {r.label}
+              </label>
+              {canDeleteLayers && (
+                <button
+                  type="button"
+                  onClick={() => deleteLayer(r)}
+                  className="text-stone-400 hover:text-red-600"
+                  title={r.yieldRunId != null ? "Delete this yield run (points, map, results, card)" : "Delete this basemap"}
+                  aria-label={`Delete ${r.label}`}
+                >
+                  ×
+                </button>
+              )}
+            </span>
           ))}
         </div>
       )}
@@ -819,7 +854,7 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
                   type="button"
                   onClick={() => deleteLayer(r)}
                   className="text-stone-400 hover:text-red-600"
-                  title="Remove layer from map (the original file stays in Documents)"
+                  title={r.yieldRunId != null ? "Delete this yield run (points, map, results, card)" : "Remove layer from map (the original file stays in Documents)"}
                   aria-label={`Remove layer ${r.label}`}
                 >
                   ×
@@ -857,7 +892,17 @@ export default function FarmMap({ fields, zones, photos, notes, farmId, labUploa
                     disabled={retiling !== null}
                     className="text-xs text-blue-600 hover:underline disabled:text-stone-400"
                   >
-                    {retiling === key ? "Retrying…" : "Retry"}
+                    {retiling === key ? "Working…" : "Retry"}
+                  </button>
+                )}
+                {canRetileBasemaps && (b.status === "failed" || b.status === "pending") && (
+                  <button
+                    type="button"
+                    onClick={() => deleteProcessing(b)}
+                    disabled={retiling !== null}
+                    className="text-xs text-red-600 hover:underline disabled:text-stone-400"
+                  >
+                    Delete
                   </button>
                 )}
               </span>

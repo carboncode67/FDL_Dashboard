@@ -53,6 +53,9 @@ export interface NormalizedUpload {
   download_url: string;
   depth_filename: string | null;
   depth_download_url: string | null;
+  // Photos only: the on-device SHA-256 a form's "photo" answer refers to, so a
+  // consumer (OFE_Dashboard) can match a response's photo to its upload.
+  content_hash?: string | null;
   metric_values: Record<number, string>; // metric_id -> value, for the item's current category (see Category_Metrics)
 }
 
@@ -167,6 +170,7 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       download_url: `/api/data/files/photos/${row.id}`,
       depth_filename: row.depth_filename ?? null,
       depth_download_url: row.depth_filename ? `/api/data/files/depth/photos/${row.id}` : null,
+      content_hash: row.content_hash ?? null,
     });
   }
 
@@ -301,6 +305,7 @@ export async function queryAllUploads(opts: QueryOptions): Promise<NormalizedUpl
       download_url: `/api/data/files/lab-member-uploads/${row.id}`,
       depth_filename: row.depth_filename ?? null,
       depth_download_url: row.depth_filename ? `/api/data/files/depth/lab-member-uploads/${row.id}` : null,
+      content_hash: row.content_hash ?? null,
     });
   }
 

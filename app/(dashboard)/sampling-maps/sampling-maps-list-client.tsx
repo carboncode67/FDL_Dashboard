@@ -29,6 +29,7 @@ interface SamplingMapRow {
   polygonCount: number;
   pointCount: number;
   updated_at: string;
+  fromOfe: boolean;
 }
 
 interface FarmOption {
@@ -44,6 +45,7 @@ interface ExperimentOption {
 
 export function SamplingMapsListClient({
   data,
+  ofeData,
   farms,
   experiments,
   forms,
@@ -51,6 +53,7 @@ export function SamplingMapsListClient({
   canEditGroups,
 }: {
   data: SamplingMapRow[];
+  ofeData: SamplingMapRow[];
   farms: FarmOption[];
   experiments: ExperimentOption[];
   forms: MapFormOption[];
@@ -126,7 +129,7 @@ export function SamplingMapsListClient({
     }
   }
 
-  const columns = [
+  const baseColumns = [
     { key: "name", header: "Name" },
     { key: "Farm_Name", header: "Farm" },
     {
@@ -145,6 +148,9 @@ export function SamplingMapsListClient({
       render: (row: Record<string, unknown>) =>
         new Date((row as unknown as SamplingMapRow).updated_at).toLocaleDateString(),
     },
+  ];
+  const columns = [
+    ...baseColumns,
     ...(canEditGroups
       ? [{
           key: "group_id",
@@ -173,6 +179,22 @@ export function SamplingMapsListClient({
           router.push(`/farms/${r.farmId}/maps/${r.id}`);
         }}
       />
+
+      {ofeData.length > 0 && (
+        <div className="mt-8">
+          <DataTable
+            title="From OFE Dashboard"
+            data={ofeData as unknown as Record<string, unknown>[]}
+            columns={baseColumns}
+            searchKeys={["name", "Farm_Name", "Experiment_Name"]}
+            actions={<span className="text-xs text-muted-foreground">Made by farmers in the OFE Dashboard — read-only here</span>}
+            onRowClick={(row) => {
+              const r = row as unknown as SamplingMapRow;
+              router.push(`/farms/${r.farmId}/maps/${r.id}`);
+            }}
+          />
+        </div>
+      )}
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) closeDialog(); }}>
         <DialogContent className="sm:max-w-sm">

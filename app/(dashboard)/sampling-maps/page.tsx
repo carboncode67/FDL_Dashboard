@@ -41,7 +41,7 @@ export default async function SamplingMapsPage() {
     listItemGroups("sampling-maps"),
   ]);
 
-  const data = maps.map((m) => ({
+  const rows = maps.map((m) => ({
     id: m.id,
     farmId: m.farm_id,
     name: m.name,
@@ -51,11 +51,16 @@ export default async function SamplingMapsPage() {
     polygonCount: m._count.Polygons,
     pointCount: m._count.Points,
     updated_at: m.updated_at.toISOString(),
+    fromOfe: m.ofe_id != null,
   }));
+  // OFE-owned maps (pushed by OFE_Dashboard, read-only here — lib/ofe-sync.ts) get their own table.
+  const data = rows.filter((r) => !r.fromOfe);
+  const ofeData = rows.filter((r) => r.fromOfe);
 
   return (
     <SamplingMapsListClient
       data={data}
+      ofeData={ofeData}
       farms={farms.map((f) => ({ id: f.id, name: f.Farm_Name ?? `Farm #${f.id}` }))}
       experiments={experiments
         .filter((e): e is typeof e & { farm_id: number } => e.farm_id != null)

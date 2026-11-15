@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticateUpload } from "@/lib/upload-auth";
 import { runWithLab } from "@/lib/lab-db";
-import { isSamplingMapVisibleToLabMember } from "@/lib/sampling-maps";
+import { isSamplingMapVisibleToBearer } from "@/lib/sampling-maps";
 import { pointInGeojsonString } from "@/lib/geo";
 
 type Params = { params: Promise<{ id: string }> };
 
 // Mobile counterpart to the web editor's session-authed POST /api/sampling-maps/[id]/points --
-// lets a lab member drop a point on a Sampling Map directly from the field (placement_method
+// lets a lab member or a farmer Contact the map was sent to drop a point on a Sampling Map directly from the field (placement_method
 // "field", vs. the editor's "manual"/"grid"/"random"/"uploaded"). polygon_id is resolved
 // server-side against the map's existing polygons (mirrors the editor's client-side
 // polygonIdAt in components/sampling-map-editor.tsx) rather than trusted from the device, since
@@ -20,18 +20,12 @@ export async function POST(request: Request, { params }: Params) {
   const auth = await authenticateUpload(request);
   if ("error" in auth) return auth.error;
   return runWithLab(auth.labSlug, async () => {
-    if (auth.kind !== "labMember")
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-
     const { id } = await params;
     const samplingMapId = parseInt(id);
     if (isNaN(samplingMapId))
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
-    const visible = await isSamplingMapVisibleToLabMember(
-      samplingMapId,
-      auth.labMember.id,
-    );
+    const visible = await isSamplingMapVisibleToBearer(samplingMapId, auth);
     if (!visible)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 

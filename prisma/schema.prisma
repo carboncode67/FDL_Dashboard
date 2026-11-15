@@ -15,7 +15,7 @@ model Lab {
   id         Int      @id @default(autoincrement())
   name       String
   slug       String   @unique
-  db_role    String?  // e.g. "app_fdl" — set once the per-lab Postgres role is provisioned (Phase 3)
+  db_role    String? // e.g. "app_fdl" — set once the per-lab Postgres role is provisioned (Phase 3)
   is_active  Boolean  @default(true)
   created_at DateTime @default(now())
 
@@ -24,56 +24,57 @@ model Lab {
 }
 
 model User {
-  id             String   @id @default(cuid())
-  name           String?
-  email          String   @unique
-  password       String
-  role           String   @default("member")
-  category       String   @default("lab_member")
-  bearer_token   String?  @unique @db.VarChar(64)
+  id                        String    @id @default(cuid())
+  name                      String?
+  email                     String    @unique
+  password                  String
+  role                      String    @default("member")
+  category                  String    @default("lab_member")
+  bearer_token              String?   @unique @db.VarChar(64)
   // A bearer_token belonging to a deliberately-provisioned integration (OFE_Dashboard's
   // sync user, Client's Bearer-auth user(s), PipelineProcessor's service row) rather than
   // a human's QR-onboarded phone. Gates the restricted allowlist in lib/upload-auth.ts /
   // lib/route-scopes.ts — false (default) means the token is scope-restricted.
-  is_service_account Boolean @default(false)
-  position       String?
-  contact_phone  String?
-  faa_part_107   Boolean  @default(false)
-  status         String?
-  onboarded_at   DateTime?
+  is_service_account        Boolean   @default(false)
+  position                  String?
+  contact_phone             String?
+  faa_part_107              Boolean   @default(false)
+  status                    String?
+  onboarded_at              DateTime?
   // Forgot-password flow (lib/password-reset.ts) — hash only, never the raw token.
   password_reset_token_hash String?
   password_reset_expires_at DateTime?
   // Tenant scope (Planned Changes #10). Nullable for now — see Lab model comment.
-  lab_id         Int?
-  platform_admin Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  lab_id                    Int?
+  platform_admin            Boolean   @default(false)
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 
-  ProjectLabMembers  ProjectLabMember[]
-  LabMemberUploads   LabMemberUpload[]
-  TaskAssignees      TaskAssignee[]
-  ProjectFilters     UserProjectFilter[]
-  FarmFilters        UserFarmFilter[]
-  FilterSettings     UserFilterSettings?
-  FarmTagFilters     UserFarmTagFilter[]
-  CreatedExperiments FarmExperiment[]    @relation("ExperimentCreatedBy")
-  CreatedForms       Form[]              @relation("FormCreatedBy")
-  FormAssignments    FormAssignment[]
-  FormResponses      FormResponse[]
-  CreatedGeofences   Geofence[]          @relation("GeofenceCreatedBy")
-  GeofenceAssignments GeofenceAssignment[]
-  GeofenceEvents     GeofenceEvent[]
+  ProjectLabMembers        ProjectLabMember[]
+  LabMemberUploads         LabMemberUpload[]
+  TaskAssignees            TaskAssignee[]
+  ProjectFilters           UserProjectFilter[]
+  FarmFilters              UserFarmFilter[]
+  FilterSettings           UserFilterSettings?
+  FarmTagFilters           UserFarmTagFilter[]
+  CreatedExperiments       FarmExperiment[]          @relation("ExperimentCreatedBy")
+  CreatedForms             Form[]                    @relation("FormCreatedBy")
+  FormAssignments          FormAssignment[]
+  FormResponses            FormResponse[]
+  CreatedGeofences         Geofence[]                @relation("GeofenceCreatedBy")
+  GeofenceAssignments      GeofenceAssignment[]
+  GeofenceEvents           GeofenceEvent[]
   GeofenceZoneTimeSessions GeofenceZoneTimeSession[]
-  CreatedPipelines   Pipeline[]
-  EquipmentLoansSignedOut EquipmentLoan[] @relation("EquipmentLoanSignedOutBy")
-  EquipmentLoansRented    EquipmentLoan[] @relation("EquipmentLoanRenter")
-  ContextFetchJobs   ContextFetchJob[]
-  UploadedBasemaps   Basemap[]
-  UploadedFarmLayers FarmLayer[]
-  UploadedYieldRuns  YieldRun[]
-  CreatedSamplingMaps SamplingMap[]
-  SamplingMapAssignments SamplingMapAssignment[]
+  CreatedPipelines         Pipeline[]
+  EquipmentLoansSignedOut  EquipmentLoan[]           @relation("EquipmentLoanSignedOutBy")
+  EquipmentLoansRented     EquipmentLoan[]           @relation("EquipmentLoanRenter")
+  ContextFetchJobs         ContextFetchJob[]
+  UploadedBasemaps         Basemap[]
+  UploadedFarmLayers       FarmLayer[]
+  UploadedYieldRuns        YieldRun[]
+  UploadedS3Uploads        S3Upload[]
+  CreatedSamplingMaps      SamplingMap[]
+  SamplingMapAssignments   SamplingMapAssignment[]
   SamplingPointCollections SamplingPointCollection[]
 
   @@map("users")
@@ -145,60 +146,61 @@ model Project {
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Projects")
   @@schema("pgntarg2udzj1f3")
 }
 
 model Farm {
-  id            Int       @id @default(autoincrement())
-  title         String?
-  Farm_Name     String?
-  County        String?
-  State         String?
-  is_active     Boolean   @default(true)
-  created_at    DateTime? @default(now())
-  updated_at    DateTime? @updatedAt
+  id         Int       @id @default(autoincrement())
+  title      String?
+  Farm_Name  String?
+  County     String?
+  State      String?
+  is_active  Boolean   @default(true)
+  created_at DateTime? @default(now())
+  updated_at DateTime? @updatedAt
 
   farm_summary         String?
   interview_transcript String?
   address              String?
   latitude             Float?
   longitude            Float?
-  ofe_sync_enabled     Boolean   @default(false)
+  ofe_sync_enabled     Boolean @default(false)
 
-  Fields           Field[]
-  ExperimentZones  ExperimentZone[]
-  ProjectFarms     ProjectFarm[]
-  Contacts         Contact[]
-  Photos           Photo[]
-  Notes            Note[]
-  Recordings       Recording[]
-  Locations        Location[]
-  Videos           Video[]
-  Documents        Document[]
-  ContactCards     WhatsAppContactCard[]
-  LabMemberUploads LabMemberUpload[]
-  FarmExperiments  FarmExperiment[]
-  FormAssignments  FormAssignment[]
-  FormResponses    FormResponse[]
-  GeofenceAssignments GeofenceAssignment[]
-  GeofenceZones    GeofenceZone[]
-  ContextFetchJobs ContextFetchJob[]
-  ContextRasters   ContextRaster[]
-  PipelineRuns     PipelineRun[]
-  PipelineOutputRasters PipelineOutputRaster[]
-  Basemaps         Basemap[]
-  FarmLayers       FarmLayer[]
-  YieldRuns        YieldRun[]
+  Fields                 Field[]
+  ExperimentZones        ExperimentZone[]
+  ProjectFarms           ProjectFarm[]
+  Contacts               Contact[]
+  Photos                 Photo[]
+  Notes                  Note[]
+  Recordings             Recording[]
+  Locations              Location[]
+  Videos                 Video[]
+  Documents              Document[]
+  ContactCards           WhatsAppContactCard[]
+  LabMemberUploads       LabMemberUpload[]
+  FarmExperiments        FarmExperiment[]
+  FormAssignments        FormAssignment[]
+  FormResponses          FormResponse[]
+  GeofenceAssignments    GeofenceAssignment[]
+  GeofenceZones          GeofenceZone[]
+  ContextFetchJobs       ContextFetchJob[]
+  ContextRasters         ContextRaster[]
+  PipelineRuns           PipelineRun[]
+  PipelineOutputRasters  PipelineOutputRaster[]
+  Basemaps               Basemap[]
+  FarmLayers             FarmLayer[]
+  YieldRuns              YieldRun[]
+  S3Uploads              S3Upload[]
   SamplingMapAssignments SamplingMapAssignment[]
-  SamplingMaps     SamplingMap[]
-  TagLinks         FarmTagLink[]
+  SamplingMaps           SamplingMap[]
+  TagLinks               FarmTagLink[]
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Farms")
   @@schema("pgntarg2udzj1f3")
@@ -213,16 +215,16 @@ model Field {
   created_at      DateTime?
   updated_at      DateTime?
 
-  Farm            Farm?            @relation(fields: [Farms_id], references: [id])
-  FieldTests      FieldTest[]
-  FieldCrops      FieldCrop[]
-  FieldDrones     FieldDrone[]
-  DualexReadings  Dualex[]
-  ExperimentZones ExperimentZone[]
-  ExperimentFields ExperimentField[]
-  GeofenceZoneFields GeofenceZoneField[]
+  Farm                     Farm?                     @relation(fields: [Farms_id], references: [id])
+  FieldTests               FieldTest[]
+  FieldCrops               FieldCrop[]
+  FieldDrones              FieldDrone[]
+  DualexReadings           Dualex[]
+  ExperimentZones          ExperimentZone[]
+  ExperimentFields         ExperimentField[]
+  GeofenceZoneFields       GeofenceZoneField[]
   GeofenceZoneTimeSessions GeofenceZoneTimeSession[]
-  SamplingMapPolygons SamplingMapPolygon[]
+  SamplingMapPolygons      SamplingMapPolygon[]
 
   @@map("Fields")
   @@schema("pgntarg2udzj1f3")
@@ -264,7 +266,7 @@ model Treatment {
 
   // Tenant scope (Planned Changes #10). NULL = shared/global across labs
   // (see docs/lab-data-silo-plan.md §4/§7); non-NULL = owned by that lab.
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Treatments")
   @@schema("pgntarg2udzj1f3")
@@ -285,8 +287,8 @@ model TreatmentProtocol {
   created_at    DateTime?
   updated_at    DateTime?
 
-  Project         Project?   @relation(fields: [project_id], references: [id])
-  Treatment       Treatment? @relation(fields: [treatment_id], references: [id])
+  Project         Project?         @relation(fields: [project_id], references: [id])
+  Treatment       Treatment?       @relation(fields: [treatment_id], references: [id])
   ExperimentZones ExperimentZone[]
 
   @@map("Treatment_Protocol")
@@ -307,10 +309,10 @@ model ExperimentZone {
   created_at      DateTime?
   updated_at      DateTime?
 
-  Project  Project?           @relation(fields: [project_id], references: [id])
-  Farm     Farm?              @relation(fields: [farm_id], references: [id])
-  Field    Field?             @relation(fields: [Fields_id], references: [id])
-  Protocol TreatmentProtocol? @relation(fields: [protocol_id], references: [id])
+  Project             Project?             @relation(fields: [project_id], references: [id])
+  Farm                Farm?                @relation(fields: [farm_id], references: [id])
+  Field               Field?               @relation(fields: [Fields_id], references: [id])
+  Protocol            TreatmentProtocol?   @relation(fields: [protocol_id], references: [id])
   SamplingMapPolygons SamplingMapPolygon[]
 
   @@map("Experiment_Zones")
@@ -318,19 +320,19 @@ model ExperimentZone {
 }
 
 model Test {
-  id                Int       @id @default(autoincrement())
-  title             String?
-  Test_Name         String?
-  Test_Description  String?
-  Cost              Decimal?
-  Planned_Date      DateTime?
-  Completed_Date    DateTime?
-  Methodology       String?
-  methodology_id    Int?
-  created_at        DateTime?
-  updated_at        DateTime?
+  id               Int       @id @default(autoincrement())
+  title            String?
+  Test_Name        String?
+  Test_Description String?
+  Cost             Decimal?
+  Planned_Date     DateTime?
+  Completed_Date   DateTime?
+  Methodology      String?
+  methodology_id   Int?
+  created_at       DateTime?
+  updated_at       DateTime?
 
-  MethodologyLibrary Methodology?      @relation(fields: [methodology_id], references: [id], onDelete: SetNull)
+  MethodologyLibrary Methodology?     @relation(fields: [methodology_id], references: [id], onDelete: SetNull)
   FieldTests         FieldTest[]
   ExperimentTests    ExperimentTest[]
   TaskTemplates      TaskTemplate[]
@@ -341,7 +343,7 @@ model Test {
 
   // Tenant scope (Planned Changes #10). NULL = shared/global across labs
   // (see docs/lab-data-silo-plan.md §4/§7); non-NULL = owned by that lab.
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Tests")
   @@schema("pgntarg2udzj1f3")
@@ -359,7 +361,7 @@ model Drone {
   created_at        DateTime?
   updated_at        DateTime?
 
-  MethodologyLibrary     Methodology?  @relation(fields: [methodology_id], references: [id], onDelete: SetNull)
+  MethodologyLibrary     Methodology?            @relation(fields: [methodology_id], references: [id], onDelete: SetNull)
   FieldDrones            FieldDrone[]
   ExperimentDroneFlights ExperimentDroneFlight[]
   TaskTemplates          TaskTemplate[]
@@ -370,7 +372,7 @@ model Drone {
 
   // Tenant scope (Planned Changes #10). NULL = shared/global across labs
   // (see docs/lab-data-silo-plan.md §4/§7); non-NULL = owned by that lab.
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Drones")
   @@schema("pgntarg2udzj1f3")
@@ -388,7 +390,7 @@ model Methodology {
 
   // Tenant scope (Planned Changes #10). NULL = shared/global across labs
   // (see docs/lab-data-silo-plan.md §4/§7); non-NULL = owned by that lab.
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Methodologies")
   @@schema("pgntarg2udzj1f3")
@@ -416,7 +418,7 @@ model EquipmentLoan {
   returned_at    DateTime?
   created_at     DateTime  @default(now())
 
-  Drone       Drone   @relation(fields: [drone_id], references: [id], onDelete: Cascade)
+  Drone       Drone    @relation(fields: [drone_id], references: [id], onDelete: Cascade)
   // Renter is exactly one of Contact (farmer) or RenterUser (lab member/agronomist) —
   // same "dedicated nullable FK per target kind" idiom as Form_Assignments, enforced
   // by a DB CHECK constraint (migration 080).
@@ -426,7 +428,7 @@ model EquipmentLoan {
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Equipment_Loans")
   @@schema("pgntarg2udzj1f3")
@@ -444,7 +446,7 @@ model Crop {
 
   // Tenant scope (Planned Changes #10). NULL = shared/global across labs
   // (see docs/lab-data-silo-plan.md §4/§7); non-NULL = owned by that lab.
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Crops")
   @@schema("pgntarg2udzj1f3")
@@ -496,10 +498,10 @@ model FieldCrop {
 }
 
 model FieldDrone {
-  Fields_id  Int
-  Drones_id  Int
-  Field      Field @relation(fields: [Fields_id], references: [id])
-  Drone      Drone @relation(fields: [Drones_id], references: [id])
+  Fields_id Int
+  Drones_id Int
+  Field     Field @relation(fields: [Fields_id], references: [id])
+  Drone     Drone @relation(fields: [Drones_id], references: [id])
 
   @@id([Drones_id, Fields_id])
   @@map("_nc_m2m_Fields_Drones")
@@ -507,70 +509,71 @@ model FieldDrone {
 }
 
 model Contact {
-  id            Int       @id @default(autoincrement())
-  name          String
-  email         String?
-  phone         String?
-  whatsapp      Boolean   @default(false)
-  token         String    @default("")
-  farms_id      Int?
-  is_lab_member Boolean   @default(false)
+  id                     Int       @id @default(autoincrement())
+  name                   String
+  email                  String?
+  phone                  String?
+  whatsapp               Boolean   @default(false)
+  token                  String    @default("")
+  farms_id               Int?
+  is_lab_member          Boolean   @default(false)
   assigned_experiment_id Int?
   experiment_nickname    String?
-  channel                String?   // "whatsapp" | "sms" | null — farmer's preferred messaging channel
-  onboarded_at  DateTime?
-  created_at    DateTime  @default(now())
-  external_ref  String?   @unique // "<system>:<id>" cross-system identity link (e.g. "ofe:42"), so an external service can mint-once/reuse a Contact
+  channel                String? // "whatsapp" | "sms" | null — farmer's preferred messaging channel
+  onboarded_at           DateTime?
+  created_at             DateTime  @default(now())
+  external_ref           String?   @unique // "<system>:<id>" cross-system identity link (e.g. "ofe:42"), so an external service can mint-once/reuse a Contact
 
-  Farm               Farm?           @relation(fields: [farms_id], references: [id])
-  AssignedExperiment FarmExperiment? @relation(fields: [assigned_experiment_id], references: [id], onDelete: SetNull)
-  Photos     Photo[]
-  Recordings Recording[]
-  Notes      Note[]
-  Locations  Location[]
-  Videos     Video[]
-  Documents  Document[]
-  ContactCards WhatsAppContactCard[]
-  FormAssignments FormAssignment[]
-  FormResponses   FormResponse[]
-  GeofenceAssignments GeofenceAssignment[]
-  GeofenceEvents  GeofenceEvent[]
+  Farm                     Farm?                     @relation(fields: [farms_id], references: [id])
+  AssignedExperiment       FarmExperiment?           @relation(fields: [assigned_experiment_id], references: [id], onDelete: SetNull)
+  Photos                   Photo[]
+  Recordings               Recording[]
+  Notes                    Note[]
+  Locations                Location[]
+  Videos                   Video[]
+  Documents                Document[]
+  ContactCards             WhatsAppContactCard[]
+  FormAssignments          FormAssignment[]
+  FormResponses            FormResponse[]
+  GeofenceAssignments      GeofenceAssignment[]
+  GeofenceEvents           GeofenceEvent[]
   GeofenceZoneTimeSessions GeofenceZoneTimeSession[]
-  EquipmentLoans  EquipmentLoan[]
-  SamplingMapAssignments SamplingMapAssignment[]
+  EquipmentLoans           EquipmentLoan[]
+  SamplingMapAssignments   SamplingMapAssignment[]
+  SamplingPointCollections SamplingPointCollection[]
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Contacts")
   @@schema("pgntarg2udzj1f3")
 }
 
 model Photo {
-  id          Int       @id @default(autoincrement())
-  contact_id  Int?
-  farm_id     Int?
-  field_id    Int?
-  project_id  Int?
-  filename    String
-  latitude    Float?
-  longitude   Float?
-  note        String?
-  timestamp   DateTime?
-  status      Int       @default(2)
-  ticket_ref  String?                         // human-readable OFEDashBot reference
-  content_hash String?                        // SHA-256 of raw file bytes, client-supplied dedup key
-  phash       String?                         // perceptual hash (dHash), server-computed
-  possible_duplicate_of Int?                  // id of another Photo this may duplicate (server-flagged)
-  duplicate_dismissed   Boolean?  @default(false)
-  category    String?   @db.VarChar(100)
-  description String?
-  stage          String?   @db.VarChar(50)
-  merge_group_id String?   @db.VarChar(36)
-  needs_further_processing Boolean? @default(false)
-  depth_filename String?
-  received_at    DateTime  @default(now())
+  id                       Int       @id @default(autoincrement())
+  contact_id               Int?
+  farm_id                  Int?
+  field_id                 Int?
+  project_id               Int?
+  filename                 String
+  latitude                 Float?
+  longitude                Float?
+  note                     String?
+  timestamp                DateTime?
+  status                   Int       @default(2)
+  ticket_ref               String? // human-readable OFEDashBot reference
+  content_hash             String? // SHA-256 of raw file bytes, client-supplied dedup key
+  phash                    String? // perceptual hash (dHash), server-computed
+  possible_duplicate_of    Int? // id of another Photo this may duplicate (server-flagged)
+  duplicate_dismissed      Boolean?  @default(false)
+  category                 String?   @db.VarChar(100)
+  description              String?
+  stage                    String?   @db.VarChar(50)
+  merge_group_id           String?   @db.VarChar(36)
+  needs_further_processing Boolean?  @default(false)
+  depth_filename           String?
+  received_at              DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
@@ -578,35 +581,35 @@ model Photo {
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Photos")
   @@schema("pgntarg2udzj1f3")
 }
 
 model Recording {
-  id           Int       @id @default(autoincrement())
-  contact_id   Int?
-  farm_id      Int?
-  field_id     Int?
-  project_id   Int?
-  filename     String
-  gps_filename String?
-  start_time   DateTime?
-  end_time     DateTime?
-  start_latitude  Float?                      // representative GPS point at recording start, server-persisted
-  start_longitude Float?
-  status       Int       @default(2)
-  ticket_ref   String?                         // human-readable OFEDashBot reference
-  content_hash String?                        // SHA-256 of raw file bytes, client-supplied dedup key
-  possible_duplicate_of Int?                  // id of another Recording this may duplicate (server-flagged)
-  duplicate_dismissed   Boolean?  @default(false)
-  category     String?   @db.VarChar(100)
-  description  String?
-  stage          String?   @db.VarChar(50)
-  merge_group_id String?   @db.VarChar(36)
-  needs_further_processing Boolean? @default(false)
-  received_at    DateTime  @default(now())
+  id                       Int       @id @default(autoincrement())
+  contact_id               Int?
+  farm_id                  Int?
+  field_id                 Int?
+  project_id               Int?
+  filename                 String
+  gps_filename             String?
+  start_time               DateTime?
+  end_time                 DateTime?
+  start_latitude           Float? // representative GPS point at recording start, server-persisted
+  start_longitude          Float?
+  status                   Int       @default(2)
+  ticket_ref               String? // human-readable OFEDashBot reference
+  content_hash             String? // SHA-256 of raw file bytes, client-supplied dedup key
+  possible_duplicate_of    Int? // id of another Recording this may duplicate (server-flagged)
+  duplicate_dismissed      Boolean?  @default(false)
+  category                 String?   @db.VarChar(100)
+  description              String?
+  stage                    String?   @db.VarChar(50)
+  merge_group_id           String?   @db.VarChar(36)
+  needs_further_processing Boolean?  @default(false)
+  received_at              DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
@@ -614,31 +617,31 @@ model Recording {
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Recordings")
   @@schema("pgntarg2udzj1f3")
 }
 
 model Note {
-  id          Int       @id @default(autoincrement())
-  contact_id  Int?
-  farm_id     Int?
-  field_id    Int?
-  project_id  Int?
-  content     String
-  latitude    Float?
-  longitude   Float?
-  timestamp   DateTime?
-  status      Int       @default(2)
-  ticket_ref  String?                         // human-readable OFEDashBot reference
-  content_hash String?                        // SHA-256 of note content, client-supplied dedup key
-  category    String?   @db.VarChar(100)
-  description String?
-  stage          String?   @db.VarChar(50)
-  merge_group_id String?   @db.VarChar(36)
-  needs_further_processing Boolean? @default(false)
-  received_at    DateTime  @default(now())
+  id                       Int       @id @default(autoincrement())
+  contact_id               Int?
+  farm_id                  Int?
+  field_id                 Int?
+  project_id               Int?
+  content                  String
+  latitude                 Float?
+  longitude                Float?
+  timestamp                DateTime?
+  status                   Int       @default(2)
+  ticket_ref               String? // human-readable OFEDashBot reference
+  content_hash             String? // SHA-256 of note content, client-supplied dedup key
+  category                 String?   @db.VarChar(100)
+  description              String?
+  stage                    String?   @db.VarChar(50)
+  merge_group_id           String?   @db.VarChar(36)
+  needs_further_processing Boolean?  @default(false)
+  received_at              DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
@@ -646,31 +649,31 @@ model Note {
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Notes")
   @@schema("pgntarg2udzj1f3")
 }
 
 model Location {
-  id             Int       @id @default(autoincrement())
-  contact_id     Int?
-  farm_id        Int?
-  field_id       Int?
-  project_id     Int?
-  name           String?
-  track_filename String?
-  start_time     DateTime?
-  end_time       DateTime?
-  status         Int       @default(2)
-  ticket_ref     String?                         // human-readable OFEDashBot reference
-  content_hash   String?                         // SHA-256 of track_data GeoJSON, client-supplied dedup key
-  category       String?   @db.VarChar(100)
-  description    String?
-  stage          String?   @db.VarChar(50)
-  merge_group_id String?   @db.VarChar(36)
-  needs_further_processing Boolean? @default(false)
-  received_at    DateTime  @default(now())
+  id                       Int       @id @default(autoincrement())
+  contact_id               Int?
+  farm_id                  Int?
+  field_id                 Int?
+  project_id               Int?
+  name                     String?
+  track_filename           String?
+  start_time               DateTime?
+  end_time                 DateTime?
+  status                   Int       @default(2)
+  ticket_ref               String? // human-readable OFEDashBot reference
+  content_hash             String? // SHA-256 of track_data GeoJSON, client-supplied dedup key
+  category                 String?   @db.VarChar(100)
+  description              String?
+  stage                    String?   @db.VarChar(50)
+  merge_group_id           String?   @db.VarChar(36)
+  needs_further_processing Boolean?  @default(false)
+  received_at              DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
@@ -678,39 +681,39 @@ model Location {
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Locations")
   @@schema("pgntarg2udzj1f3")
 }
 
 model LabMemberUpload {
-  id             Int       @id @default(autoincrement())
-  lab_member_id  String?
-  farm_id        Int?
-  field_id       Int?
-  project_id     Int?
-  media_type     String    @db.VarChar(20)
-  filename       String?
-  content        String?
-  latitude       Float?
-  longitude      Float?
-  gps_filename   String?
-  start_time     DateTime?
-  end_time       DateTime?
-  date_collected DateTime?
-  status         Int       @default(1)
-  content_hash   String?                         // SHA-256 dedup key (file bytes or content string), client-supplied
-  phash          String?                         // perceptual hash (dHash) for media_type "photo", server-computed
-  possible_duplicate_of Int?                     // id of another Lab_Member_Uploads row this may duplicate (server-flagged)
-  duplicate_dismissed   Boolean?  @default(false)
-  category       String?   @db.VarChar(100)
-  description    String?
-  stage          String?   @db.VarChar(50)
-  merge_group_id String?   @db.VarChar(36)
-  needs_further_processing Boolean? @default(false)
-  depth_filename String?
-  received_at    DateTime  @default(now())
+  id                       Int       @id @default(autoincrement())
+  lab_member_id            String?
+  farm_id                  Int?
+  field_id                 Int?
+  project_id               Int?
+  media_type               String    @db.VarChar(20)
+  filename                 String?
+  content                  String?
+  latitude                 Float?
+  longitude                Float?
+  gps_filename             String?
+  start_time               DateTime?
+  end_time                 DateTime?
+  date_collected           DateTime?
+  status                   Int       @default(1)
+  content_hash             String? // SHA-256 dedup key (file bytes or content string), client-supplied
+  phash                    String? // perceptual hash (dHash) for media_type "photo", server-computed
+  possible_duplicate_of    Int? // id of another Lab_Member_Uploads row this may duplicate (server-flagged)
+  duplicate_dismissed      Boolean?  @default(false)
+  category                 String?   @db.VarChar(100)
+  description              String?
+  stage                    String?   @db.VarChar(50)
+  merge_group_id           String?   @db.VarChar(36)
+  needs_further_processing Boolean?  @default(false)
+  depth_filename           String?
+  received_at              DateTime  @default(now())
 
   User    User?    @relation(fields: [lab_member_id], references: [id], onDelete: SetNull)
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
@@ -718,29 +721,29 @@ model LabMemberUpload {
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Lab_Member_Uploads")
   @@schema("pgntarg2udzj1f3")
 }
 
 model FarmExperiment {
-  id               Int       @id @default(autoincrement())
-  farm_id          Int?
-  project_id       Int?
-  experiment_name  String?
-  start_date       DateTime? @db.Date
-  end_date         DateTime? @db.Date
-  hypothesis       String?
-  experiment_desc  String?
-  measurements     String?
-  criteria         String?
-  lab_description  String?
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
-  created_by_id    String?
+  id              Int       @id @default(autoincrement())
+  farm_id         Int?
+  project_id      Int?
+  experiment_name String?
+  start_date      DateTime? @db.Date
+  end_date        DateTime? @db.Date
+  hypothesis      String?
+  experiment_desc String?
+  measurements    String?
+  criteria        String?
+  lab_description String?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  created_by_id   String?
 
-  vikunja_project_id     Int?
+  vikunja_project_id Int?
 
   Farm                   Farm?                   @relation(fields: [farm_id], references: [id])
   Project                Project?                @relation(fields: [project_id], references: [id])
@@ -768,9 +771,9 @@ model ExperimentTest {
   expected_date DateTime? @db.Date
   status        String?
 
-  Experiment FarmExperiment @relation(fields: [experiment_id], references: [id], onDelete: Cascade)
-  Test       Test           @relation(fields: [test_id], references: [id], onDelete: Cascade)
-  DataRows   DataTableRow[]
+  Experiment     FarmExperiment  @relation(fields: [experiment_id], references: [id], onDelete: Cascade)
+  Test           Test            @relation(fields: [test_id], references: [id], onDelete: Cascade)
+  DataRows       DataTableRow[]
   SamplingPoints SamplingPoint[]
 
   @@map("Experiment_Tests")
@@ -829,16 +832,16 @@ model ExperimentField {
 // assumption: a Test can use many DataTables (its own dedicated ones plus
 // shared/library ones via TestDataTable).
 model DataTable {
-  id                            Int       @id @default(autoincrement())
-  name                          String
-  description                   String?
-  data_processing_instructions  String?
-  test_id                       Int?
-  drone_id                      Int?
-  sample_filename               String?
-  sample_original_name          String?
-  created_at                    DateTime  @default(now())
-  updated_at                    DateTime  @updatedAt
+  id                           Int      @id @default(autoincrement())
+  name                         String
+  description                  String?
+  data_processing_instructions String?
+  test_id                      Int?
+  drone_id                     Int?
+  sample_filename              String?
+  sample_original_name         String?
+  created_at                   DateTime @default(now())
+  updated_at                   DateTime @updatedAt
 
   HomeTest         Test?                      @relation(fields: [test_id], references: [id], onDelete: SetNull)
   HomeDrone        Drone?                     @relation(fields: [drone_id], references: [id], onDelete: SetNull)
@@ -847,13 +850,12 @@ model DataTable {
   UsedByTests      TestDataTable[]
   MatchedDocuments Document[]
 
-  @@index([test_id])
-  @@index([drone_id])
-
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
+  @@index([test_id])
+  @@index([drone_id])
   @@map("Tables")
   @@schema("pgntarg2udzj1f3")
 }
@@ -922,7 +924,7 @@ model UploadCategory {
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Upload_Categories")
   @@schema("pgntarg2udzj1f3")
@@ -997,23 +999,23 @@ model ExperimentTreatmentValue {
 }
 
 model Video {
-  id          Int       @id @default(autoincrement())
-  contact_id  Int?
-  farm_id     Int?
-  project_id  Int?
-  filename    String
-  latitude    Float?
-  longitude   Float?
-  note        String?
-  timestamp   DateTime?
-  status      Int       @default(2)
-  ticket_ref  String?                         // human-readable OFEDashBot reference
-  category    String?   @db.VarChar(100)
-  description String?
-  stage          String?   @db.VarChar(50)
-  merge_group_id String?   @db.VarChar(36)
-  needs_further_processing Boolean? @default(false)
-  received_at DateTime  @default(now())
+  id                       Int       @id @default(autoincrement())
+  contact_id               Int?
+  farm_id                  Int?
+  project_id               Int?
+  filename                 String
+  latitude                 Float?
+  longitude                Float?
+  note                     String?
+  timestamp                DateTime?
+  status                   Int       @default(2)
+  ticket_ref               String? // human-readable OFEDashBot reference
+  category                 String?   @db.VarChar(100)
+  description              String?
+  stage                    String?   @db.VarChar(50)
+  merge_group_id           String?   @db.VarChar(36)
+  needs_further_processing Boolean?  @default(false)
+  received_at              DateTime  @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
@@ -1021,7 +1023,7 @@ model Video {
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Videos")
   @@schema("pgntarg2udzj1f3")
@@ -1030,12 +1032,12 @@ model Video {
 // Unified table: serves both dashboard farm/project file attachments
 // (source = "dashboard") and inbound WhatsApp documents (source = "whatsapp").
 model Document {
-  id            Int       @id @default(autoincrement())
-  source        String    @default("dashboard")  // dashboard | whatsapp
-  contact_id    Int?
-  farm_id       Int?
-  project_id    Int?
-  test_id       Int?
+  id                       Int       @id @default(autoincrement())
+  source                   String    @default("dashboard") // dashboard | whatsapp
+  contact_id               Int?
+  farm_id                  Int?
+  project_id               Int?
+  test_id                  Int?
   // Data Table this document's columns were auto-matched against at upload
   // time (see lib/document-template-match.ts) — a document, not a row, so
   // this only records the match for pipeline scoping / provenance; the
@@ -1045,56 +1047,55 @@ model Document {
   // DataTable can be homed to either. Independent of test_id: a Test-scoped
   // upload (app/api/tests/[id]/documents) sets test_id explicitly regardless
   // of whether a template match was found.
-  data_table_id Int?
-  drone_id      Int?
-  filename      String
-  original_name String?                           // dashboard uploads
-  file_type     String?   @db.VarChar(20)         // dashboard uploads
-  file_size     Int?                              // dashboard uploads
-  note          String?                           // whatsapp captions
-  category      String?   @db.VarChar(100)
-  description   String?
-  stage          String?   @db.VarChar(50)
-  merge_group_id String?   @db.VarChar(36)
-  needs_further_processing Boolean? @default(false)
-  timestamp     DateTime?                          // whatsapp message time
-  status        Int       @default(2)
-  ticket_ref    String?                            // human-readable OFEDashBot reference
-  uploaded_at   DateTime  @default(now())
+  data_table_id            Int?
+  drone_id                 Int?
+  filename                 String
+  original_name            String? // dashboard uploads
+  file_type                String?   @db.VarChar(20) // dashboard uploads
+  file_size                Int? // dashboard uploads
+  note                     String? // whatsapp captions
+  category                 String?   @db.VarChar(100)
+  description              String?
+  stage                    String?   @db.VarChar(50)
+  merge_group_id           String?   @db.VarChar(36)
+  needs_further_processing Boolean?  @default(false)
+  timestamp                DateTime? // whatsapp message time
+  status                   Int       @default(2)
+  ticket_ref               String? // human-readable OFEDashBot reference
+  uploaded_at              DateTime  @default(now())
 
-  Contact   Contact?   @relation(fields: [contact_id], references: [id])
-  Farm      Farm?      @relation(fields: [farm_id], references: [id])
-  Project   Project?   @relation(fields: [project_id], references: [id])
-  Test      Test?      @relation(fields: [test_id], references: [id], onDelete: Cascade)
-  DataTable DataTable? @relation(fields: [data_table_id], references: [id], onDelete: SetNull)
-  Drone     Drone?     @relation(fields: [drone_id], references: [id], onDelete: SetNull)
-  FarmLayers FarmLayer[]
-  YieldRunSources YieldRun[] @relation("YieldRunSource")
-  YieldRunResults YieldRun[] @relation("YieldRunResults")
-
-  @@index([data_table_id])
-  @@index([drone_id])
+  Contact         Contact?    @relation(fields: [contact_id], references: [id])
+  Farm            Farm?       @relation(fields: [farm_id], references: [id])
+  Project         Project?    @relation(fields: [project_id], references: [id])
+  Test            Test?       @relation(fields: [test_id], references: [id], onDelete: Cascade)
+  DataTable       DataTable?  @relation(fields: [data_table_id], references: [id], onDelete: SetNull)
+  Drone           Drone?      @relation(fields: [drone_id], references: [id], onDelete: SetNull)
+  FarmLayers      FarmLayer[]
+  YieldRunSources YieldRun[]  @relation("YieldRunSource")
+  YieldRunResults YieldRun[]  @relation("YieldRunResults")
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
+  @@index([data_table_id])
+  @@index([drone_id])
   @@map("Documents")
   @@schema("pgntarg2udzj1f3")
 }
 
 model WhatsAppContactCard {
-  id          Int       @id @default(autoincrement())
-  contact_id  Int?
-  farm_id     Int?
+  id           Int      @id @default(autoincrement())
+  contact_id   Int?
+  farm_id      Int?
   shared_name  String
   shared_phone String?
   shared_email String?
   shared_org   String?
-  note        String?
-  status      Int       @default(2)
-  ticket_ref  String?                         // human-readable OFEDashBot reference
-  received_at DateTime  @default(now())
+  note         String?
+  status       Int      @default(2)
+  ticket_ref   String? // human-readable OFEDashBot reference
+  received_at  DateTime @default(now())
 
   Contact Contact? @relation(fields: [contact_id], references: [id])
   Farm    Farm?    @relation(fields: [farm_id], references: [id])
@@ -1106,19 +1107,19 @@ model WhatsAppContactCard {
 model ReportingSubscription {
   id           Int       @id @default(autoincrement())
   project_id   Int?
-  emails       String                          // semicolon-separated list
-  frequency    String    @default("weekly")    // weekly | biweekly | monthly
+  emails       String // semicolon-separated list
+  frequency    String    @default("weekly") // weekly | biweekly | monthly
   active       Boolean   @default(true)
-  contact_ids  String?                         // legacy; contacts now derived from project at send time
+  contact_ids  String? // legacy; contacts now derived from project at send time
   last_sent_at DateTime?
   created_at   DateTime  @default(now())
   updated_at   DateTime  @updatedAt
 
-  Project      Project?  @relation(fields: [project_id], references: [id])
+  Project Project? @relation(fields: [project_id], references: [id])
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Reporting_Subscriptions")
   @@schema("pgntarg2udzj1f3")
@@ -1196,7 +1197,7 @@ model MessageTemplate {
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("MessageTemplates")
   @@schema("pgntarg2udzj1f3")
@@ -1221,25 +1222,25 @@ model Annotation {
 }
 
 model Task {
-  id               Int       @id @default(autoincrement())
-  experiment_id    Int?
-  description      String
-  classification   String?
-  status           String    @default("not started")
-  priority         String    @default("medium")
-  due_date         DateTime? @db.Date
-  vikunja_task_id  Int?
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
+  id              Int       @id @default(autoincrement())
+  experiment_id   Int?
+  description     String
+  classification  String?
+  status          String    @default("not started")
+  priority        String    @default("medium")
+  due_date        DateTime? @db.Date
+  vikunja_task_id Int?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
 
-  Experiment  FarmExperiment? @relation(fields: [experiment_id], references: [id], onDelete: SetNull)
+  Experiment  FarmExperiment?  @relation(fields: [experiment_id], references: [id], onDelete: SetNull)
   Assignees   TaskAssignee[]
   UploadLinks TaskUploadLink[]
   CvatTasks   CvatTask[]
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Tasks")
   @@schema("pgntarg2udzj1f3")
@@ -1279,7 +1280,7 @@ model TaskTemplate {
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
-  Test  Test?  @relation(fields: [test_id],  references: [id], onDelete: Cascade)
+  Test  Test?  @relation(fields: [test_id], references: [id], onDelete: Cascade)
   Drone Drone? @relation(fields: [drone_id], references: [id], onDelete: Cascade)
 
   @@map("Task_Templates")
@@ -1287,13 +1288,16 @@ model TaskTemplate {
 }
 
 model Form {
-  id            Int       @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   title         String
   description   String?
-  is_active     Boolean   @default(true)
+  is_active     Boolean  @default(true)
   created_by_id String?
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  // Migration 091: set = OFE-owned (pushed by OFE_Dashboard, read-only here). See lib/ofe-sync.ts.
+  ofe_id Int? @unique
 
   CreatedBy        User?                 @relation("FormCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
   FieldDefinitions FormFieldDefinition[]
@@ -1303,12 +1307,12 @@ model Form {
   LinkedGeofences  Geofence[]            @relation("GeofenceLinkedForm")
 
   // Optional Form_Groups row (migration 087) — list-page organisation only; NULL = Ungrouped.
-  group_id         Int?
-  Group            FormGroup?            @relation(fields: [group_id], references: [id], onDelete: SetNull)
+  group_id Int?
+  Group    FormGroup? @relation(fields: [group_id], references: [id], onDelete: SetNull)
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@map("Forms")
   @@schema("pgntarg2udzj1f3")
@@ -1325,7 +1329,7 @@ model FormFieldDefinition {
   field_type String  @default("text") // text | number | boolean | date | select
   label      String
   required   Boolean @default(false)
-  options    Json?                     // string[] — only used when field_type = "select"
+  options    Json? // string[] — only used when field_type = "select"
 
   // Conditional display: this field is only shown once `show_when_label`'s
   // answer equals `show_when_value` (single equality check, no AND/OR chains).
@@ -1385,9 +1389,9 @@ model FormResponse {
   form_id      Int
   contact_id   Int?
   user_id      String?
-  farm_id      Int?     // resolved at submission time via lib/proximity.ts
-  data         Json     // JSONB keyed by FormFieldDefinition.field_key — no FK to field defs
-  content_hash String?  // client-supplied dedup key, same pattern as Photos/Notes/Recordings
+  farm_id      Int? // resolved at submission time via lib/proximity.ts
+  data         Json // JSONB keyed by FormFieldDefinition.field_key — no FK to field defs
+  content_hash String? // client-supplied dedup key, same pattern as Photos/Notes/Recordings
   submitted_at DateTime @default(now()) @db.Timestamptz(6)
 
   // Nullable: only set for a response submitted at a Sampling Point (either an existing
@@ -1454,34 +1458,34 @@ model FormResponse {
 // client-side, same as every other timing/detection decision here; a re-entry within the
 // window still gets logged, only the notification is suppressed.
 model Geofence {
-  id                     Int      @id @default(autoincrement())
-  title                  String
-  description            String?
-  is_active              Boolean  @default(true)
-  geofence_type          String   @default("notification") // 'duration' | 'notification'
-  notify_on_circle_entry Boolean  @default(true)  // fire on entering a zone's circle ("near fields")
-  notify_on_field_entry  Boolean  @default(false) // fire on entering one of a zone's exact Field boundaries
-  circle_repeat_interval_days Int @default(1) // min days between repeat circle-entry notifications
-  field_repeat_interval_days  Int @default(1) // min days between repeat field-entry notifications
-  action_message         String?  // optional override notification body; null => client generates
-                                   // per-event text ("You're near {Farm}" / "You've entered {Field}")
-  linked_form_id         Int?     // 'notification' type only; mutually exclusive with linked_sampling_map_id
-  linked_sampling_map_id Int?     // 'notification' type only; mutually exclusive with linked_form_id
-  created_by_id          String?
-  created_at             DateTime @default(now())
-  updated_at             DateTime @updatedAt
+  id                          Int      @id @default(autoincrement())
+  title                       String
+  description                 String?
+  is_active                   Boolean  @default(true)
+  geofence_type               String   @default("notification") // 'duration' | 'notification'
+  notify_on_circle_entry      Boolean  @default(true) // fire on entering a zone's circle ("near fields")
+  notify_on_field_entry       Boolean  @default(false) // fire on entering one of a zone's exact Field boundaries
+  circle_repeat_interval_days Int      @default(1) // min days between repeat circle-entry notifications
+  field_repeat_interval_days  Int      @default(1) // min days between repeat field-entry notifications
+  action_message              String? // optional override notification body; null => client generates
+  // per-event text ("You're near {Farm}" / "You've entered {Field}")
+  linked_form_id              Int? // 'notification' type only; mutually exclusive with linked_sampling_map_id
+  linked_sampling_map_id      Int? // 'notification' type only; mutually exclusive with linked_form_id
+  created_by_id               String?
+  created_at                  DateTime @default(now())
+  updated_at                  DateTime @updatedAt
 
-  CreatedBy         User?                    @relation("GeofenceCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
+  CreatedBy         User?                     @relation("GeofenceCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
   Zones             GeofenceZone[]
   Assignments       GeofenceAssignment[]
   Events            GeofenceEvent[]
   TimeSessions      GeofenceZoneTimeSession[]
-  LinkedForm        Form?        @relation("GeofenceLinkedForm", fields: [linked_form_id], references: [id], onDelete: SetNull)
-  LinkedSamplingMap SamplingMap? @relation("GeofenceLinkedSamplingMap", fields: [linked_sampling_map_id], references: [id], onDelete: SetNull)
+  LinkedForm        Form?                     @relation("GeofenceLinkedForm", fields: [linked_form_id], references: [id], onDelete: SetNull)
+  LinkedSamplingMap SamplingMap?              @relation("GeofenceLinkedSamplingMap", fields: [linked_sampling_map_id], references: [id], onDelete: SetNull)
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
   @@index([linked_form_id])
   @@index([linked_sampling_map_id])
@@ -1568,9 +1572,9 @@ model GeofenceEvent {
   event_type   String   @default("enter") // Phase 1: always "enter"; exit reserved for later
   lat          Float
   lng          Float
-  occurred_at  DateTime                    // device-reported timestamp of the precise fix
+  occurred_at  DateTime // device-reported timestamp of the precise fix
   received_at  DateTime @default(now()) @db.Timestamptz(6)
-  content_hash String?                     // client dedup key, same pattern as Notes/Locations
+  content_hash String? // client dedup key, same pattern as Notes/Locations
 
   Geofence Geofence @relation(fields: [geofence_id], references: [id], onDelete: Cascade)
   Contact  Contact? @relation(fields: [contact_id], references: [id], onDelete: SetNull)
@@ -1593,13 +1597,13 @@ model GeofenceZoneTimeSession {
   id               Int      @id @default(autoincrement())
   geofence_id      Int
   zone_id          Int
-  field_id         Int?                        // which field polygon (migration 083); null = whole-circle session
+  field_id         Int? // which field polygon (migration 083); null = whole-circle session
   contact_id       Int?
   user_id          String?
   entered_at       DateTime
   exited_at        DateTime
   duration_seconds Int
-  content_hash     String?                     // client dedup key, same pattern as GeofenceEvent
+  content_hash     String? // client dedup key, same pattern as GeofenceEvent
   received_at      DateTime @default(now()) @db.Timestamptz(6)
 
   Geofence Geofence     @relation(fields: [geofence_id], references: [id], onDelete: Cascade)
@@ -1619,74 +1623,73 @@ model GeofenceZoneTimeSession {
 }
 
 model Pipeline {
-  id                            Int       @id @default(autoincrement())
-  name                          String
-  description                   String?
-  status                        String    @default("draft") // draft | testing | live | failed | disabled
-  target_kind                   String?   // null = upload-matched (default) | "drone_flight" = manual per-flight, see PipelineRun.target_drone_flight_id
-  match_table                   String?   // photos | notes | recordings | locations | lab-member-uploads | test-data-rows | documents — null for target_kind = "drone_flight"
-  match_category                String?
-  match_project_id              Int?
-  match_data_table_id           Int?
-  use_spatial_context           Boolean   @default(false) // tell the processing LLM per-farm spatial-context rasters are available for interpolation
-  sample_dataset_filename       String
-  sample_dataset_original_name  String
-  script_filename                String
-  script_original_name           String
-  model_filename                 String?
-  model_original_name            String?
-  wired_command                 String?
-  wired_requirements             String?
-  llm_notes                      String?
-  external_pipeline_id          String?
-  last_run_at                   DateTime?
-  last_run_status                String?
-  created_by                     String?
-  created_at                     DateTime  @default(now())
-  updated_at                     DateTime  @updatedAt
+  id                           Int       @id @default(autoincrement())
+  name                         String
+  description                  String?
+  status                       String    @default("draft") // draft | testing | live | failed | disabled
+  target_kind                  String? // null = upload-matched (default) | "drone_flight" = manual per-flight, see PipelineRun.target_drone_flight_id
+  match_table                  String? // photos | notes | recordings | locations | lab-member-uploads | test-data-rows | documents — null for target_kind = "drone_flight"
+  match_category               String?
+  match_project_id             Int?
+  match_data_table_id          Int?
+  use_spatial_context          Boolean   @default(false) // tell the processing LLM per-farm spatial-context rasters are available for interpolation
+  sample_dataset_filename      String
+  sample_dataset_original_name String
+  script_filename              String
+  script_original_name         String
+  model_filename               String?
+  model_original_name          String?
+  wired_command                String?
+  wired_requirements           String?
+  llm_notes                    String?
+  external_pipeline_id         String?
+  last_run_at                  DateTime?
+  last_run_status              String?
+  created_by                   String?
+  created_at                   DateTime  @default(now())
+  updated_at                   DateTime  @updatedAt
 
   Creator User?         @relation(fields: [created_by], references: [id], onDelete: SetNull)
   Runs    PipelineRun[]
 
-  @@index([status])
-  @@index([match_table])
-
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
+  lab_id Int?
 
+  @@index([status])
+  @@index([match_table])
   @@map("Pipelines")
   @@schema("pgntarg2udzj1f3")
 }
 
 model PipelineRun {
-  id                      Int       @id @default(autoincrement())
-  pipeline_id             Int
-  is_test_run             Boolean   @default(false)
-  trigger_upload_id       Int?
-  trigger_upload_table    String?
-  trigger_data_table_id   Int?      // for test-data-rows auto-runs: which Data Table's ingest fired this
-  target_drone_flight_id  Int?      // set for target_kind = "drone_flight" runs instead of trigger_upload_*
-  status                  String    @default("queued") // queued | running | success | failed
-  external_job_id         String?
-  prompt                  String?   // operator instruction for a re-run, re-wired by the processor LLM
-  processor_note          String?   // short status the processor emits back ("CRS unclear")
-  stdout_log              String?
-  stderr_log              String?
-  output_files            Json      @default("[]")
-  output_storage_path     String?   // final zraid1 path the processing machine wrote to, for drone-flight runs
-  error_message           String?
-  started_at              DateTime?
-  finished_at             DateTime?
-  created_at              DateTime  @default(now())
+  id                     Int       @id @default(autoincrement())
+  pipeline_id            Int
+  is_test_run            Boolean   @default(false)
+  trigger_upload_id      Int?
+  trigger_upload_table   String?
+  trigger_data_table_id  Int? // for test-data-rows auto-runs: which Data Table's ingest fired this
+  target_drone_flight_id Int? // set for target_kind = "drone_flight" runs instead of trigger_upload_*
+  status                 String    @default("queued") // queued | running | success | failed
+  external_job_id        String?
+  prompt                 String? // operator instruction for a re-run, re-wired by the processor LLM
+  processor_note         String? // short status the processor emits back ("CRS unclear")
+  stdout_log             String?
+  stderr_log             String?
+  output_files           Json      @default("[]")
+  output_storage_path    String? // final zraid1 path the processing machine wrote to, for drone-flight runs
+  error_message          String?
+  started_at             DateTime?
+  finished_at            DateTime?
+  created_at             DateTime  @default(now())
   // Resolved once at creation from whichever trigger shape applies (see
   // lib/pipeline-farm.ts) — NULL means no farm could be resolved (e.g. a manual
   // "Run"/registration test-run with no upload/experiment context).
-  farm_id                 Int?
+  farm_id                Int?
 
-  Pipeline          Pipeline                @relation(fields: [pipeline_id], references: [id], onDelete: Cascade)
-  TargetDroneFlight DroneFlightRecord?      @relation(fields: [target_drone_flight_id], references: [id], onDelete: SetNull)
-  Farm              Farm?                   @relation(fields: [farm_id], references: [id], onDelete: SetNull)
+  Pipeline          Pipeline               @relation(fields: [pipeline_id], references: [id], onDelete: Cascade)
+  TargetDroneFlight DroneFlightRecord?     @relation(fields: [target_drone_flight_id], references: [id], onDelete: SetNull)
+  Farm              Farm?                  @relation(fields: [farm_id], references: [id], onDelete: SetNull)
   OutputRasters     PipelineOutputRaster[]
 
   @@index([pipeline_id])
@@ -1718,7 +1721,7 @@ model PipelineOutputRaster {
   // NULL = no farm to check against (shouldn't occur here since farm_id is required,
   // but tolerated for pre-migration rows).
   crs_status        String?
-  crs_epsg          Int?    // the EPSG geo_sanity matched, when crs_status = "ok"
+  crs_epsg          Int? // the EPSG geo_sanity matched, when crs_status = "ok"
   created_at        DateTime @default(now())
 
   Run  PipelineRun @relation(fields: [pipeline_run_id], references: [id], onDelete: Cascade)
@@ -1744,23 +1747,30 @@ model Basemap {
   farm_id                Int
   drone_flight_record_id Int?
   uploaded_by_id         String?
-  original_filename      String   // name as uploaded
-  source_filename        String   // flat basename under DATA_DIR/basemap-sources/
+  original_filename      String // name as uploaded
+  source_filename        String // flat basename under DATA_DIR/basemap-sources/
   bytes                  BigInt
-  sha256                 String
+  // NULL for an S3 upload until PipelineProcessor reports source_sha256
+  // from its download (migration 093).
+  sha256                 String?
+  // 'local' = DATA_DIR/basemap-sources/<source_filename>; 's3' = source_s3_key
+  // in S3_BUCKET (lib/s3.ts). For 's3', source_filename is the key's basename,
+  // still unique, so /api/files/basemap-sources/<it> can redirect to the bucket.
+  source_storage         String   @default("local")
+  source_s3_key          String?
   // Set by PipelineProcessor's tiling job reusing geo_sanity.py's
   // candidate-CRS check (same convention as PipelineOutputRaster.crs_status).
   // "unclear" = not safe to plot; NULL = tiling hasn't finished yet.
   crs_status             String?
   crs_epsg               Int?
-  footprint              Json?    // GeoJSON Polygon, filled in once tiling reads the file
+  footprint              Json? // GeoJSON Polygon, filled in once tiling reads the file
   // Unified farm upload dialog (migration 089): optional layer name shown in
   // map checklists (falls back to original_filename), and an uploader-named
   // source CRS PipelineProcessor reprojects from instead of guessing.
   display_name           String?
   crs_override_epsg      Int?
   tiling_status          String   @default("pending") // pending | tiling | ready | failed
-  tile_dir               String?  // e.g. "<id>" under DATA_DIR/basemap-tiles/
+  tile_dir               String? // e.g. "<id>" under DATA_DIR/basemap-tiles/
   min_zoom               Int?
   max_zoom               Int?
   error_message          String?
@@ -1771,10 +1781,42 @@ model Basemap {
   DroneFlightRecord DroneFlightRecord? @relation(fields: [drone_flight_record_id], references: [id], onDelete: SetNull)
   UploadedBy        User?              @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
   SamplingMaps      SamplingMap[]
+  S3Uploads         S3Upload[]
+  YieldRuns         YieldRun[]
 
   @@index([farm_id])
   @@index([tiling_status])
   @@map("Basemaps")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Presigned multipart upload straight to the S3 bucket (Garage), migration
+// 093 / lib/s3-uploads.ts. Completed -> a Basemaps row (basemap_id).
+model S3Upload {
+  id                Int      @id @default(autoincrement())
+  farm_id           Int
+  uploaded_by_id    String?
+  kind              String   @default("basemap")
+  s3_key            String   @unique
+  upload_id         String
+  original_filename String
+  bytes             BigInt
+  part_size         BigInt
+  part_count        Int
+  status            String   @default("uploading") // uploading | completing | completed | aborted
+  form_fields       Json     @default("{}")
+  basemap_id        Int?
+  error_message     String?
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  Farm       Farm     @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  UploadedBy User?    @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
+  Basemap    Basemap? @relation(fields: [basemap_id], references: [id], onDelete: SetNull)
+
+  @@index([farm_id])
+  @@index([status])
+  @@map("S3_Uploads")
   @@schema("pgntarg2udzj1f3")
 }
 
@@ -1786,18 +1828,18 @@ model FarmLayer {
   id                Int      @id @default(autoincrement())
   farm_id           Int
   name              String
-  geometry_kind     String   // point | line | polygon | mixed
+  geometry_kind     String // point | line | polygon | mixed
   feature_count     Int
   geojson           Json
   original_filename String
   source_epsg       Int?
-  document_id       Int?     // the original file, kept as a farm Document
+  document_id       Int? // the original file, kept as a farm Document
   uploaded_by_id    String?
   created_at        DateTime @default(now()) @db.Timestamptz(6)
 
-  Farm       Farm      @relation(fields: [farm_id], references: [id], onDelete: Cascade)
-  Document   Document? @relation(fields: [document_id], references: [id], onDelete: SetNull)
-  UploadedBy User?     @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
+  Farm       Farm       @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  Document   Document?  @relation(fields: [document_id], references: [id], onDelete: SetNull)
+  UploadedBy User?      @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
   YieldRuns  YieldRun[]
 
   @@index([farm_id])
@@ -1811,30 +1853,39 @@ model YieldRun {
   id                  Int      @id @default(autoincrement())
   farm_id             Int
   original_filename   String
-  source_filename     String   // under DATA_DIR/yield-sources/
+  source_filename     String // under DATA_DIR/yield-sources/
   bytes               BigInt
   sha256              String
   display_name        String?
   status              String   @default("pending") // pending | processing | ready | failed
   error_message       String?
-  preset              String?  // forage | grain, chosen by the processor from the card
+  preset              String? // forage | grain, chosen by the processor from the card
   yield_unit          String?
   kept_points         Int?
-  summary             Json?    // the yieldclean manifest's per-field rows
+  summary             Json? // the yieldclean manifest's per-field rows
   layer_id            Int?
   source_document_id  Int?
   results_document_id Int?
+  // Migration 094: the kriged yield map (a tiled Basemap), what the processor
+  // reported about it (unit, legend, per-field kriging summary, or {error}),
+  // and the context fetch this run asked for (re-sent once when it lands).
+  basemap_id          Int?
+  interpolation       Json?
+  context_job_id      Int?
   uploaded_by_id      String?
   created_at          DateTime @default(now()) @db.Timestamptz(6)
   updated_at          DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
-  Farm            Farm       @relation(fields: [farm_id], references: [id], onDelete: Cascade)
-  Layer           FarmLayer? @relation(fields: [layer_id], references: [id], onDelete: SetNull)
-  SourceDocument  Document?  @relation("YieldRunSource", fields: [source_document_id], references: [id], onDelete: SetNull)
-  ResultsDocument Document?  @relation("YieldRunResults", fields: [results_document_id], references: [id], onDelete: SetNull)
-  UploadedBy      User?      @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
+  Farm            Farm             @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  Layer           FarmLayer?       @relation(fields: [layer_id], references: [id], onDelete: SetNull)
+  SourceDocument  Document?        @relation("YieldRunSource", fields: [source_document_id], references: [id], onDelete: SetNull)
+  ResultsDocument Document?        @relation("YieldRunResults", fields: [results_document_id], references: [id], onDelete: SetNull)
+  Basemap         Basemap?         @relation(fields: [basemap_id], references: [id], onDelete: SetNull)
+  ContextJob      ContextFetchJob? @relation(fields: [context_job_id], references: [id], onDelete: SetNull)
+  UploadedBy      User?            @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
 
   @@index([farm_id])
+  @@index([context_job_id])
   @@map("Yield_Runs")
   @@schema("pgntarg2udzj1f3")
 }
@@ -1863,6 +1914,7 @@ model ContextFetchJob {
   Farm      Farm            @relation(fields: [farm_id], references: [id], onDelete: Cascade)
   Requester User?           @relation(fields: [requested_by], references: [id], onDelete: SetNull)
   Rasters   ContextRaster[]
+  YieldRuns YieldRun[]
 
   @@index([status])
   @@index([farm_id])
@@ -1902,35 +1954,35 @@ model ContextRaster {
 // Experiment_Tests — a Test is a global methodology, Experiment_Tests is the per-experiment
 // instance actually being sampled.
 model SamplingMap {
-  id            Int       @id @default(autoincrement())
-  farm_id       Int
-  experiment_id Int?
-  name          String
-  description   String?
-  created_by_id String?
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
+  id                        Int       @id @default(autoincrement())
+  farm_id                   Int
+  experiment_id             Int?
+  name                      String
+  description               String?
+  created_by_id             String?
+  created_at                DateTime  @default(now())
+  updated_at                DateTime  @updatedAt
   // Optional Custom Form every point on this map is filled out against — one form per map
   // (not per point, unlike experiment_test_id on SamplingPoint), set from the map editor's
   // toolbar. See FormResponse.sampling_point_id for where a submission ties back to a point.
-  form_id       Int?
+  form_id                   Int?
   // Planned Changes #13 (proximity auto-popup): radius in meters around every point on this
   // map, set from the map editor's toolbar. NULL/0 = feature off for this map. One setting per
   // map rather than per point, matching form_id above — mobile apps read it off the map
   // download and prompt "Fill Form" when a fresh GPS fix lands inside it.
-  proximity_radius_m Float?
+  proximity_radius_m        Float?
   // Planned Changes item 6.2 (raster-basemap toolset), set from the same editor
   // toolbar — same "one setting per map" precedent as form_id/proximity_radius_m
   // above. basemap_buffer_m is POSITIVE (extend beyond the field boundary), the
   // opposite sign convention from the point-generation toolset's inward edge
   // buffer. basemap_max_zoom is the max tiling level sent to the phone app
   // (consumed by the Phase 2 MBTiles export — see raster-tiling-plan.md).
-  basemap_id         Int?
-  basemap_buffer_m   Float?
-  basemap_max_zoom   Int?
+  basemap_id                Int?
+  basemap_buffer_m          Float?
+  basemap_max_zoom          Int?
   // NAIP basemap-from-bounding-box (migration 084): [west, south, east, north] in WGS84, drawn in
   // the editor's "NAIP imagery box" panel; validated by lib/naip-bbox.ts's parseNaipBbox().
-  naip_bbox          Json?
+  naip_bbox                 Json?
   // NAIP MBTiles package (migration 085). _status is the latest build attempt
   // (pending|ready|failed); the rest describe the file on disk and only change on a
   // successful build. See lib/naip-package.ts.
@@ -1945,28 +1997,30 @@ model SamplingMap {
   naip_package_bytes        Int?
   naip_package_sha256       String?
 
-  Farm       Farm            @relation(fields: [farm_id], references: [id], onDelete: Cascade)
-  Experiment FarmExperiment? @relation(fields: [experiment_id], references: [id], onDelete: SetNull)
-  CreatedBy  User?           @relation(fields: [created_by_id], references: [id], onDelete: SetNull)
-  Form       Form?           @relation(fields: [form_id], references: [id], onDelete: SetNull)
-  Basemap    Basemap?        @relation(fields: [basemap_id], references: [id], onDelete: SetNull)
-  Polygons   SamplingMapPolygon[]
-  Points     SamplingPoint[]
-  Assignments SamplingMapAssignment[]
-  LinkedGeofences Geofence[]            @relation("GeofenceLinkedSamplingMap")
+  // Migration 091: set = OFE-owned (pushed by OFE_Dashboard, read-only here). See lib/ofe-sync.ts.
+  ofe_id Int? @unique
+
+  Farm            Farm                    @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  Experiment      FarmExperiment?         @relation(fields: [experiment_id], references: [id], onDelete: SetNull)
+  CreatedBy       User?                   @relation(fields: [created_by_id], references: [id], onDelete: SetNull)
+  Form            Form?                   @relation(fields: [form_id], references: [id], onDelete: SetNull)
+  Basemap         Basemap?                @relation(fields: [basemap_id], references: [id], onDelete: SetNull)
+  Polygons        SamplingMapPolygon[]
+  Points          SamplingPoint[]
+  Assignments     SamplingMapAssignment[]
+  LinkedGeofences Geofence[]              @relation("GeofenceLinkedSamplingMap")
   // Optional Sampling_Map_Groups row (migration 087) — list-page organisation only; NULL = Ungrouped.
-  group_id   Int?
-  Group      SamplingMapGroup? @relation(fields: [group_id], references: [id], onDelete: SetNull)
+  group_id        Int?
+  Group           SamplingMapGroup?       @relation(fields: [group_id], references: [id], onDelete: SetNull)
+
+  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
+  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
+  lab_id Int?
 
   @@index([farm_id])
   @@index([experiment_id])
   @@index([form_id])
   @@index([basemap_id])
-
-  // Tenant scope (Planned Changes #10). Nullable for now — migration 067
-  // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
-  lab_id      Int?
-
   @@map("Sampling_Maps")
   @@schema("pgntarg2udzj1f3")
 }
@@ -1984,6 +2038,7 @@ model SamplingMapPolygon {
   source          String   @default("drawn")
   source_field_id Int?
   source_zone_id  Int?
+  ofe_id          Int? // migration 091
   created_at      DateTime @default(now())
 
   SamplingMap SamplingMap     @relation(fields: [sampling_map_id], references: [id], onDelete: Cascade)
@@ -1991,6 +2046,7 @@ model SamplingMapPolygon {
   SourceZone  ExperimentZone? @relation(fields: [source_zone_id], references: [id], onDelete: SetNull)
   Points      SamplingPoint[]
 
+  @@unique([sampling_map_id, ofe_id])
   @@index([sampling_map_id])
   @@map("Sampling_Map_Polygons")
   @@schema("pgntarg2udzj1f3")
@@ -2009,18 +2065,20 @@ model SamplingPoint {
   geometry           String
   placement_method   String   @default("manual")
   sample_index       Int?
+  ofe_id             Int? // migration 091; NULL on a phone-created point until OFE pulls it back
   created_at         DateTime @default(now())
   // Client-computed dedup key, same convention as Photos/Notes/Sampling_Point_Collections —
   // only ever set for placement_method = "field" (created on-device via the bearer API); the
   // web editor's drawn/generated/uploaded points never send one.
   content_hash       String?
 
-  SamplingMap    SamplingMap         @relation(fields: [sampling_map_id], references: [id], onDelete: Cascade)
-  Polygon        SamplingMapPolygon? @relation(fields: [polygon_id], references: [id], onDelete: SetNull)
-  ExperimentTest ExperimentTest?     @relation(fields: [experiment_test_id], references: [id], onDelete: SetNull)
+  SamplingMap    SamplingMap               @relation(fields: [sampling_map_id], references: [id], onDelete: Cascade)
+  Polygon        SamplingMapPolygon?       @relation(fields: [polygon_id], references: [id], onDelete: SetNull)
+  ExperimentTest ExperimentTest?           @relation(fields: [experiment_test_id], references: [id], onDelete: SetNull)
   Collections    SamplingPointCollection[]
   FormResponses  FormResponse[]
 
+  @@unique([sampling_map_id, ofe_id])
   @@index([sampling_map_id])
   @@index([polygon_id])
   @@index([experiment_test_id])
@@ -2065,6 +2123,7 @@ model SamplingPointCollection {
   id                Int      @id @default(autoincrement())
   sampling_point_id Int
   user_id           String?
+  contact_id        Int? // migration 091; a farmer's QR-code login marking the point collected
   lat               Float
   lng               Float
   occurred_at       DateTime
@@ -2074,6 +2133,7 @@ model SamplingPointCollection {
 
   SamplingPoint SamplingPoint @relation(fields: [sampling_point_id], references: [id], onDelete: Cascade)
   User          User?         @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  Contact       Contact?      @relation(fields: [contact_id], references: [id], onDelete: SetNull)
 
   @@index([sampling_point_id])
   @@index([content_hash])

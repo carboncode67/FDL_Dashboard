@@ -61,10 +61,16 @@ export function assignmentWhereForLabMember(userId: string) {
 // A form linked to a Sampling Map (Sampling_Maps.form_id) is implicitly visible to every lab
 // member that map has been sent to, with no separate Form_Assignments row needed -- the map
 // assignment already governs "who should be filling this out." Used both as a Form-level OR
-// branch (list route) and folded into isFormVisibleToLabMember below (schema/responses routes).
-// Sampling maps are lab-member-only work, so this has no Contact-side equivalent.
+// branch (list route) and folded into isFormVisible* below (schema/responses routes).
 export function samplingMapFormWhereForLabMember(userId: string) {
   return { some: { Assignments: { some: { user_id: userId } } } };
+}
+
+// Contact-side equivalent: sampling maps can be sent to Contacts too (directly or via their
+// farm/experiment -- OFE_Dashboard's farmer maps arrive that way, see lib/ofe-sync.ts), and
+// a farmer handed a map has to be able to fill its form at the points.
+export function samplingMapFormWhereForContact(contact: { id: number; farms_id: number | null; assigned_experiment_id: number | null }) {
+  return { some: { Assignments: assignmentWhereForContact(contact) } };
 }
 
 export async function isFormVisibleToContact(formId: number, contact: { id: number; farms_id: number | null; assigned_experiment_id: number | null }): Promise<boolean> {
@@ -78,7 +84,11 @@ export async function isFormVisibleToContact(formId: number, contact: { id: numb
       ],
     },
   });
-  return count > 0;
+  if (count > 0) return true;
+  const viaSamplingMap = await prisma.samplingMap.count({
+    where: { form_id: formId, Assignments: assignmentWhereForContact(contact) },
+  });
+  return viaSamplingMap > 0;
 }
 
 export async function isFormVisibleToLabMember(formId: number, userId: string): Promise<boolean> {
