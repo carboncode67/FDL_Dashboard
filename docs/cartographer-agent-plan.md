@@ -1,6 +1,6 @@
 # Cartographer agent — scoping
 
-**Status:** scoping only (2026-11-15). Nothing built. Builds on the Agents
+**Status (2026-11-15):** C0 and C1 built (local + committed, not deployed): `lib/geo-tools.ts` + `scripts/verify-geo-tools.ts` + editor quick actions; agent kinds (migration 098, `lib/agent/kinds.ts`, broker `KIND_TOOLS`, runner split into `core.py` + `agents/sleuth.py`). C2 onward not started. Builds on the Agents
 platform in `docs/agent-sandbox-plan.md` (tokens, `/api/agent/*`, broker/runner
 sandbox on Datamachine), where Data Sleuth is the first agent.
 
