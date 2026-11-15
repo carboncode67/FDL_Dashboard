@@ -52,7 +52,7 @@ export default async function AdminPage() {
           prisma.agentToken.findMany({
             where: { lab_id: labId },
             select: {
-              id: true, name: true, token_prefix: true, scopes: true, created_at: true,
+              id: true, name: true, agent_kind: true, token_prefix: true, scopes: true, created_at: true,
               expires_at: true, revoked_at: true, last_used_at: true,
             },
             orderBy: { created_at: "desc" },
@@ -117,7 +117,7 @@ export default async function AdminPage() {
         <CardHeader>
           <CardTitle className="text-base">Agents</CardTitle>
           <CardDescription>
-            Tokens for the lab's sandboxed local agents (Data Sleuth is the first) and the tags they may use in this lab. See
+            Tokens for the lab&apos;s sandboxed local agents (Data Sleuth is the first) and the tags they may use in this lab. See
             docs/agent-sandbox-plan.md.
           </CardDescription>
         </CardHeader>

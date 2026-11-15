@@ -16,7 +16,7 @@ function optionalString(v: unknown, max: number): string | null {
 // POST /api/agent/runs {task?, model?, vision_model?, prompt_sha256?, write_budget?}
 // Opens a run. Every agent write must carry an open run_id of this token.
 export async function POST(req: Request) {
-  return withAgent(req, "write", async (agent) => {
+  return withAgent(req, "runs", async (agent) => {
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const since = new Date(Date.now() - DAY_MS);
     const [open, today] = await Promise.all([
@@ -36,6 +36,7 @@ export async function POST(req: Request) {
       data: {
         lab_id: agent.labId,
         token_id: agent.token.id,
+        agent_kind: agent.kind,
         task: optionalString(body.task, 500),
         model: optionalString(body.model, 100),
         vision_model: optionalString(body.vision_model, 100),
@@ -44,6 +45,10 @@ export async function POST(req: Request) {
       },
       select: { id: true, write_budget: true, started_at: true },
     });
-    return NextResponse.json({ run_id: run.id, write_budget: run.write_budget, started_at: run.started_at }, { status: 201 });
+    // agent_kind lets the broker enforce this kind's tool set (it comes from the token).
+    return NextResponse.json(
+      { run_id: run.id, agent_kind: agent.kind, write_budget: run.write_budget, started_at: run.started_at },
+      { status: 201 },
+    );
   });
 }

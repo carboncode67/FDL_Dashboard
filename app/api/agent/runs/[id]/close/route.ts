@@ -9,7 +9,7 @@ const MAX_TOOL_LOG_BYTES = 2 * 1024 * 1024;
 // Ends a run; no writes are accepted against it afterwards. tool_log is the
 // broker's record of every tool call, kept for the AI Activity review page.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  return withAgent(req, "write", async (agent) => {
+  return withAgent(req, "runs", async (agent) => {
     const runId = Number.parseInt((await params).id, 10);
     if (Number.isNaN(runId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;

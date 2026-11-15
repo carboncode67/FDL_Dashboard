@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { AgentToken } from "@prisma/client";
 import { basePrisma } from "@/lib/prisma";
 import { resolveLabSlug, runWithLab } from "@/lib/lab-db";
+import { isAgentKind, kindHasFeature, KIND_SPECS, WRITE_FEATURES, type AgentFeature, type AgentKind } from "@/lib/agent/kinds";
 
 /**
  * Agent authentication (docs/agent-sandbox-plan.md §3).
@@ -24,6 +25,8 @@ export type AgentScope = "read" | "write";
 
 export interface AgentAuth {
   token: AgentToken;
+  /** From the token (migration 098) — decides features, tables and write kinds. */
+  kind: AgentKind;
   labId: number;
   labSlug: string | null;
 }
@@ -65,16 +68,26 @@ export async function authenticateAgent(
     await basePrisma.agentToken.update({ where: { id: token.id }, data: { last_used_at: now } });
   }
 
-  return { token, labId: token.lab_id, labSlug: await resolveLabSlug(token.lab_id) };
+  if (!isAgentKind(token.agent_kind)) {
+    return { error: NextResponse.json({ error: "Unknown agent kind on this token" }, { status: 403 }) };
+  }
+  return { token, kind: token.agent_kind, labId: token.lab_id, labSlug: await resolveLabSlug(token.lab_id) };
 }
 
-/** authenticateAgent + runWithLab, for every /api/agent/* handler. */
+/**
+ * authenticateAgent + kind check + runWithLab, for every /api/agent/* handler.
+ * `feature` is what the route provides; it implies the scope (runs/write need
+ * "write") and must be one the token's agent kind has (lib/agent/kinds.ts).
+ */
 export async function withAgent(
   req: Request,
-  scope: AgentScope,
+  feature: AgentFeature,
   fn: (agent: AgentAuth) => Promise<NextResponse>,
 ): Promise<NextResponse> {
-  const auth = await authenticateAgent(req, scope);
+  const auth = await authenticateAgent(req, WRITE_FEATURES.has(feature) ? "write" : "read");
   if ("error" in auth) return auth.error;
+  if (!kindHasFeature(auth.kind, feature)) {
+    return NextResponse.json({ error: `${KIND_SPECS[auth.kind].label} agents can't use this endpoint` }, { status: 403 });
+  }
   return runWithLab(auth.labSlug, () => fn(auth));
 }

@@ -7,11 +7,11 @@ import { searchAgentRows } from "@/lib/agent/registry";
 // lab-scoped. Separate from lib/search.ts, which includes Contacts and relies
 // on RLS for lab scoping.
 export async function GET(req: Request) {
-  return withAgent(req, "read", async (agent) => {
+  return withAgent(req, "search", async (agent) => {
     const url = new URL(req.url);
     const q = url.searchParams.get("q") ?? "";
     if (q.trim().length < 2) return NextResponse.json({ query: q, hits: [] });
     const tables = url.searchParams.get("tables")?.split(",").map((s) => s.trim()).filter(Boolean);
-    return NextResponse.json({ query: q.trim(), hits: await searchAgentRows(q, agent.labId, tables) });
+    return NextResponse.json({ query: q.trim(), hits: await searchAgentRows(q, agent.labId, tables, agent.kind) });
   });
 }

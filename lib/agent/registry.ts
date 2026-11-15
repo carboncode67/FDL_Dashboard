@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { kindCanRead, type AgentKind } from "@/lib/agent/kinds";
 
 /**
  * What an agent can read (docs/agent-sandbox-plan.md §3).
@@ -221,13 +222,16 @@ function modelInfo(table: AgentTable): ModelInfo {
   return info;
 }
 
-export function getAgentTable(slug: string): AgentTable | null {
-  return Object.prototype.hasOwnProperty.call(AGENT_TABLES, slug) ? AGENT_TABLES[slug] : null;
+/** The registry entry, or null if unknown — or not readable by `kind` when given. */
+export function getAgentTable(slug: string, kind?: AgentKind): AgentTable | null {
+  if (!Object.prototype.hasOwnProperty.call(AGENT_TABLES, slug)) return null;
+  if (kind && !kindCanRead(kind, slug)) return null;
+  return AGENT_TABLES[slug];
 }
 
 /** Tables + readable columns, for the agent's schema discovery. */
-export function describeAgentTables() {
-  return Object.entries(AGENT_TABLES).map(([slug, t]) => {
+export function describeAgentTables(kind: AgentKind) {
+  return Object.entries(AGENT_TABLES).filter(([slug]) => kindCanRead(kind, slug)).map(([slug, t]) => {
     const info = modelInfo(t);
     return {
       table: slug,
@@ -281,8 +285,8 @@ function filtersFromParams(info: ModelInfo, params: URLSearchParams): Where {
 
 export const MAX_LIST_LIMIT = 500;
 
-export async function listAgentRows(slug: string, labId: number, params: URLSearchParams) {
-  const table = getAgentTable(slug);
+export async function listAgentRows(slug: string, labId: number, params: URLSearchParams, kind: AgentKind) {
+  const table = getAgentTable(slug, kind);
   if (!table) throw new AgentQueryError(`Unknown table: ${slug}`);
   const info = modelInfo(table);
   const limit = Math.min(Math.max(Number(params.get("limit") ?? 50) || 50, 1), MAX_LIST_LIMIT);
@@ -299,8 +303,8 @@ export async function listAgentRows(slug: string, labId: number, params: URLSear
 }
 
 /** One row by id within the lab, or null. Also the existence check for writes. */
-export async function getAgentRow(slug: string, labId: number, id: number) {
-  const table = getAgentTable(slug);
+export async function getAgentRow(slug: string, labId: number, id: number, kind?: AgentKind) {
+  const table = getAgentTable(slug, kind);
   if (!table) throw new AgentQueryError(`Unknown table: ${slug}`);
   const info = modelInfo(table);
   if (!info.hasId) throw new AgentQueryError(`${slug} has a composite key; list it with filters instead`);
@@ -319,9 +323,9 @@ export function agentTableHasId(slug: string): boolean {
 const SNIPPET_RADIUS = 80;
 const SEARCH_PER_TABLE = 10;
 
-export async function searchAgentRows(q: string, labId: number, tables?: string[]) {
+export async function searchAgentRows(q: string, labId: number, tables: string[] | undefined, kind: AgentKind) {
   const query = q.trim();
-  const slugs = (tables?.length ? tables : Object.keys(AGENT_TABLES)).filter((s) => getAgentTable(s)?.search?.length);
+  const slugs = (tables?.length ? tables : Object.keys(AGENT_TABLES)).filter((s) => getAgentTable(s, kind)?.search?.length);
   const groups = await Promise.all(
     slugs.map(async (slug) => {
       const table = AGENT_TABLES[slug];

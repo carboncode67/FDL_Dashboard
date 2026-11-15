@@ -15,7 +15,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ table: s
 
     let row: Record<string, unknown> | null;
     try {
-      row = await getAgentRow(table, agent.labId, numId);
+      row = await getAgentRow(table, agent.labId, numId, agent.kind);
     } catch (e) {
       if (e instanceof AgentQueryError) return NextResponse.json({ error: e.message }, { status: 400 });
       throw e;
@@ -36,6 +36,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ table: s
       };
     }
 
-    return NextResponse.json({ table, agent_authored: !!getAgentTable(table)?.agentAuthored, row });
+    return NextResponse.json({ table, agent_authored: !!getAgentTable(table, agent.kind)?.agentAuthored, row });
   });
 }

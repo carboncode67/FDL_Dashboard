@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAgent } from "@/lib/agent/auth";
 import { AGENT_WRITERS, AgentWriteError, isAgentWriteKind } from "@/lib/agent/writes";
+import { KIND_SPECS, kindCanWrite } from "@/lib/agent/kinds";
 
 // POST /api/agent/write/{observations|comments|tags|links|recommendations|specs}
 // The agent's only write path, and only into the Agent_* tables. Validation
@@ -10,6 +11,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
   return withAgent(req, "write", async (agent) => {
     const { kind } = await params;
     if (!isAgentWriteKind(kind)) return NextResponse.json({ error: "Unknown write kind" }, { status: 404 });
+    if (!kindCanWrite(agent.kind, kind)) {
+      return NextResponse.json({ error: `${KIND_SPECS[agent.kind].label} agents can't write ${kind}` }, { status: 403 });
+    }
 
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object" || Array.isArray(body)) {

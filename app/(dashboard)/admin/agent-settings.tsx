@@ -5,10 +5,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AGENT_KINDS, KIND_SPECS, type AgentKind } from "@/lib/agent/kinds";
 
 export interface AgentTokenRow {
   id: number;
   name: string;
+  agent_kind: string;
   token_prefix: string;
   scopes: string[];
   created_at: string;
@@ -44,6 +46,7 @@ export function AgentSettings({
   const [tags, setTags] = useState(initialTags);
   const [tokenName, setTokenName] = useState("");
   const [readOnly, setReadOnly] = useState(false);
+  const [agentKind, setAgentKind] = useState<AgentKind>("sleuth");
   const [newToken, setNewToken] = useState<string | null>(null);
   const [tagName, setTagName] = useState("");
   const [tagDescription, setTagDescription] = useState("");
@@ -69,7 +72,7 @@ export function AgentSettings({
   async function createToken() {
     const json = await call("/api/admin/agent-tokens", {
       method: "POST",
-      body: JSON.stringify({ name: tokenName, read_only: readOnly }),
+      body: JSON.stringify({ name: tokenName, agent_kind: agentKind, read_only: readOnly }),
     });
     if (!json) return;
     const { token, ...row } = json as unknown as AgentTokenRow & { token: string };
@@ -128,7 +131,22 @@ export function AgentSettings({
             value={tokenName}
             onChange={(e) => setTokenName(e.target.value)}
           />
-          <label className="flex items-center gap-1.5 text-sm text-stone-700">
+          <select
+            className="h-8 rounded-md border border-stone-200 bg-white px-2 text-sm"
+            value={agentKind}
+            onChange={(e) => setAgentKind(e.target.value as AgentKind)}
+            title={KIND_SPECS[agentKind].description}
+          >
+            {AGENT_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {KIND_SPECS[k].label}
+              </option>
+            ))}
+          </select>
+          <label
+            className="flex items-center gap-1.5 text-sm text-stone-700"
+            title="Read-only tokens can't open runs, so the sandbox can't use them — for testing reads only."
+          >
             <input type="checkbox" checked={readOnly} onChange={(e) => setReadOnly(e.target.checked)} />
             Read only
           </label>
@@ -142,6 +160,7 @@ export function AgentSettings({
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Agent</TableHead>
                 <TableHead>Token</TableHead>
                 <TableHead>Scopes</TableHead>
                 <TableHead>Last used</TableHead>
@@ -156,6 +175,9 @@ export function AgentSettings({
                 return (
                   <TableRow key={t.id}>
                     <TableCell>{t.name}</TableCell>
+                    <TableCell className="text-xs">
+                      {KIND_SPECS[t.agent_kind as AgentKind]?.label ?? t.agent_kind}
+                    </TableCell>
                     <TableCell>
                       <code className="text-xs">{t.token_prefix}…</code>
                     </TableCell>

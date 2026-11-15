@@ -6,7 +6,7 @@ import { ObservationError, pendingSources } from "@/lib/agent/observations";
 // Ids of the lab's uploads with no current observation (or none from this
 // prompt), newest first — what pass 1 ("observe") works through.
 export async function GET(req: Request) {
-  return withAgent(req, "read", async (agent) => {
+  return withAgent(req, "observations", async (agent) => {
     try {
       return NextResponse.json(await pendingSources(agent.labId, new URL(req.url).searchParams));
     } catch (e) {

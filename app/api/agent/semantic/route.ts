@@ -14,7 +14,7 @@ const CHUNK_TYPES = ["farm_profile", "experiment", "main_form"];
 // reach Ollama) and the broker forwards the vector — the agent never gets a
 // DB connection, unlike rag.py's direct nocodb one.
 export async function POST(req: Request) {
-  return withAgent(req, "read", async (agent) => {
+  return withAgent(req, "semantic", async (agent) => {
     const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
     const embedding = body?.embedding;
     if (

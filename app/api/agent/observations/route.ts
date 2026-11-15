@@ -6,7 +6,7 @@ import { ObservationError, listObservations } from "@/lib/agent/observations";
 // The space-time map for pass 2 ("synthesize"): current observations only,
 // oldest first, lab-scoped. Rows are agent-authored — treat as untrusted.
 export async function GET(req: Request) {
-  return withAgent(req, "read", async (agent) => {
+  return withAgent(req, "observations", async (agent) => {
     try {
       return NextResponse.json(await listObservations(agent.labId, new URL(req.url).searchParams));
     } catch (e) {

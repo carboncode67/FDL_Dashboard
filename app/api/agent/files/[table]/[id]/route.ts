@@ -38,7 +38,7 @@ function file(dir: string, name: unknown): NextResponse {
 // GET /api/agent/files/:table/:id — the content of one upload in the token's
 // lab: photo / document / GPS track bytes, or note text.
 export async function GET(req: Request, { params }: { params: Promise<{ table: string; id: string }> }) {
-  return withAgent(req, "read", async (agent) => {
+  return withAgent(req, "files", async (agent) => {
     const { table, id } = await params;
     const numId = Number.parseInt(id, 10);
     if (Number.isNaN(numId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
@@ -46,7 +46,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ table: s
       return NextResponse.json({ error: "No readable file content for this table" }, { status: 400 });
     }
 
-    const row = await getAgentRow(table, agent.labId, numId);
+    const row = await getAgentRow(table, agent.labId, numId, agent.kind);
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     if (table === "notes") return text(String(row.content ?? ""));
