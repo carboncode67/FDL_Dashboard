@@ -2046,6 +2046,7 @@ model SamplingMapPolygon {
   source_field_id Int?
   source_zone_id  Int?
   ofe_id          Int? // migration 091
+  agent_draft_id   Int? // applied from an agent draft (migration 099) — drives undo
   created_at      DateTime @default(now())
 
   SamplingMap SamplingMap     @relation(fields: [sampling_map_id], references: [id], onDelete: Cascade)
@@ -2073,6 +2074,7 @@ model SamplingPoint {
   placement_method   String   @default("manual")
   sample_index       Int?
   ofe_id             Int? // migration 091; NULL on a phone-created point until OFE pulls it back
+  agent_draft_id   Int? // applied from an agent draft (migration 099) — drives undo
   created_at         DateTime @default(now())
   // Client-computed dedup key, same convention as Photos/Notes/Sampling_Point_Collections —
   // only ever set for placement_method = "field" (created on-device via the bearer API); the
@@ -2246,6 +2248,8 @@ model AgentRun {
   lab_id        Int
   token_id      Int
   agent_kind      String?
+  scope_map_id    Int? // set on claim: this run may only touch this sampling map (migration 099)
+  request_id      Int?
   status        String    @default("open") // open | closed | aborted | reverted
   task          String?
   model         String?
@@ -2265,6 +2269,7 @@ model AgentRun {
   Recommendations AgentRecommendation[]
   Specs           AgentAnalysisSpec[]
   Observations    AgentObservation[]
+  Drafts          AgentGeometryDraft[]
 
   @@index([lab_id, started_at(sort: Desc)])
   @@map("Agent_Runs")
@@ -2316,6 +2321,54 @@ model AgentObservation {
 
   @@index([run_id])
   @@map("Agent_Observations")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Interactive agent requests and geometry drafts (migration 099,
+// docs/cartographer-agent-plan.md §5.1a–5.3).
+model AgentRequest {
+  id              Int       @id @default(autoincrement())
+  lab_id          Int
+  agent_kind      String
+  requested_by_id String?
+  channel         String    @default("web") // web | app
+  sampling_map_id Int
+  prompt          String
+  context         Json      @default("{}")
+  status          String    @default("queued") // queued | claimed | done | failed | cancelled | expired
+  run_id          Int?
+  claimed_at      DateTime? @db.Timestamptz(6)
+  answer          String?
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  Drafts AgentGeometryDraft[]
+
+  @@index([agent_kind, status, created_at])
+  @@map("Agent_Requests")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model AgentGeometryDraft {
+  id              Int       @id @default(autoincrement())
+  lab_id          Int
+  request_id      Int
+  run_id          Int
+  sampling_map_id Int
+  features        Json
+  explanation     String?
+  provenance      Json      @default("[]")
+  status          String    @default("draft") // draft | applied | discarded | undone
+  applied_by_id   String?
+  applied_at      DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+
+  Request AgentRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  Run     AgentRun     @relation(fields: [run_id], references: [id], onDelete: Cascade)
+
+  @@index([request_id])
+  @@index([sampling_map_id, status])
+  @@map("Agent_Geometry_Drafts")
   @@schema("pgntarg2udzj1f3")
 }
 

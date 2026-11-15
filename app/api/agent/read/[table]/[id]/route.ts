@@ -15,7 +15,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ table: s
 
     let row: Record<string, unknown> | null;
     try {
-      row = await getAgentRow(table, agent.labId, numId, agent.kind);
+      row = await getAgentRow(table, agent.labId, numId, agent.kind, agent.binding);
     } catch (e) {
       if (e instanceof AgentQueryError) return NextResponse.json({ error: e.message }, { status: 400 });
       throw e;

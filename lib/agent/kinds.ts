@@ -10,9 +10,15 @@ export const AGENT_KINDS = ["sleuth", "cartographer"] as const;
 export type AgentKind = (typeof AGENT_KINDS)[number];
 
 /** What a /api/agent/* route provides. `runs` and `write` need the token's write scope. */
-export type AgentFeature = "tables" | "read" | "search" | "semantic" | "files" | "observations" | "runs" | "write";
+export type AgentFeature =
+  | "tables" | "read" | "search" | "semantic" | "files" | "observations" | "runs" | "write"
+  | "requests" // claim / answer interactive requests
+  | "compute"; // deterministic geometry tools (lib/geo-tools.ts)
 
-export const WRITE_FEATURES: ReadonlySet<AgentFeature> = new Set(["runs", "write"]);
+export const WRITE_FEATURES: ReadonlySet<AgentFeature> = new Set(["runs", "write", "requests"]);
+
+/** Features that, for a map-bound kind, need a run bound to a claimed request's map. */
+export const BOUND_FEATURES: ReadonlySet<AgentFeature> = new Set(["read", "search", "compute", "write"]);
 
 interface KindSpec {
   label: string;
@@ -22,6 +28,11 @@ interface KindSpec {
   writeKinds: readonly string[];
   /** Readable registry tables: every one, or an explicit allowlist. */
   tables: "all" | ReadonlySet<string>;
+  /** Interactive kinds: each run claims one request and may only touch that
+   *  request's sampling map and its farm (plan §5.1a). */
+  mapBound: boolean;
+  /** Extra columns hidden from this kind (e.g. raw interview text on farms). */
+  omitColumns?: Record<string, readonly string[]>;
 }
 
 // Spatial context a map-working agent needs; no uploads, notes, transcripts,
@@ -39,14 +50,16 @@ export const KIND_SPECS: Record<AgentKind, KindSpec> = {
     features: new Set(["tables", "read", "search", "semantic", "files", "observations", "runs", "write"]),
     writeKinds: ["observations", "comments", "tags", "links", "recommendations", "specs"],
     tables: "all",
+    mapBound: false,
   },
   cartographer: {
     label: "Cartographer",
     description: "Interactive map work on one sampling map at a time; writes drafts a person applies.",
-    // geo_drafts + request claiming arrive in C2 (plan §5.2–5.3).
-    features: new Set(["tables", "read", "search", "runs"]),
-    writeKinds: [],
+    features: new Set(["tables", "read", "search", "runs", "requests", "compute", "write"]),
+    writeKinds: ["geo_drafts"],
     tables: CARTOGRAPHER_TABLES,
+    mapBound: true,
+    omitColumns: { farms: ["farm_summary", "interview_transcript", "address"] },
   },
 };
 
@@ -61,6 +74,10 @@ export function kindHasFeature(kind: AgentKind, feature: AgentFeature): boolean 
 export function kindCanRead(kind: AgentKind, table: string): boolean {
   const t = KIND_SPECS[kind].tables;
   return t === "all" || t.has(table);
+}
+
+export function kindOmits(kind: AgentKind, table: string): readonly string[] {
+  return KIND_SPECS[kind].omitColumns?.[table] ?? [];
 }
 
 export function kindCanWrite(kind: AgentKind, writeKind: string): boolean {

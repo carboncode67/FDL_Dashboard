@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import type { AgentAuth } from "@/lib/agent/auth";
 import { agentTableHasId, getAgentRow, getAgentTable } from "@/lib/agent/registry";
 import { ObservationError, writeObservation } from "@/lib/agent/observations";
+import { RequestError, writeGeoDraft } from "@/lib/agent/requests";
 
 /**
  * Validation for every agent write (docs/agent-sandbox-plan.md §4).
@@ -334,8 +335,18 @@ async function writeObservationRow(agent: AgentAuth, body: Body) {
   }
 }
 
+async function writeGeoDraftRow(agent: AgentAuth, body: Body) {
+  try {
+    return await writeGeoDraft(agent, body, claimWrite);
+  } catch (e) {
+    if (e instanceof RequestError) throw new AgentWriteError(e.message, e.status);
+    throw e;
+  }
+}
+
 export const AGENT_WRITERS = {
   observations: writeObservationRow,
+  geo_drafts: writeGeoDraftRow,
   comments: writeComment,
   tags: writeTag,
   links: writeLink,

@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import type { AgentToken } from "@prisma/client";
 import { basePrisma } from "@/lib/prisma";
 import { resolveLabSlug, runWithLab } from "@/lib/lab-db";
-import { isAgentKind, kindHasFeature, KIND_SPECS, WRITE_FEATURES, type AgentFeature, type AgentKind } from "@/lib/agent/kinds";
+import { BOUND_FEATURES, isAgentKind, kindHasFeature, KIND_SPECS, WRITE_FEATURES, type AgentFeature, type AgentKind } from "@/lib/agent/kinds";
+import type { AgentBinding } from "@/lib/agent/registry";
 
 /**
  * Agent authentication (docs/agent-sandbox-plan.md §3).
@@ -27,6 +28,8 @@ export interface AgentAuth {
   token: AgentToken;
   /** From the token (migration 098) — decides features, tables and write kinds. */
   kind: AgentKind;
+  /** Map-bound kinds: the claimed request's map/farm for this run (null otherwise). */
+  binding: AgentBinding | null;
   labId: number;
   labSlug: string | null;
 }
@@ -71,7 +74,7 @@ export async function authenticateAgent(
   if (!isAgentKind(token.agent_kind)) {
     return { error: NextResponse.json({ error: "Unknown agent kind on this token" }, { status: 403 }) };
   }
-  return { token, kind: token.agent_kind, labId: token.lab_id, labSlug: await resolveLabSlug(token.lab_id) };
+  return { token, kind: token.agent_kind, binding: null, labId: token.lab_id, labSlug: await resolveLabSlug(token.lab_id) };
 }
 
 /**
@@ -89,5 +92,33 @@ export async function withAgent(
   if (!kindHasFeature(auth.kind, feature)) {
     return NextResponse.json({ error: `${KIND_SPECS[auth.kind].label} agents can't use this endpoint` }, { status: 403 });
   }
+  if (KIND_SPECS[auth.kind].mapBound && BOUND_FEATURES.has(feature)) {
+    auth.binding = await resolveBinding(auth, req.headers.get("x-agent-run"));
+    if (!auth.binding) {
+      return NextResponse.json({ error: "No claimed request for this run — claim one first" }, { status: 403 });
+    }
+  }
   return runWithLab(auth.labSlug, () => fn(auth));
+}
+
+/**
+ * The open run named by the broker's X-Agent-Run header, if it belongs to this
+ * token and has claimed a request → that request's map and farm. The broker
+ * sets the header from its own state; a run that isn't this token's, isn't open,
+ * or hasn't claimed anything binds to nothing.
+ */
+async function resolveBinding(auth: AgentAuth, header: string | null): Promise<AgentBinding | null> {
+  const runId = header && /^\d+$/.test(header) ? Number(header) : null;
+  if (!runId) return null;
+  const run = await basePrisma.agentRun.findFirst({
+    where: { id: runId, token_id: auth.token.id, lab_id: auth.labId, status: "open", scope_map_id: { not: null }, request_id: { not: null } },
+    select: { id: true, scope_map_id: true, request_id: true },
+  });
+  if (!run?.scope_map_id || !run.request_id) return null;
+  const map = await basePrisma.samplingMap.findFirst({
+    where: { id: run.scope_map_id, Farm: { lab_id: auth.labId } },
+    select: { farm_id: true },
+  });
+  if (!map) return null;
+  return { runId: run.id, requestId: run.request_id, mapId: run.scope_map_id, farmId: map.farm_id };
 }

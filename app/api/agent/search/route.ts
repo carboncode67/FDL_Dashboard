@@ -12,6 +12,6 @@ export async function GET(req: Request) {
     const q = url.searchParams.get("q") ?? "";
     if (q.trim().length < 2) return NextResponse.json({ query: q, hits: [] });
     const tables = url.searchParams.get("tables")?.split(",").map((s) => s.trim()).filter(Boolean);
-    return NextResponse.json({ query: q.trim(), hits: await searchAgentRows(q, agent.labId, tables, agent.kind) });
+    return NextResponse.json({ query: q.trim(), hits: await searchAgentRows(q, agent.labId, tables, agent.kind, agent.binding) });
   });
 }

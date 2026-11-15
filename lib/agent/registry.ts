@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { kindCanRead, type AgentKind } from "@/lib/agent/kinds";
+import { KIND_SPECS, kindCanRead, kindOmits, type AgentKind } from "@/lib/agent/kinds";
 
 /**
  * What an agent can read (docs/agent-sandbox-plan.md §3).
@@ -222,6 +222,45 @@ function modelInfo(table: AgentTable): ModelInfo {
   return info;
 }
 
+/** A map-bound run's confinement (plan §5.1a): one sampling map and its farm. */
+export interface AgentBinding {
+  runId: number;
+  requestId: number;
+  mapId: number;
+  farmId: number;
+}
+
+// How each table a map-bound agent can read is narrowed to the bound map/farm.
+// A table missing here is unreadable while bound — add one deliberately.
+const BOUND_WHERE: Record<string, (b: AgentBinding) => Where> = {
+  farms: (b) => ({ id: b.farmId }),
+  fields: (b) => ({ Farms_id: b.farmId }),
+  experiment_zones: (b) => ({ farm_id: b.farmId }),
+  farm_experiments: (b) => ({ farm_id: b.farmId }),
+  sampling_maps: (b) => ({ id: b.mapId }),
+  sampling_map_polygons: (b) => ({ sampling_map_id: b.mapId }),
+  sampling_points: (b) => ({ sampling_map_id: b.mapId }),
+  sampling_point_collections: (b) => ({ SamplingPoint: { sampling_map_id: b.mapId } }),
+  farm_layers: (b) => ({ farm_id: b.farmId }),
+  basemaps: (b) => ({ farm_id: b.farmId }),
+  context_rasters: (b) => ({ farm_id: b.farmId }),
+  yield_runs: (b) => ({ farm_id: b.farmId }),
+  pipeline_output_rasters: (b) => ({ farm_id: b.farmId }),
+};
+
+/** Extra where-clause for `kind` (+ binding). null = not readable at all. */
+function kindWhere(slug: string, kind: AgentKind | undefined, binding: AgentBinding | null | undefined): Where | null {
+  if (!kind || !KIND_SPECS[kind].mapBound) return {};
+  if (!binding) return null; // map-bound kinds read nothing until a request is claimed
+  const f = BOUND_WHERE[slug];
+  return f ? f(binding) : null;
+}
+
+function omitFor(base: Record<string, true>, slug: string, kind?: AgentKind): Record<string, true> {
+  const extra = kind ? kindOmits(kind, slug) : [];
+  return extra.length ? { ...base, ...Object.fromEntries(extra.map((c) => [c, true as const])) } : base;
+}
+
 /** The registry entry, or null if unknown — or not readable by `kind` when given. */
 export function getAgentTable(slug: string, kind?: AgentKind): AgentTable | null {
   if (!Object.prototype.hasOwnProperty.call(AGENT_TABLES, slug)) return null;
@@ -233,9 +272,10 @@ export function getAgentTable(slug: string, kind?: AgentKind): AgentTable | null
 export function describeAgentTables(kind: AgentKind) {
   return Object.entries(AGENT_TABLES).filter(([slug]) => kindCanRead(kind, slug)).map(([slug, t]) => {
     const info = modelInfo(t);
+    const hidden = new Set(kindOmits(kind, slug));
     return {
       table: slug,
-      columns: info.columns.map((c) => ({ name: c.name, type: c.isList ? `${c.type}[]` : c.type })),
+      columns: info.columns.filter((c) => !hidden.has(c.name)).map((c) => ({ name: c.name, type: c.isList ? `${c.type}[]` : c.type })),
       by_id: info.hasId,
       list_omits: t.listOmit ?? [],
       since_column: info.timeColumn,
@@ -285,16 +325,23 @@ function filtersFromParams(info: ModelInfo, params: URLSearchParams): Where {
 
 export const MAX_LIST_LIMIT = 500;
 
-export async function listAgentRows(slug: string, labId: number, params: URLSearchParams, kind: AgentKind) {
+export async function listAgentRows(
+  slug: string,
+  labId: number,
+  params: URLSearchParams,
+  kind: AgentKind,
+  binding?: AgentBinding | null,
+) {
   const table = getAgentTable(slug, kind);
-  if (!table) throw new AgentQueryError(`Unknown table: ${slug}`);
+  const bound = kindWhere(slug, kind, binding);
+  if (!table || !bound) throw new AgentQueryError(`Unknown table: ${slug}`);
   const info = modelInfo(table);
   const limit = Math.min(Math.max(Number(params.get("limit") ?? 50) || 50, 1), MAX_LIST_LIMIT);
   const offset = Math.max(Number(params.get("offset") ?? 0) || 0, 0);
 
   const rows = await info.delegate.findMany({
-    where: { AND: [await table.scope(labId), filtersFromParams(info, params)] },
-    omit: info.listOmit,
+    where: { AND: [await table.scope(labId), filtersFromParams(info, params), bound] },
+    omit: omitFor(info.listOmit, slug, kind),
     take: limit,
     skip: offset,
     ...(info.hasId ? { orderBy: { id: "desc" } } : {}),
@@ -303,14 +350,21 @@ export async function listAgentRows(slug: string, labId: number, params: URLSear
 }
 
 /** One row by id within the lab, or null. Also the existence check for writes. */
-export async function getAgentRow(slug: string, labId: number, id: number, kind?: AgentKind) {
+export async function getAgentRow(
+  slug: string,
+  labId: number,
+  id: number,
+  kind?: AgentKind,
+  binding?: AgentBinding | null,
+) {
   const table = getAgentTable(slug, kind);
-  if (!table) throw new AgentQueryError(`Unknown table: ${slug}`);
+  const bound = kindWhere(slug, kind, binding);
+  if (!table || !bound) throw new AgentQueryError(`Unknown table: ${slug}`);
   const info = modelInfo(table);
   if (!info.hasId) throw new AgentQueryError(`${slug} has a composite key; list it with filters instead`);
   const row = await info.delegate.findFirst({
-    where: { AND: [await table.scope(labId), { id }] },
-    omit: info.omit,
+    where: { AND: [await table.scope(labId), { id }, bound] },
+    omit: omitFor(info.omit, slug, kind),
   });
   return row ? jsonSafe(row) : null;
 }
@@ -323,18 +377,29 @@ export function agentTableHasId(slug: string): boolean {
 const SNIPPET_RADIUS = 80;
 const SEARCH_PER_TABLE = 10;
 
-export async function searchAgentRows(q: string, labId: number, tables: string[] | undefined, kind: AgentKind) {
+export async function searchAgentRows(
+  q: string,
+  labId: number,
+  tables: string[] | undefined,
+  kind: AgentKind,
+  binding?: AgentBinding | null,
+) {
   const query = q.trim();
-  const slugs = (tables?.length ? tables : Object.keys(AGENT_TABLES)).filter((s) => getAgentTable(s, kind)?.search?.length);
+  const slugs = (tables?.length ? tables : Object.keys(AGENT_TABLES)).filter(
+    (s) => getAgentTable(s, kind)?.search?.length && kindWhere(s, kind, binding),
+  );
   const groups = await Promise.all(
     slugs.map(async (slug) => {
       const table = AGENT_TABLES[slug];
       const info = modelInfo(table);
-      const fields = table.search!.filter((f) => info.columns.some((c) => c.name === f));
+      const hidden = new Set(kindOmits(kind, slug));
+      const fields = table.search!.filter((f) => !hidden.has(f) && info.columns.some((c) => c.name === f));
+      if (!fields.length) return [];
       const rows = await info.delegate.findMany({
         where: {
           AND: [
             await table.scope(labId),
+            kindWhere(slug, kind, binding)!,
             { OR: fields.map((f) => ({ [f]: { contains: query, mode: "insensitive" } })) },
           ],
         },

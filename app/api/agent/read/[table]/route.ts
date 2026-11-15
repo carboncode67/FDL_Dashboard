@@ -9,7 +9,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ table: s
   return withAgent(req, "read", async (agent) => {
     const { table } = await params;
     try {
-      return NextResponse.json(await listAgentRows(table, agent.labId, new URL(req.url).searchParams, agent.kind));
+      return NextResponse.json(await listAgentRows(table, agent.labId, new URL(req.url).searchParams, agent.kind, agent.binding));
     } catch (e) {
       if (e instanceof AgentQueryError) return NextResponse.json({ error: e.message }, { status: 400 });
       throw e;
