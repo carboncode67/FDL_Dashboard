@@ -124,6 +124,38 @@ hosts several agent *kinds*.
 | An agent acts as the lab | A Cartographer run is bound to **one request**. Its writes must cite that `request_id`, and the server checks every referenced map/point against **the requester's** scope (`getEffectiveScope` for that user), not just the lab. An agronomist with a hard scope can't get the agent to draft on a farm they can't see. |
 | One read allowlist (`AGENT_TABLES`) | Per-kind allowlists: add `kinds?: AgentKind[]` to registry entries. Cartographer reads maps, points, polygons, fields, zones, farm layers, basemaps, context rasters, yield runs and pipeline rasters. It doesn't read notes, photos or transcripts. |
 
+### 5.1a One map per run, and nothing destructive (decided 2026-11-15)
+
+Two independent server-side guards. Neither depends on the prompt or on the
+runner behaving.
+
+1. **No destructive capability anywhere.** The agent has no write path to
+   sampling data at all. It only creates drafts. Applying a draft only
+   **inserts** points and polygons, and there is no update or delete path. Every
+   applied feature carries `agent_draft_id`, and **Undo this draft** removes
+   exactly those rows. Editing or deleting existing points stays a normal human
+   action in the editor.
+2. **The run is bound to the active map.** A request must name exactly one
+   `sampling_map_id` (the map open in the editor or app). On claim, the server
+   stores that map on the run (`Agent_Runs.scope_map_id`). Every `/api/agent/*`
+   call resolves run → request → map server-side and narrows the registry scope:
+   - **Sampling tables:** points, polygons and collections only where
+     `sampling_map_id` is that map.
+   - **Farm context:** fields, zones, farm layers, basemaps, context rasters and
+     yield runs only where `farm_id` is that map's farm, read-only. This is so
+     the agent can check "inside the field" and avoid waterways.
+   - **Everything else:** refused, including other maps, other farms and all
+     non-spatial tables.
+   - **Drafts and compute calls:** `geo_drafts` and `compute/geo/*` inputs that
+     reference another map, or a point or polygon not on it, get 404 (the same
+     answer as "doesn't exist").
+   - **Lifetime:** the binding ends when the request closes. One fresh runner
+     container per request, so nothing carries over between requests or users.
+
+   Optional stricter mode: drop the farm-context reads, so the agent sees only
+   the map. Not recommended, because field boundaries are how it catches its
+   own mistakes.
+
 ### 5.2 New tables (one migration)
 
 - **`Agent_Requests`**: `lab_id`, `agent_kind`, the requester (`user_id` **or**
@@ -136,11 +168,13 @@ hosts several agent *kinds*.
   `features` (a GeoJSON FeatureCollection with properties `label`, `purpose`,
   and `role: point|polygon`), `explanation`, `provenance` (the exact tool calls
   and parameters, including seeds), `status` (`draft` → `applied` \| `discarded`),
-  `applied_by`, `applied_at`. Each feature is re-validated server-side (valid
+  `applied_by`, `applied_at`. Must target the run's `scope_map_id` (§5.1a). Each feature is re-validated server-side (valid
   geometry, within N km of the farm, count ≤ cap). With `provenance`, the
   server can recompute any tool-made feature and reject one that doesn't match.
 - `Sampling_Points.placement_method` gains `"agent"`. `Sampling_Map_Polygons.source`
   gains `"agent"`. Both are free text today, so no constraint changes are needed.
+  Both tables also gain nullable `agent_draft_id`, which drives Undo (§5.1a).
+- `Agent_Runs` gains nullable `scope_map_id` (set on claim; §5.1a).
 - *(Later)* **`Agent_Deliveries`**: a rendered map plus recipient plus channel,
   with status `draft` → `sent`. See §5.6.
 
