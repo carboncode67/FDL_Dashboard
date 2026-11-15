@@ -9,6 +9,7 @@ import Busboy from "busboy";
 import { prisma } from "@/lib/prisma";
 import { processingConfigured, triggerBasemapTiling } from "@/lib/processing";
 import { farmCentroidFor } from "@/lib/pipeline-farm";
+import { basemapSourceDownloadUrl } from "@/lib/basemap-source";
 import { parseVectorUpload, applyEpsgTransform } from "@/lib/parse-boundaries";
 import { parsePointsCsv } from "@/lib/csv-points";
 import { keepAsFarmDocument } from "@/lib/farm-document-copy";
@@ -237,7 +238,7 @@ export async function retileBasemap(basemapId: number, farmId?: number): Promise
   try {
     await triggerBasemapTiling({
       basemap_id: basemap.id,
-      download_url: `${baseUrl}/api/files/basemap-sources/${basemap.source_filename}`,
+      download_url: await basemapSourceDownloadUrl(basemap),
       callback_url: `${baseUrl}/api/basemaps/webhook`,
       farm_centroid: await farmCentroidFor(basemap.farm_id),
       crs_override_epsg: basemap.crs_override_epsg,

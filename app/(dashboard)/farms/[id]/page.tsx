@@ -28,6 +28,7 @@ import { pipelineOutputToMapRaster, basemapToMapRaster, farmLayerToMapRaster } f
 import ReactMarkdown from "react-markdown";
 import { FarmExperimentsTab } from "@/components/farm-experiments-tab";
 import { FarmDataUpload } from "@/components/farm-data-upload";
+import { s3Configured } from "@/lib/s3";
 import { DocumentUpload } from "@/components/document-upload";
 import { AddContactButton } from "@/components/add-contact-button";
 import { DrawFieldButton } from "@/components/draw-field-button";
@@ -627,6 +628,7 @@ export default async function FarmDetailPage({ params }: { params: Promise<{ id:
               farmId={farm.id}
               fieldCount={farm.Fields.length}
               drawButton={<DrawFieldButton farmId={farm.id} />}
+              directUpload={s3Configured}
             />
           )}
 

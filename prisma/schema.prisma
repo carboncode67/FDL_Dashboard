@@ -72,6 +72,7 @@ model User {
   UploadedBasemaps         Basemap[]
   UploadedFarmLayers       FarmLayer[]
   UploadedYieldRuns        YieldRun[]
+  UploadedS3Uploads        S3Upload[]
   CreatedSamplingMaps      SamplingMap[]
   SamplingMapAssignments   SamplingMapAssignment[]
   SamplingPointCollections SamplingPointCollection[]
@@ -192,6 +193,7 @@ model Farm {
   Basemaps               Basemap[]
   FarmLayers             FarmLayer[]
   YieldRuns              YieldRun[]
+  S3Uploads              S3Upload[]
   SamplingMapAssignments SamplingMapAssignment[]
   SamplingMaps           SamplingMap[]
   ManagementEvents       ManagementEvent[]
@@ -1751,7 +1753,14 @@ model Basemap {
   original_filename      String // name as uploaded
   source_filename        String // flat basename under DATA_DIR/basemap-sources/
   bytes                  BigInt
-  sha256                 String
+  // NULL for an S3 upload until PipelineProcessor reports source_sha256
+  // from its download (migration 093).
+  sha256                 String?
+  // 'local' = DATA_DIR/basemap-sources/<source_filename>; 's3' = source_s3_key
+  // in S3_BUCKET (lib/s3.ts). For 's3', source_filename is the key's basename,
+  // still unique, so /api/files/basemap-sources/<it> can redirect to the bucket.
+  source_storage         String   @default("local")
+  source_s3_key          String?
   // Set by PipelineProcessor's tiling job reusing geo_sanity.py's
   // candidate-CRS check (same convention as PipelineOutputRaster.crs_status).
   // "unclear" = not safe to plot; NULL = tiling hasn't finished yet.
@@ -1775,11 +1784,42 @@ model Basemap {
   DroneFlightRecord DroneFlightRecord? @relation(fields: [drone_flight_record_id], references: [id], onDelete: SetNull)
   UploadedBy        User?              @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
   SamplingMaps      SamplingMap[]
+  S3Uploads         S3Upload[]
   YieldRuns         YieldRun[]
 
   @@index([farm_id])
   @@index([tiling_status])
   @@map("Basemaps")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Presigned multipart upload straight to the S3 bucket (Garage), migration
+// 093 / lib/s3-uploads.ts. Completed -> a Basemaps row (basemap_id).
+model S3Upload {
+  id                Int      @id @default(autoincrement())
+  farm_id           Int
+  uploaded_by_id    String?
+  kind              String   @default("basemap")
+  s3_key            String   @unique
+  upload_id         String
+  original_filename String
+  bytes             BigInt
+  part_size         BigInt
+  part_count        Int
+  status            String   @default("uploading") // uploading | completing | completed | aborted
+  form_fields       Json     @default("{}")
+  basemap_id        Int?
+  error_message     String?
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  Farm       Farm     @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  UploadedBy User?    @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
+  Basemap    Basemap? @relation(fields: [basemap_id], references: [id], onDelete: SetNull)
+
+  @@index([farm_id])
+  @@index([status])
+  @@map("S3_Uploads")
   @@schema("pgntarg2udzj1f3")
 }
 

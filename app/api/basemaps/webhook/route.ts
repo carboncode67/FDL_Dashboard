@@ -26,6 +26,9 @@ interface BasemapWebhookPayload {
   max_zoom?: number;
   tile_archive_url?: string;
   error_message?: string;
+  // sha256 of the source as PipelineProcessor downloaded it. Fills
+  // Basemaps.sha256 for S3 uploads (migration 093), which no server read.
+  source_sha256?: string;
 }
 
 export async function POST(req: Request) {
@@ -45,10 +48,15 @@ export async function POST(req: Request) {
   const basemap = await prisma.basemap.findUnique({ where: { id: payload.basemap_id } });
   if (!basemap) return NextResponse.json({ ok: true, action: "basemap_not_found" });
 
+  const sha256 =
+    basemap.sha256 == null && typeof payload.source_sha256 === "string" && /^[0-9a-f]{64}$/.test(payload.source_sha256)
+      ? payload.source_sha256
+      : undefined;
+
   if (payload.event === "tiling_failed") {
     await prisma.basemap.update({
       where: { id: basemap.id },
-      data: { tiling_status: "failed", error_message: payload.error_message ?? "Tiling failed" },
+      data: { tiling_status: "failed", error_message: payload.error_message ?? "Tiling failed", sha256 },
     });
     return NextResponse.json({ ok: true, action: "failed" });
   }
@@ -77,6 +85,7 @@ export async function POST(req: Request) {
         tile_dir: String(basemap.id),
         tiling_status: "ready",
         error_message: null,
+        sha256,
       },
     });
     return NextResponse.json({ ok: true, action: "ready" });
