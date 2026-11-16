@@ -91,6 +91,17 @@ export async function expireStale(kind?: AgentKind) {
   });
 }
 
+/**
+ * Called when a run closes: a request it claimed but never answered (crash,
+ * refused answer) would otherwise show "Working…" forever.
+ */
+export async function failUnansweredForRun(runId: number) {
+  await prisma.agentRequest.updateMany({
+    where: { status: "claimed", run_id: runId },
+    data: { status: "failed", answer: "The agent stopped before answering. Please try again." },
+  });
+}
+
 /** Requests on a map, newest first, with their drafts. */
 export async function listRequests(samplingMapId: number, limit = 30) {
   await expireStale();

@@ -73,6 +73,10 @@ ag -H "X-Agent-Run: $RUN2" -X POST $B/write/geo_drafts -d '{"run_id":'$RUN2',"fe
 ok "$(sc -X POST $S/api/agent-requests/drafts/$D7 -d '{"action":"apply"}')" 409 "apply on OFE-owned map → 409 (ofeLock)"
 ok "$(sc -X POST $S/api/agent-requests/drafts/$D7 -d '{"action":"discard"}')" 200 "discard"
 
+# a run that claimed a request and closes without answering leaves it failed, not "Working…"
+ok "$(ag -X POST $B/runs/$RUN2/close -d '{"status":"aborted","summary":"e2e"}')" 200 "close run without answering"
+ok "$(q "select status from pgntarg2udzj1f3.\"Agent_Requests\" where id=$REQ7")" failed "unanswered request → failed on run close"
+
 # cleanup
 q "update pgntarg2udzj1f3.\"Agent_Runs\" set status='closed' where token_id=(select id from pgntarg2udzj1f3.\"Agent_Tokens\" where name='carto e2e')"
 q "delete from pgntarg2udzj1f3.\"Agent_Requests\" where id in ($REQ,$REQ7)"

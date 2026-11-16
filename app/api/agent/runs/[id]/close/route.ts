@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withAgent } from "@/lib/agent/auth";
+import { failUnansweredForRun } from "@/lib/agent/requests";
 
 const MAX_TOOL_LOG_BYTES = 2 * 1024 * 1024;
 
@@ -29,6 +30,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       data: { status, summary, tool_log: toolLog, ended_at: new Date() },
     });
     if (count === 0) return NextResponse.json({ error: "No open run with that id for this token" }, { status: 404 });
+    await failUnansweredForRun(runId);
     return NextResponse.json({ run_id: runId, status });
   });
 }
