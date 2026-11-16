@@ -102,6 +102,8 @@ export function AgentChat() {
   const [requests, setRequests] = useState<AgentRequestRow[]>([])
   const [previewId, setPreviewId] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
+  // Bumped after sending: restarts the poll loop so it switches to fast polling.
+  const [pollKick, setPollKick] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const previewRef = useRef<number | null>(null)
@@ -181,7 +183,7 @@ export function AgentChat() {
       alive = false
       if (timer.current) clearTimeout(timer.current)
     }
-  }, [open, map, load])
+  }, [open, map, load, pollKick])
 
   useEffect(() => {
     threadEnd.current?.scrollIntoView({ block: "end" })
@@ -217,9 +219,9 @@ export function AgentChat() {
         return
       }
       setPrompt("")
-      if (timer.current) clearTimeout(timer.current)
-      await load()
-      timer.current = setTimeout(() => load(), 3000)
+      // Restart the poll loop (it loads now, then every 3 s while the request is in flight).
+      // Don't replace its timer with a one-shot load: that stopped polling for good.
+      setPollKick((k) => k + 1)
     } finally {
       setBusy(false)
     }
