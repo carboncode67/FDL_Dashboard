@@ -1349,13 +1349,16 @@ export default function SamplingMapEditor({
               <GeoJSON
                 key={`carto-${cartoPreview.draftId}`}
                 data={cartoPreview.features as unknown as GeoJSON.FeatureCollection}
-                style={() => ({ color: "#d97706", weight: 2, fillOpacity: 0.08, dashArray: "6,4" })}
+                style={() => ({ color: "#f97316", weight: 3, fillColor: "#f97316", fillOpacity: 0.15, dashArray: "8,5" })}
+                // Bright orange with a white ring and an always-on label, so a draft
+                // stands out on satellite imagery next to the map's own points.
                 pointToLayer={(_f, latlng) =>
-                  L.circleMarker(latlng, { radius: 6, color: "#d97706", weight: 2, fillColor: "#d97706", fillOpacity: 0.4, dashArray: "2,2" })
+                  L.circleMarker(latlng, { radius: 9, color: "#ffffff", weight: 3, fillColor: "#f97316", fillOpacity: 0.95 })
                 }
                 onEachFeature={(f, layer) => {
                   const label = (f.properties as { label?: string } | null)?.label
-                  if (label) layer.bindTooltip(label)
+                  if (label) layer.bindTooltip(`Draft: ${label}`, { permanent: f.geometry.type === "Point", direction: "top", offset: [0, -8] })
+                  if ("bringToFront" in layer) (layer as L.Path).bringToFront()
                 }}
               />
             )}

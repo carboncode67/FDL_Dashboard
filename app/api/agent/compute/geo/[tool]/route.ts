@@ -144,8 +144,10 @@ const TOOLS: Record<string, (agent: AgentAuth, b: Body) => Promise<unknown>> = {
     return { ...r, features: asFeatures(r.points) };
   },
   async transect(agent, b) {
-    const points = transect(await resolvePoint(agent, b.start, "start"), num(b, "bearing_deg"), num(b, "length_m"), num(b, "spacing_m"), {
+    const points = transect(await resolvePoint(agent, b.start, "start"), num(b, "bearing_deg"), optNum(b, "length_m"), num(b, "spacing_m"), {
       labelPrefix: str(b, "label_prefix"),
+      count: optNum(b, "count"),
+      startOffsetM: optNum(b, "start_offset_m"),
     });
     return { points, features: asFeatures(points) };
   },

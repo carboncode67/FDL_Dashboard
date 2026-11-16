@@ -43,6 +43,10 @@ ok "$(ag -H "$H" $B/read/sampling_points/$OTHERPT)" 404 "other map's point → 4
 ag -H "$H" $B/read/farms/38 >/dev/null; ok "$(python3 -c 'import json;r=json.load(open("/tmp/e2e_body"))["row"];print("interview_transcript" in r or "farm_summary" in r)')" False "farm row hides transcript/summary"
 ok "$(ag -H "$H" $B/read/farms/1)" 404 "other farm → 404"
 ok "$(ag -H "X-Agent-Run: 999999" $B/read/sampling_points)" 403 "forged run header → 403"
+ok "$(ag -H "$H" -X POST $B/compute/geo/transect -d '{"start":{"point_id":'$CENTER'},"bearing_deg":90,"spacing_m":10,"count":3,"start_offset_m":10,"label_prefix":"E"}')" 200 "compute transect with start offset"
+ok "$(python3 -c 'import json;d=json.load(open("/tmp/e2e_body"))["result"];print([round(p["meta"]["distance_m"]) for p in d["points"]], [p["label"] for p in d["points"]])')" "[10, 20, 30] ['E-1', 'E-2', 'E-3']" "transect: first point 10 m out, 3 points"
+CG=$(q "select geometry from pgntarg2udzj1f3.\"Sampling_Points\" where id=$CENTER")
+ok "$(ag -H "$H" -X POST $B/write/geo_drafts -d '{"run_id":'$RUN',"features":{"type":"FeatureCollection","features":[{"type":"Feature","geometry":'"$CG"',"properties":{"label":"dup"}}]}}')" 400 "draft point on top of an existing point → 400"
 ok "$(ag -H "$H" -X POST $B/compute/geo/points_around -d '{"center":{"point_id":'$CENTER'},"pattern":"square_corners","size_m":10,"label_prefix":"Center"}')" 200 "compute points_around"
 python3 -c 'import json;d=json.load(open("/tmp/e2e_body"))["result"];json.dump(d["features"],open("/tmp/e2e_fc","w"));print("  labels:",[p["label"] for p in d["points"]])'
 ok "$(ag -H "$H" -X POST $B/compute/geo/points_around -d '{"center":{"point_id":'$OTHERPT'},"pattern":"cross","size_m":5}')" 404 "compute on other map's point → 404"
@@ -68,7 +72,7 @@ ok "$(q "select count(*) from pgntarg2udzj1f3.\"Sampling_Points\" where sampling
 REQ7=$(q "insert into pgntarg2udzj1f3.\"Agent_Requests\"(lab_id,agent_kind,requested_by_id,sampling_map_id,prompt) values (1,'cartographer','agent-e2e-user',7,'ofe test') returning id")
 ag -X POST $B/runs -d '{"task":"e2e2"}' >/dev/null; RUN2=$(python3 -c 'import json;print(json.load(open("/tmp/e2e_body"))["run_id"])')
 ag -X POST $B/requests/claim -d '{"run_id":'$RUN2',"wait_s":2}' >/dev/null
-P7=$(q "select geometry from pgntarg2udzj1f3.\"Sampling_Points\" where id=$OTHERPT")
+P7=$(q "select geometry from pgntarg2udzj1f3.\"Sampling_Points\" where id=$OTHERPT" | python3 -c 'import sys,json;g=json.load(sys.stdin);g["coordinates"][1]+=0.00001;print(json.dumps(g))')
 ag -H "X-Agent-Run: $RUN2" -X POST $B/write/geo_drafts -d '{"run_id":'$RUN2',"features":{"type":"FeatureCollection","features":[{"type":"Feature","geometry":'"$P7"',"properties":{"label":"x"}}]}}' >/dev/null; echo "  ofe draft write: $(head -c 200 /tmp/e2e_body)"; D7=$(python3 -c 'import json;print(json.load(open("/tmp/e2e_body")).get("id"))')
 ok "$(sc -X POST $S/api/agent-requests/drafts/$D7 -d '{"action":"apply"}')" 409 "apply on OFE-owned map → 409 (ofeLock)"
 ok "$(sc -X POST $S/api/agent-requests/drafts/$D7 -d '{"action":"discard"}')" 200 "discard"

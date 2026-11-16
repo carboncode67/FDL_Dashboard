@@ -97,9 +97,18 @@ const per = stratifiedRandom([{ id: "a", label: "A", polygon: west }, { id: "b",
 check("stratified per-stratum 3 → 6 points", per.points.length === 6, per.points.map((p) => p.label).join());
 
 // 7. Transect and errors.
+let threw = false;
 const tr = transect(c, 90, 100, 25);
 check("transect 100 m every 25 m → 5 points", tr.length === 5 && near(measure(tr[0], tr[4]).distanceM, 100, 1e-6));
-let threw = false;
+// "3 points, 10 m apart, first point 10 m east of X" → 10/20/30 m, none on X.
+const off = transect(c, 90, undefined, 10, { count: 3, startOffsetM: 10, labelPrefix: "E" });
+check("transect count 3 + offset 10 → 10/20/30 m", off.length === 3 && off.every((p, i) => near(measure(c, p).distanceM, 10 * (i + 1), 1e-4)),
+  off.map((p) => `${p.label}@${measure(c, p).distanceM.toFixed(3)}`).join(" "));
+check("transect labels E-1..E-3", off.map((p) => p.label).join() === "E-1,E-2,E-3");
+threw = false;
+try { transect(c, 90, undefined, 10); } catch (e) { threw = e instanceof GeoToolError; }
+check("transect with neither count nor length → GeoToolError", threw);
+threw = false;
 try { gridInPolygon(sq, 20, { edgeBufferM: 10 }); } catch (e) { threw = e instanceof GeoToolError; }
 check("edge buffer wider than polygon → GeoToolError", threw);
 threw = false;

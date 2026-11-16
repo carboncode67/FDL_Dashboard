@@ -481,25 +481,40 @@ export function stratifiedRandom(
   return { points: placed, seed, allocation: report };
 }
 
-/** Points every `spacingM` along a line from `start` at `bearingDeg` for `lengthM` (start included). */
+/**
+ * Points every `spacingM` along a line from `start` at `bearingDeg`.
+ * By default the line runs `lengthM` and includes `start` itself. `count` fixes
+ * the number of points instead of a length, and `startOffsetM` moves the first
+ * point that far from `start` ("3 points, the first 10 m east of X").
+ */
 export function transect(
   start: LatLng,
   bearingDeg: number,
-  lengthM: number,
+  lengthM: number | undefined,
   spacingM: number,
-  opts: { labelPrefix?: string } = {},
+  opts: { labelPrefix?: string; count?: number; startOffsetM?: number } = {},
 ): LabeledPoint[] {
   checkLatLng(start, "start");
-  if (!Number.isFinite(lengthM) || lengthM <= 0 || lengthM > 20_000) throw new GeoToolError("length_m must be between 0 and 20000");
   if (!Number.isFinite(spacingM) || spacingM <= 0) throw new GeoToolError("spacing_m must be > 0");
-  const n = Math.floor(lengthM / spacingM + 1e-9) + 1;
+  const offset = opts.startOffsetM ?? 0;
+  if (!Number.isFinite(offset) || offset < 0 || offset > 20_000) throw new GeoToolError("start_offset_m must be between 0 and 20000");
+  let n: number;
+  if (opts.count != null) {
+    if (!Number.isInteger(opts.count) || opts.count < 1) throw new GeoToolError("count must be a whole number ≥ 1");
+    n = opts.count;
+  } else {
+    if (lengthM == null || !Number.isFinite(lengthM) || lengthM <= 0 || lengthM > 20_000) {
+      throw new GeoToolError("give count, or length_m between 0 and 20000");
+    }
+    n = Math.floor(lengthM / spacingM + 1e-9) + 1;
+  }
   if (n > MAX_POINTS) throw new GeoToolError(`more than ${MAX_POINTS} points — increase spacing_m`);
+  if (offset + (n - 1) * spacingM > 20_000) throw new GeoToolError("the line would be longer than 20 km");
   const prefix = opts.labelPrefix ? `${opts.labelPrefix}-` : "T";
-  return Array.from({ length: n }, (_, i) => ({
-    ...destination(start, bearingDeg, i * spacingM),
-    label: `${prefix}${i + 1}`,
-    meta: { distance_m: Math.round(i * spacingM * 1000) / 1000 },
-  }));
+  return Array.from({ length: n }, (_, i) => {
+    const d = offset + i * spacingM;
+    return { ...destination(start, bearingDeg, d), label: `${prefix}${i + 1}`, meta: { distance_m: Math.round(d * 1000) / 1000 } };
+  });
 }
 
 /** GeoJSON Point geometry string for a point (Sampling_Points.geometry format). */

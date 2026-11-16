@@ -190,6 +190,8 @@ export async function answerRequest(agent: AgentAuth, requestId: number, body: R
 const MAX_DRAFT_FEATURES = 2000;
 const MAX_DRAFTS_PER_REQUEST = 5;
 const MAX_DISTANCE_FROM_FARM_M = 10_000;
+/** A drafted point closer than this to an existing map point counts as a duplicate. */
+const OVERLAP_M = 0.5;
 const POLYGON_PURPOSES = ["boundary", "stratum", "exclusion"];
 
 type Feature = { type: "Feature"; geometry: { type: "Point" | "Polygon"; coordinates: unknown }; properties: Record<string, unknown> };
@@ -269,6 +271,31 @@ export async function writeGeoDraft(
     const label = plain(props.label, `features[${i}].label`, 80);
     const purpose = g.type === "Polygon" ? (POLYGON_PURPOSES.includes(String(props.purpose)) ? String(props.purpose) : "boundary") : undefined;
     return { type: "Feature", geometry: { type: g.type, coordinates: g.coordinates }, properties: { ...(label ? { label } : {}), ...(purpose ? { purpose } : {}) } };
+  });
+
+  // A drafted point on top of one the map already has is almost always a misread
+  // offset ("first point 10 m from X" drafted AT X). Refuse with a hint the agent
+  // can act on; it sees the error and retries.
+  const existing = await prisma.samplingPoint.findMany({ where: { sampling_map_id: b.mapId }, select: { id: true, label: true, geometry: true } });
+  const existingLL = existing.flatMap((p) => {
+    try {
+      const g = JSON.parse(p.geometry ?? "") as { type?: string; coordinates?: unknown };
+      return g.type === "Point" && finitePair(g.coordinates) ? [{ id: p.id, label: p.label, lng: g.coordinates[0], lat: g.coordinates[1] }] : [];
+    } catch {
+      return [];
+    }
+  });
+  clean.forEach((f, i) => {
+    if (f.geometry.type !== "Point") return;
+    const [lng, lat] = f.geometry.coordinates as [number, number];
+    const hit = existingLL.find((p) => measure(p, { lat, lng }).distanceM < OVERLAP_M);
+    if (hit) {
+      throw new RequestError(
+        `features[${i}] is on top of existing point ${hit.id}${hit.label ? ` ("${hit.label}")` : ""}. ` +
+          `Existing points are not part of the draft: if the new points start some distance from it, ` +
+          `use transect's start_offset_m (or points_around without include_center).`,
+      );
+    }
   });
 
   const explanation = plain(body.explanation, "explanation", 1000);
