@@ -1,6 +1,6 @@
 # Cartographer agent — scoping
 
-**Status (2026-11-15):** C0–C3 built and verified locally, committed, **not deployed** (needs migrations 098 + 099 on prod, an FDB deploy, a Cartographer token and `agents.sh serve` on Datamachine). C0: `lib/geo-tools.ts` + editor quick actions. C1: agent kinds. C2: requests, map-bound runs, drafts, apply/undo (`scripts/e2e-agent-requests.sh`, 28 checks). C3: Cartographer runner + prompt + serve mode, "Ask Cartographer" panel in the sampling-map editor. C4 (apps) and C5 (render/deliver) not started.
+**Status (2026-11-15):** C0–C3 built and verified locally, committed, **not deployed** (needs migrations 098 + 099 on prod, an FDB deploy, a Cartographer token and `agents.sh serve` on Datamachine). C0: `lib/geo-tools.ts` + editor quick actions. C1: agent kinds. C2: requests, map-bound runs, drafts, apply/undo (`scripts/e2e-agent-requests.sh`, 33 checks). C3: Cartographer runner + prompt + serve mode; the web UI is a floating "Ask an agent" chat on every page (agent dropdown, attach-a-map = the grant), which previews drafts on the sampling-map editor when that map is open. C4 (apps) and C5 (render/deliver) not started.
 platform in `docs/agent-sandbox-plan.md` (tokens, `/api/agent/*`, broker/runner
 sandbox on Datamachine), where Data Sleuth is the first agent.
 

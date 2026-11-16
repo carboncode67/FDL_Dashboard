@@ -17,7 +17,8 @@ import { ImportBoundaryDialog, type ImportableBoundary } from "@/components/impo
 import { SamplingMapUploadDialog, type UploadedPolygon, type UploadedPoint } from "@/components/sampling-map-upload-dialog"
 import { DeleteEntitySection } from "@/components/delete-entity-section"
 import { SamplingPointDataDialog } from "@/components/sampling-point-data-dialog"
-import { CartographerPanel, type CartographerDraft } from "@/components/cartographer-panel"
+import { announceEditor, emit as emitAgent, listen as listenAgent, type DraftFeatureCollection } from "@/lib/agent-chat-bridge"
+import { Sparkles } from "lucide-react"
 import { SamplingMapAssignmentPicker } from "@/components/sampling-map-assignment-picker"
 import { resolveMapFormId } from "@/components/map-form-select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -529,7 +530,49 @@ export default function SamplingMapEditor({
   // Cartographer: the point last clicked on the map (offered as a request's focus)
   // and the draft currently overlaid on the map.
   const [lastPointId, setLastPointId] = useState<number | null>(null)
-  const [cartoPreview, setCartoPreview] = useState<CartographerDraft | null>(null)
+  const [cartoPreview, setCartoPreview] = useState<{ draftId: number; features: DraftFeatureCollection } | null>(null)
+
+  // Tell the floating agent chat (components/agent-chat.tsx) which map is open and
+  // which point was last clicked; take draft previews and Apply/Undo results back.
+  const focusLabel = lastPointId != null ? (points.find((p) => p.id === lastPointId)?.label ?? `Point ${lastPointId}`) : null
+  useEffect(() => {
+    announceEditor({
+      mapId: samplingMapId,
+      mapName,
+      farmId,
+      farmName,
+      editable: !readOnly,
+      focusPoint: lastPointId != null && focusLabel ? { id: lastPointId, label: focusLabel } : null,
+    })
+  }, [samplingMapId, mapName, farmId, farmName, readOnly, lastPointId, focusLabel])
+  useEffect(() => () => announceEditor(null), [])
+  useEffect(() => {
+    const offPreview = listenAgent("fdb:agent-preview", (d) => {
+      setCartoPreview(d && d.mapId === samplingMapId ? { draftId: d.draftId, features: d.features } : null)
+    })
+    const offApplied = listenAgent("fdb:agent-applied", (d) => {
+      if (d.mapId !== samplingMapId) return
+      const pts = d.points as SamplingPointData[]
+      const polys = d.polygons as SamplingMapPolygonData[]
+      setPolygons((prev) => [...prev, ...polys])
+      polys.forEach((p) => layersApiRef.current?.addPolygon(p))
+      setPoints((prev) => [...prev, ...pts])
+      pts.forEach((p) => layersApiRef.current?.addPoint(p))
+    })
+    const offUndone = listenAgent("fdb:agent-undone", (d) => {
+      if (d.mapId !== samplingMapId) return
+      d.removed_point_ids.forEach((id) => layersApiRef.current?.removePoint(id))
+      d.removed_polygon_ids.forEach((id) => layersApiRef.current?.removePolygon(id))
+      setPoints((prev) => prev.filter((p) => !d.removed_point_ids.includes(p.id)))
+      setPolygons((prev) => prev.filter((p) => !d.removed_polygon_ids.includes(p.id)))
+    })
+    return () => {
+      offPreview()
+      offApplied()
+      offUndone()
+      setCartoPreview(null)
+    }
+  }, [samplingMapId])
 
   // Every point on the map (existing, or created ad hoc in the field) is filled out against
   // this one form — see Sampling_Maps.form_id. Submitting it there also marks the point
@@ -1304,7 +1347,7 @@ export default function SamplingMapEditor({
             {/* Cartographer draft — orange, dashed, not editable until applied. */}
             {cartoPreview && (
               <GeoJSON
-                key={`carto-${cartoPreview.id}`}
+                key={`carto-${cartoPreview.draftId}`}
                 data={cartoPreview.features as unknown as GeoJSON.FeatureCollection}
                 style={() => ({ color: "#d97706", weight: 2, fillOpacity: 0.08, dashArray: "6,4" })}
                 pointToLayer={(_f, latlng) =>
@@ -1330,26 +1373,14 @@ export default function SamplingMapEditor({
 
         {!readOnly && (
         <div className="w-80 shrink-0 border-l border-stone-200 overflow-y-auto p-3 space-y-4">
-          <CartographerPanel
-            samplingMapId={samplingMapId}
-            points={points}
-            focusPointId={lastPointId}
-            onPreview={setCartoPreview}
-            onApplied={({ points: newPoints, polygons: newPolygons }) => {
-              const pts = newPoints as SamplingPointData[]
-              const polys = newPolygons as SamplingMapPolygonData[]
-              setPolygons((prev) => [...prev, ...polys])
-              polys.forEach((p) => layersApiRef.current?.addPolygon(p))
-              setPoints((prev) => [...prev, ...pts])
-              pts.forEach((p) => layersApiRef.current?.addPoint(p))
-            }}
-            onUndone={({ removed_point_ids, removed_polygon_ids }) => {
-              removed_point_ids.forEach((id) => layersApiRef.current?.removePoint(id))
-              removed_polygon_ids.forEach((id) => layersApiRef.current?.removePolygon(id))
-              setPoints((prev) => prev.filter((p) => !removed_point_ids.includes(p.id)))
-              setPolygons((prev) => prev.filter((p) => !removed_polygon_ids.includes(p.id)))
-            }}
-          />
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full h-7 text-xs border-amber-200"
+            onClick={() => emitAgent("fdb:agent-open", { mapId: samplingMapId })}
+          >
+            <Sparkles className="mr-1 h-3.5 w-3.5 text-amber-600" /> Ask Cartographer about this map
+          </Button>
 
           <div>
             <h3 className="text-sm font-semibold text-stone-900">Polygons ({polygons.length})</h3>

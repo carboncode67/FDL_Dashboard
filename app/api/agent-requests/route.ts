@@ -7,6 +7,10 @@ import { withMapAccess } from "@/lib/agent/request-access";
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   return withMapAccess(Number(body.sampling_map_id), async ({ userId, labId, map }) => {
+    // OFE-owned maps are read-only here, so a draft on one could never be applied.
+    if (map.ofe_id != null) {
+      return NextResponse.json({ error: "This map is managed in OFE Dashboard and can't be changed here." }, { status: 409 });
+    }
     const request = await createRequest({
       labId,
       userId,

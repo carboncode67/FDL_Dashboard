@@ -6,7 +6,8 @@ import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
 import { basePrisma } from "@/lib/prisma";
 import { effectiveLabSlug } from "@/lib/lab-db";
-import type { Role } from "@/lib/roles";
+import { canEdit, type Role } from "@/lib/roles";
+import { AgentChat } from "@/components/agent-chat";
 
 // Dashboard pages query the DB at request time — never statically prerendered.
 // This cascades to all child pages in app/(dashboard)/.
@@ -36,7 +37,7 @@ export default async function DashboardLayout({
 
   return (
     <AuthSessionProvider>
-      <Toaster position="bottom-right" richColors closeButton />
+      <Toaster position="bottom-right" richColors closeButton offset={{ bottom: 84, right: 20 }} />
       <div className="flex min-h-screen bg-stone-50">
         <Sidebar role={role} className="hidden lg:flex" />
         <div className="flex flex-col flex-1 min-w-0">
@@ -53,6 +54,8 @@ export default async function DashboardLayout({
           <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
         </div>
       </div>
+      {/* Floating "Ask an agent" chat — people who can edit (agent requests need edit rights). */}
+      {canEdit(role) && <AgentChat />}
     </AuthSessionProvider>
   );
 }

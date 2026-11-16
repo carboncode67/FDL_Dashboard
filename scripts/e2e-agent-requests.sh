@@ -23,6 +23,12 @@ ok "$(sc -X POST $S/api/agent-requests -d '{"sampling_map_id":6,"prompt":"10 m s
 REQ=$(python3 -c 'import json;print(json.load(open("/tmp/e2e_body"))["id"])')
 ok "$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -X POST $S/api/agent-requests -d '{"sampling_map_id":6,"prompt":"x"}')" 307 "no session → redirected to login"
 ok "$(sc -X POST $S/api/agent-requests -d '{"sampling_map_id":6,"prompt":"see https://evil.example"}')" 400 "URL in prompt → 400"
+# floating chat: attachable maps (own lab, editable, not OFE-owned) and the widget on every page
+ok "$(sc $S/api/agent-requests/maps)" 200 "attachable maps"
+ok "$(python3 -c 'import json;ids=[m["id"] for m in json.load(open("/tmp/e2e_body"))["maps"]];print(6 in ids, 7 in ids)')" "True False" "maps: map 6 listed, OFE map 7 not"
+ok "$(curl -s -b $JAR $S/farms/38/maps/6 | grep -c 'aria-label="Ask an agent"')" 1 "map page renders with the chat button"
+ok "$(sc -X POST $S/api/agent-requests -d '{"sampling_map_id":7,"prompt":"grid every 25 m"}')" 409 "request on OFE-owned map → 409"
+ok "$(curl -s -b $JAR $S/farms | grep -c 'aria-label="Ask an agent"')" 1 "chat button on other pages"
 
 # agent
 ag(){ curl -s -o /tmp/e2e_body -w "%{http_code}" -H "Authorization: Bearer $CT" -H "Content-Type: application/json" "$@"; }
@@ -57,8 +63,9 @@ ok "$(sc -X POST $S/api/agent-requests/drafts/$DRAFT -d '{"action":"undo"}')" 20
 ok "$(q "select count(*) from pgntarg2udzj1f3.\"Sampling_Points\" where agent_draft_id=$DRAFT")" 0 "undo removed exactly those"
 ok "$(q "select count(*) from pgntarg2udzj1f3.\"Sampling_Points\" where sampling_map_id=6 and label='Center'")" 1 "original point untouched"
 
-# OFE-owned map: request ok, apply refused
-sc -X POST $S/api/agent-requests -d '{"sampling_map_id":7,"prompt":"ofe test"}' >/dev/null; REQ7=$(python3 -c 'import json;print(json.load(open("/tmp/e2e_body"))["id"])')
+# OFE-owned map: the session route refuses new requests (above); one that predates that
+# rule (seeded directly) still can't be applied — ofeLock is the second line.
+REQ7=$(q "insert into pgntarg2udzj1f3.\"Agent_Requests\"(lab_id,agent_kind,requested_by_id,sampling_map_id,prompt) values (1,'cartographer','agent-e2e-user',7,'ofe test') returning id")
 ag -X POST $B/runs -d '{"task":"e2e2"}' >/dev/null; RUN2=$(python3 -c 'import json;print(json.load(open("/tmp/e2e_body"))["run_id"])')
 ag -X POST $B/requests/claim -d '{"run_id":'$RUN2',"wait_s":2}' >/dev/null
 P7=$(q "select geometry from pgntarg2udzj1f3.\"Sampling_Points\" where id=$OTHERPT")
