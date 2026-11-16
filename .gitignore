@@ -71,3 +71,4 @@ secrets.json
 *.bak
 scratch/
 tmp/
+*.tsbuildinfo
