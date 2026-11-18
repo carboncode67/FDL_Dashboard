@@ -10,6 +10,7 @@ import { EditModeToggle } from "./edit-mode-toggle";
 import { OnboardingMessageEditor } from "./onboarding-message-editor";
 import { UserRolesTable } from "./user-roles-table";
 import { AgentSettings } from "./agent-settings";
+import { AgentChatAccess } from "./agent-chat-access";
 import { effectiveLabSlug, runWithTenant } from "@/lib/lab-db";
 import { agentLabId } from "@/lib/agent/admin";
 
@@ -135,6 +136,11 @@ export default async function AdminPage() {
               }))}
               initialTags={agentTags}
             />
+          )}
+          {labId != null && (
+            <div className="mt-6">
+              <AgentChatAccess />
+            </div>
           )}
         </CardContent>
       </Card>

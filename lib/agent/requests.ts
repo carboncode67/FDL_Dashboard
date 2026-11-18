@@ -50,13 +50,16 @@ const MAX_REQUESTS_PER_USER_PER_HOUR = 30;
 
 export async function createRequest(opts: {
   labId: number;
-  userId: string;
+  /** Exactly one requester: a User (web, lab-member app token) or a Contact (farmer app token). */
+  userId: string | null;
+  contactId?: number | null;
   kind: AgentKind;
   samplingMapId: number;
   prompt: unknown;
   context?: unknown;
-  channel?: "web" | "app";
+  channel?: "web" | "app" | "ofe";
 }) {
+  if ((opts.userId == null) === (opts.contactId == null)) throw new Error("createRequest needs exactly one of userId / contactId");
   const prompt = plain(opts.prompt, "prompt", 2000, true)!;
   let context: Prisma.InputJsonObject = {};
   if (opts.context != null) {
@@ -69,7 +72,10 @@ export async function createRequest(opts: {
     context = Object.fromEntries(["point_id", "polygon_id"].filter((k) => c[k] != null).map((k) => [k, c[k] as number]));
   }
   const recent = await prisma.agentRequest.count({
-    where: { requested_by_id: opts.userId, created_at: { gte: new Date(Date.now() - 3600_000) } },
+    where: {
+      ...(opts.userId != null ? { requested_by_id: opts.userId } : { requested_by_contact_id: opts.contactId! }),
+      created_at: { gte: new Date(Date.now() - 3600_000) },
+    },
   });
   if (recent >= MAX_REQUESTS_PER_USER_PER_HOUR) throw new RequestError("Too many requests this hour — try again later", 429);
 
@@ -78,6 +84,7 @@ export async function createRequest(opts: {
       lab_id: opts.labId,
       agent_kind: opts.kind,
       requested_by_id: opts.userId,
+      requested_by_contact_id: opts.contactId ?? null,
       channel: opts.channel ?? "web",
       sampling_map_id: opts.samplingMapId,
       prompt,
@@ -395,13 +402,16 @@ export async function writeGeoDraft(
 
 // ── people: apply / discard / undo ──────────────────────────────────────────
 
-export async function applyDraft(draftId: number, userId: string) {
+/** `by` is the person applying: a User id (web) or, from the app, a User or Contact. */
+export async function applyDraft(draftId: number, by: string | { userId: string | null; contactId: number | null }) {
+  const userId = typeof by === "string" ? by : by.userId;
+  const contactId = typeof by === "string" ? null : by.contactId;
   return prisma.$transaction(async (tx) => {
     const draft = await tx.agentGeometryDraft.findUnique({ where: { id: draftId } });
     if (!draft) throw new RequestError("draft not found", 404);
     const claimed = await tx.agentGeometryDraft.updateMany({
       where: { id: draftId, status: "draft" },
-      data: { status: "applied", applied_by_id: userId, applied_at: new Date() },
+      data: { status: "applied", applied_by_id: userId, applied_by_contact_id: contactId, applied_at: new Date() },
     });
     if (claimed.count !== 1) throw new RequestError(`draft is ${draft.status}`, 409);
 

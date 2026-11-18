@@ -47,6 +47,14 @@ export const RESTRICTED_ALLOWED_ROUTES: RouteScope[] = [
   { method: "GET", pattern: "/api/data/sampling-maps/:id/points/status" },
   { method: "POST", pattern: "/api/data/sampling-maps/points/:pointId/collections" },
 
+  // Agent chat — only does anything for people on the approved list
+  // (Agent_Chat_Access, lib/agent/chat-access.ts); the probe answers enabled:false otherwise.
+  { method: "GET", pattern: "/api/data/agent-chat" },
+  { method: "GET", pattern: "/api/data/agent-chat/requests" },
+  { method: "POST", pattern: "/api/data/agent-chat/requests" },
+  { method: "DELETE", pattern: "/api/data/agent-chat/requests/:id" },
+  { method: "POST", pattern: "/api/data/agent-chat/drafts/:draftId" },
+
   // Geofences — pull assigned zones, report entry events and duration time sessions
   // (spatial notifications).
   { method: "GET", pattern: "/api/data/geofences" },

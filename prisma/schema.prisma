@@ -2367,7 +2367,8 @@ model AgentRequest {
   lab_id          Int
   agent_kind      String
   requested_by_id String?
-  channel         String    @default("web") // web | app
+  requested_by_contact_id Int? // farmer requester (migration 101); requested_by_id is a users FK
+  channel         String    @default("web") // web | app | ofe
   sampling_map_id Int
   prompt          String
   context         Json      @default("{}")
@@ -2397,6 +2398,7 @@ model AgentGeometryDraft {
   grids           Json      @default("[]") // grid records the draft's points were drawn from (migration 100)
   status          String    @default("draft") // draft | applied | discarded | undone
   applied_by_id   String?
+  applied_by_contact_id Int? // migration 101
   applied_at      DateTime? @db.Timestamptz(6)
   created_at      DateTime  @default(now()) @db.Timestamptz(6)
 
@@ -2406,6 +2408,22 @@ model AgentGeometryDraft {
   @@index([request_id])
   @@index([sampling_map_id, status])
   @@map("Agent_Geometry_Drafts")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Who may chat with an interactive agent from the phone apps (and, later, OFE
+// Dashboard): one row per person (User XOR Contact) per agent kind. Migration
+// 101, docs/agent-chat-access.md. The web dashboard chat isn't gated by this.
+model AgentChatAccess {
+  id            Int      @id @default(autoincrement())
+  lab_id        Int
+  agent_kind    String
+  user_id       String?
+  contact_id    Int?
+  granted_by_id String?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("Agent_Chat_Access")
   @@schema("pgntarg2udzj1f3")
 }
 
