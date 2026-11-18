@@ -32,6 +32,7 @@ export default async function SamplingMapDetailRoute({
     include: {
       Polygons: true,
       Points: true,
+      Grids: { orderBy: { id: "asc" } },
       Experiment: {
         select: {
           ExperimentTests: { include: { Test: { select: { id: true, Test_Name: true } } } },
@@ -122,6 +123,20 @@ export default async function SamplingMapDetailRoute({
         experiment_test_id: p.experiment_test_id,
         placement_method: p.placement_method,
         data_count: pointDataCounts.get(p.id) ?? 0,
+        grid_id: p.grid_id,
+        grid_col: p.grid_col,
+        grid_row: p.grid_row,
+      }))}
+      initialGrids={map.Grids.map((g) => ({
+        id: g.id,
+        label: g.label,
+        crs: g.crs,
+        origin_x: g.origin_x,
+        origin_y: g.origin_y,
+        cell_size_m: g.cell_size_m,
+        rotation_deg: g.rotation_deg,
+        seed: g.seed,
+        params: g.params as Record<string, unknown>,
       }))}
       rasters={rasters}
       importableFields={importableFields}

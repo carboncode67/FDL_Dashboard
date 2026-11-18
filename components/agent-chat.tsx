@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import {
   currentEditor, emit, listen,
-  type DraftFeatureCollection, type EditorAnnouncement,
+  type DraftFeatureCollection, type EditorAnnouncement, type GridView,
 } from "@/lib/agent-chat-bridge"
 
 /**
@@ -37,6 +37,7 @@ interface Draft {
   status: "draft" | "applied" | "discarded" | "undone"
   explanation: string | null
   features: DraftFeatureCollection
+  grids?: GridView[]
 }
 
 interface AgentRequestRow {
@@ -86,7 +87,9 @@ function storeMap(m: MapOption | null) {
 function countFeatures(d: Draft) {
   const pts = d.features.features.filter((f) => f.geometry.type === "Point").length
   const polys = d.features.features.filter((f) => f.geometry.type === "Polygon").length
-  return [pts && `${pts} point${pts === 1 ? "" : "s"}`, polys && `${polys} polygon${polys === 1 ? "" : "s"}`].filter(Boolean).join(", ") || "empty"
+  const grids = d.grids?.length ?? 0
+  const parts = [pts && `${pts} point${pts === 1 ? "" : "s"}`, polys && `${polys} polygon${polys === 1 ? "" : "s"}`].filter(Boolean).join(", ") || "empty"
+  return grids ? `${parts} on ${grids === 1 ? `a ${d.grids![0].cell_size_m} m grid` : `${grids} grids`}` : parts
 }
 
 export function AgentChat() {
@@ -147,7 +150,7 @@ export function AgentChat() {
     (d: Draft | null) => {
       previewRef.current = d?.id ?? null
       setPreviewId(d?.id ?? null)
-      emit("fdb:agent-preview", d && map ? { mapId: map.id, draftId: d.id, features: d.features } : null)
+      emit("fdb:agent-preview", d && map ? { mapId: map.id, draftId: d.id, features: d.features, grids: d.grids ?? [] } : null)
     },
     [map],
   )
@@ -242,12 +245,13 @@ export function AgentChat() {
         setError(json.error ?? `Couldn't ${action} the draft`)
         return
       }
-      if (action === "apply") emit("fdb:agent-applied", { mapId: map.id, points: json.points ?? [], polygons: json.polygons ?? [] })
+      if (action === "apply") emit("fdb:agent-applied", { mapId: map.id, points: json.points ?? [], polygons: json.polygons ?? [], grids: json.grids ?? [] })
       if (action === "undo")
         emit("fdb:agent-undone", {
           mapId: map.id,
           removed_point_ids: json.removed_point_ids ?? [],
           removed_polygon_ids: json.removed_polygon_ids ?? [],
+          removed_grid_ids: json.removed_grid_ids ?? [],
         })
       if (previewRef.current === d.id) showDraft(null)
       await load()

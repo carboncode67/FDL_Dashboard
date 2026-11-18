@@ -103,6 +103,56 @@ recorded in the draft so a layout can be regenerated exactly.
 | `inside(point, polygon)` | validation, e.g. warn when a corner falls outside the field |
 | `raster_strata(raster_id, polygon, classes, method)` | async, PipelineProcessor (quantiles / Jenks over NDVI, yield, soil) |
 
+### 4a. Skills (2026-11-18)
+
+Each kind of request the Cartographer handles well is a **skill**: one or more
+deterministic tools here plus a prompt section in
+`Client/agents/runner/skills/cartographer/NN_<name>.md` (appended to
+`CARTOGRAPHER.md` in file order; the run's prompt hash covers both).
+
+| Skill | Tool | Status |
+|---|---|---|
+| Randomized grid sampling | `random_grid_sample` (`lib/geo-grid.ts`) | built |
+| Simple random sampling | `random_in_polygon` | tool exists; skill prompt to write |
+| Stratified sampling on context (e.g. latest cloud-free NDVI classes) | `raster_strata` (PipelineProcessor) + `stratified_random` | planned |
+| Polygon from sequential points | — | planned |
+
+**Randomized grid sampling.** `random_grid_sample {polygons, total | per_acre |
+cell_size_m, exact?, rotation_deg?, edge_buffer_m?, min_cell_fraction?, grouping?,
+seed?, label_prefix?}` lays a square grid over the polygons and puts one uniformly
+random point in each cell whose inside share ≥ `min_cell_fraction` (0.5). `total`
+searches the cell size so the sampled-cell count reaches N and, with `exact`
+(default), drops the surplus at random (listed on the grid as `dropped_cells`).
+`per_acre` → cell = √(4046.86 m² / density).
+
+- **The grid is a record**, `Sampling_Grids` (migration `100_sampling_grids.sql`):
+  `crs` (WGS84/UTM, e.g. EPSG:32618), `origin_x/_y` (SW corner of cell (0,0), CRS
+  metres; whole metres when unrotated), `cell_size_m`, `rotation_deg` (clockwise
+  from **grid** north; a true-north request is converted with the meridian
+  convergence), `seed`, `params` (algorithm `fdb-random-grid-v1`, polygons,
+  buffer, sizing, dropped cells). Cell (col,row) is `col·s ≤ u < (col+1)·s`,
+  `row·s ≤ v < (row+1)·s` with `u = cosθ·ΔE − sinθ·ΔN`, `v = sinθ·ΔE + cosθ·ΔN`.
+  That is everything needed to rebuild the lattice in QGIS/R/Python. Each cell's
+  point comes from its own PRNG stream (`cellSeed(seed, col, row)`), so any cell
+  is reproducible alone. Points carry `grid_id`, `grid_col`, `grid_row`.
+- **One grid or several:** `grouping: auto` (default) puts every polygon in the
+  same UTM zone with the same row direction on one grid; `per_polygon` gives each
+  its own origin; `shared` forces one. The skill prompt tells the model when to
+  pick which.
+- **No coordinates through the model:** `compute_geo` returns a summary, the grid
+  records, a few sample points and `draft_with`. `write_draft {compute: [...]}`
+  makes the server re-run the call (seed required) and build the features and
+  grids itself. Only server-computed points may carry grid membership, and each is
+  checked to lie in its declared cell. The same `compute` path works for every
+  §4 tool.
+- **Display:** the editor's side panel lists grids (cell size, point count,
+  definition, "Copy definition (JSON)"). Grids are hidden by default; "Show"
+  outlines only the sampled cells in thin translucent white. A draft preview shows
+  its cells in thin dashed orange.
+- **Apply / undo:** apply inserts the grid rows, then the points linked to them.
+  Undo removes both, but keeps a grid that other points have since been linked to.
+- Tests: `scripts/verify-geo-grid.ts` (36 checks), `scripts/e2e-grid-sampling.sh` (23).
+
 These tools are worth building **before** the agent. With a small form, the
 same functions back "quick actions" in the sampling-map editor (and later the
 apps): *long-press a point → square/cross around it*, *polygon → stratified

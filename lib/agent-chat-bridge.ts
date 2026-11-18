@@ -13,8 +13,22 @@ export interface DraftFeatureCollection {
   features: {
     type: "Feature"
     geometry: { type: "Point" | "Polygon"; coordinates: unknown }
-    properties: { label?: string; purpose?: string }
+    properties: { label?: string; purpose?: string; grid?: string; col?: number; row?: number }
   }[]
+}
+
+/** A sampling grid record (Sampling_Grids, or one on a draft keyed G1, G2…) — see lib/geo-grid.ts. */
+export interface GridView {
+  id?: number
+  key?: string
+  label: string | null
+  crs: string
+  origin_x: number
+  origin_y: number
+  cell_size_m: number
+  rotation_deg: number
+  seed: number | null
+  params?: Record<string, unknown>
 }
 
 export interface EditorAnnouncement {
@@ -32,11 +46,11 @@ export type BridgeEvents = {
   /** Editor → chat: open the chat with this map attached. */
   "fdb:agent-open": { mapId: number }
   /** Chat → editor: overlay a draft (null clears). */
-  "fdb:agent-preview": { mapId: number; draftId: number; features: DraftFeatureCollection } | null
+  "fdb:agent-preview": { mapId: number; draftId: number; features: DraftFeatureCollection; grids?: GridView[] } | null
   /** Chat → editor: rows an Apply added. */
-  "fdb:agent-applied": { mapId: number; points: unknown[]; polygons: unknown[] }
+  "fdb:agent-applied": { mapId: number; points: unknown[]; polygons: unknown[]; grids?: GridView[] }
   /** Chat → editor: rows an Undo removed. */
-  "fdb:agent-undone": { mapId: number; removed_point_ids: number[]; removed_polygon_ids: number[] }
+  "fdb:agent-undone": { mapId: number; removed_point_ids: number[]; removed_polygon_ids: number[]; removed_grid_ids?: number[] }
 }
 
 export function emit<K extends keyof BridgeEvents>(name: K, detail: BridgeEvents[K]) {

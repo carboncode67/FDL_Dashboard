@@ -1,6 +1,6 @@
 "use client"
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react"
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -17,7 +17,8 @@ import { ImportBoundaryDialog, type ImportableBoundary } from "@/components/impo
 import { SamplingMapUploadDialog, type UploadedPolygon, type UploadedPoint } from "@/components/sampling-map-upload-dialog"
 import { DeleteEntitySection } from "@/components/delete-entity-section"
 import { SamplingPointDataDialog } from "@/components/sampling-point-data-dialog"
-import { announceEditor, emit as emitAgent, listen as listenAgent, type DraftFeatureCollection } from "@/lib/agent-chat-bridge"
+import { announceEditor, emit as emitAgent, listen as listenAgent, type DraftFeatureCollection, type GridView } from "@/lib/agent-chat-bridge"
+import { GridCellsLayer, SamplingGridsPanel, type GridCell } from "@/components/sampling-grid-layer"
 import { Sparkles } from "lucide-react"
 import { SamplingMapAssignmentPicker } from "@/components/sampling-map-assignment-picker"
 import { resolveMapFormId } from "@/components/map-form-select"
@@ -67,6 +68,10 @@ export interface SamplingPointData {
   // Form responses + collections attributed to this point (set by the page load; absent on a
   // point just created in this session, which can't have any yet). > 0 pins the point's position.
   data_count?: number
+  // Randomized grid sampling (migration 100): the grid + cell the point was drawn in.
+  grid_id?: number | null
+  grid_col?: number | null
+  grid_row?: number | null
 }
 
 export interface ExperimentTestOption {
@@ -359,6 +364,8 @@ export interface SamplingMapEditorProps {
   // OFE-owned map (Sampling_Maps.ofe_id set, see lib/ofe-sync.ts): view-only here, since
   // OFE re-pushes the whole map and the web edit routes refuse it.
   readOnly?: boolean
+  // Sampling_Grids on this map (records of random grid samples).
+  initialGrids?: GridView[]
 }
 
 export default function SamplingMapEditor({
@@ -392,10 +399,24 @@ export default function SamplingMapEditor({
   canDeleteMap,
   editMode,
   readOnly = false,
+  initialGrids = [],
 }: SamplingMapEditorProps) {
   const router = useRouter()
+  const [grids, setGrids] = useState<GridView[]>(initialGrids)
+  // Grids are hidden until asked for — they're a record, not something to look at every time.
+  const [shownGrids, setShownGrids] = useState<Set<number>>(new Set())
   const [polygons, setPolygons] = useState<SamplingMapPolygonData[]>(initialPolygons)
   const [points, setPoints] = useState<SamplingPointData[]>(initialPoints)
+  // Sampled cells per grid, from the points that carry one.
+  const gridCells = useMemo(() => {
+    const m = new Map<number, GridCell[]>()
+    for (const p of points) {
+      if (p.grid_id == null || p.grid_col == null || p.grid_row == null) continue
+      if (!m.has(p.grid_id)) m.set(p.grid_id, [])
+      m.get(p.grid_id)!.push({ col: p.grid_col, row: p.grid_row })
+    }
+    return m
+  }, [points])
   const [isSatellite, setIsSatellite] = useState(false)
   // Keyed by rasterKey() (`${source}-${id}`), not the bare id — Basemap.id and
   // PipelineOutputRaster.id are separate, colliding ID spaces (items 6+7),
@@ -530,7 +551,7 @@ export default function SamplingMapEditor({
   // Cartographer: the point last clicked on the map (offered as a request's focus)
   // and the draft currently overlaid on the map.
   const [lastPointId, setLastPointId] = useState<number | null>(null)
-  const [cartoPreview, setCartoPreview] = useState<{ draftId: number; features: DraftFeatureCollection } | null>(null)
+  const [cartoPreview, setCartoPreview] = useState<{ draftId: number; features: DraftFeatureCollection; grids: GridView[] } | null>(null)
 
   // Tell the floating agent chat (components/agent-chat.tsx) which map is open and
   // which point was last clicked; take draft previews and Apply/Undo results back.
@@ -548,7 +569,7 @@ export default function SamplingMapEditor({
   useEffect(() => () => announceEditor(null), [])
   useEffect(() => {
     const offPreview = listenAgent("fdb:agent-preview", (d) => {
-      setCartoPreview(d && d.mapId === samplingMapId ? { draftId: d.draftId, features: d.features } : null)
+      setCartoPreview(d && d.mapId === samplingMapId ? { draftId: d.draftId, features: d.features, grids: d.grids ?? [] } : null)
     })
     const offApplied = listenAgent("fdb:agent-applied", (d) => {
       if (d.mapId !== samplingMapId) return
@@ -558,6 +579,7 @@ export default function SamplingMapEditor({
       polys.forEach((p) => layersApiRef.current?.addPolygon(p))
       setPoints((prev) => [...prev, ...pts])
       pts.forEach((p) => layersApiRef.current?.addPoint(p))
+      if (d.grids?.length) setGrids((prev) => [...prev, ...d.grids!])
     })
     const offUndone = listenAgent("fdb:agent-undone", (d) => {
       if (d.mapId !== samplingMapId) return
@@ -565,6 +587,8 @@ export default function SamplingMapEditor({
       d.removed_polygon_ids.forEach((id) => layersApiRef.current?.removePolygon(id))
       setPoints((prev) => prev.filter((p) => !d.removed_point_ids.includes(p.id)))
       setPolygons((prev) => prev.filter((p) => !d.removed_polygon_ids.includes(p.id)))
+      const gone = d.removed_grid_ids ?? []
+      if (gone.length) setGrids((prev) => prev.filter((g) => !gone.includes(g.id!)))
     })
     return () => {
       offPreview()
@@ -1344,6 +1368,21 @@ export default function SamplingMapEditor({
             {/* Grid/random generation preview — plain declarative markers (not
                 geoman-managed like accepted points) since nothing here is persisted
                 yet; dashed outline distinguishes them from real, saved points. */}
+            {/* Sampling grids: only the sampled cells, thin and under the points; off by default. */}
+            {grids.filter((g) => g.id != null && shownGrids.has(g.id)).map((g) => (
+              <GridCellsLayer key={`grid-${g.id}`} grid={g} cells={gridCells.get(g.id!) ?? []} tone="saved" />
+            ))}
+            {cartoPreview?.grids.map((g) => (
+              <GridCellsLayer
+                key={`draft-grid-${cartoPreview.draftId}-${g.key}`}
+                grid={g}
+                cells={cartoPreview.features.features.flatMap((f) =>
+                  f.properties.grid === g.key && f.properties.col != null && f.properties.row != null ? [{ col: f.properties.col, row: f.properties.row }] : [],
+                )}
+                tone="draft"
+              />
+            ))}
+
             {/* Cartographer draft — orange, dashed, not editable until applied. */}
             {cartoPreview && (
               <GeoJSON
@@ -1384,6 +1423,18 @@ export default function SamplingMapEditor({
           >
             <Sparkles className="mr-1 h-3.5 w-3.5 text-amber-600" /> Ask Cartographer about this map
           </Button>
+
+          <SamplingGridsPanel
+            grids={grids}
+            pointCounts={new Map([...gridCells].map(([id, cells]) => [id, cells.length]))}
+            shown={shownGrids}
+            onToggle={(id) => setShownGrids((prev) => {
+              const next = new Set(prev)
+              if (next.has(id)) next.delete(id)
+              else next.add(id)
+              return next
+            })}
+          />
 
           <div>
             <h3 className="text-sm font-semibold text-stone-900">Polygons ({polygons.length})</h3>

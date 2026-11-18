@@ -2014,6 +2014,7 @@ model SamplingMap {
   Basemap         Basemap?                @relation(fields: [basemap_id], references: [id], onDelete: SetNull)
   Polygons        SamplingMapPolygon[]
   Points          SamplingPoint[]
+  Grids           SamplingGrid[]
   Assignments     SamplingMapAssignment[]
   LinkedGeofences Geofence[]              @relation("GeofenceLinkedSamplingMap")
   // Optional Sampling_Map_Groups row (migration 087) — list-page organisation only; NULL = Ungrouped.
@@ -2075,6 +2076,10 @@ model SamplingPoint {
   sample_index       Int?
   ofe_id             Int? // migration 091; NULL on a phone-created point until OFE pulls it back
   agent_draft_id   Int? // applied from an agent draft (migration 099) — drives undo
+  // Randomized grid sampling (migration 100): the grid and cell this point was drawn in.
+  grid_id            Int?
+  grid_col           Int?
+  grid_row           Int?
   created_at         DateTime @default(now())
   // Client-computed dedup key, same convention as Photos/Notes/Sampling_Point_Collections —
   // only ever set for placement_method = "field" (created on-device via the bearer API); the
@@ -2084,6 +2089,7 @@ model SamplingPoint {
   SamplingMap    SamplingMap               @relation(fields: [sampling_map_id], references: [id], onDelete: Cascade)
   Polygon        SamplingMapPolygon?       @relation(fields: [polygon_id], references: [id], onDelete: SetNull)
   ExperimentTest ExperimentTest?           @relation(fields: [experiment_test_id], references: [id], onDelete: SetNull)
+  Grid           SamplingGrid?             @relation(fields: [grid_id], references: [id], onDelete: SetNull)
   Collections    SamplingPointCollection[]
   FormResponses  FormResponse[]
 
@@ -2092,7 +2098,37 @@ model SamplingPoint {
   @@index([polygon_id])
   @@index([experiment_test_id])
   @@index([content_hash])
+  @@index([grid_id])
   @@map("Sampling_Points")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// The record of a sampling grid (migration 100, lib/geo-grid.ts): CRS + origin + cell size +
+// rotation is enough to recreate every cell; seed + params.algorithm reproduce the random
+// point in each one. Points drawn from it carry grid_id + grid_col/grid_row.
+model SamplingGrid {
+  id              Int      @id @default(autoincrement())
+  sampling_map_id Int
+  label           String?
+  crs             String
+  origin_x        Float
+  origin_y        Float
+  origin_lat      Float?
+  origin_lng      Float?
+  cell_size_m     Float
+  rotation_deg    Float    @default(0)
+  method          String   @default("random_in_cell")
+  seed            Int?
+  params          Json     @default("{}")
+  agent_draft_id  Int?
+  created_by_id   String?
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  SamplingMap SamplingMap     @relation(fields: [sampling_map_id], references: [id], onDelete: Cascade)
+  Points      SamplingPoint[]
+
+  @@index([sampling_map_id])
+  @@map("Sampling_Grids")
   @@schema("pgntarg2udzj1f3")
 }
 
@@ -2358,6 +2394,7 @@ model AgentGeometryDraft {
   features        Json
   explanation     String?
   provenance      Json      @default("[]")
+  grids           Json      @default("[]") // grid records the draft's points were drawn from (migration 100)
   status          String    @default("draft") // draft | applied | discarded | undone
   applied_by_id   String?
   applied_at      DateTime? @db.Timestamptz(6)
