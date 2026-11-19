@@ -8,6 +8,7 @@ import { basePrisma } from "@/lib/prisma";
 import { effectiveLabSlug } from "@/lib/lab-db";
 import { canEdit, type Role } from "@/lib/roles";
 import { AgentChat } from "@/components/agent-chat";
+import { agentLabId } from "@/lib/agent/admin";
 
 // Dashboard pages query the DB at request time — never statically prerendered.
 // This cascades to all child pages in app/(dashboard)/.
@@ -35,11 +36,20 @@ export default async function DashboardLayout({
       : Promise.resolve([]),
   ]);
 
+  // Open "Unprocessable data" flags (migration 102) → count on "Incoming Data"
+  // for the people who can act on them.
+  const gapLabId = session?.user && canEdit(role) ? await agentLabId(session, activeLabSlug) : null;
+  // Fails soft: this runs on every page, so a DB without migration 102 must not take the layout down.
+  const openGapCount = gapLabId == null ? 0 : await basePrisma.processingGap
+    .count({ where: { lab_id: gapLabId, status: "open" } })
+    .catch(() => 0);
+  const navBadges = openGapCount ? { "/data-sorting": openGapCount } : undefined;
+
   return (
     <AuthSessionProvider>
       <Toaster position="bottom-right" richColors closeButton offset={{ bottom: 84, right: 20 }} />
       <div className="flex min-h-screen bg-stone-50">
-        <Sidebar role={role} className="hidden lg:flex" />
+        <Sidebar role={role} badges={navBadges} className="hidden lg:flex" />
         <div className="flex flex-col flex-1 min-w-0">
           <Header
             title="Farmers Database"
@@ -50,6 +60,7 @@ export default async function DashboardLayout({
             labs={labs}
             activeLabSlug={activeLabSlug}
             homeLabSlug={session?.user?.lab_slug ?? null}
+            navBadges={navBadges}
           />
           <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
         </div>

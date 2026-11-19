@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar } from "@/components/sidebar";
 import type { Role } from "@/lib/roles";
 
-export function MobileNav({ role }: { role: Role }) {
+export function MobileNav({ role, badges }: { role: Role; badges?: Record<string, number> }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -27,6 +27,7 @@ export function MobileNav({ role }: { role: Role }) {
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <Sidebar
             role={role}
+            badges={badges}
             className="min-h-full w-full"
             onNavigate={() => setOpen(false)}
           />

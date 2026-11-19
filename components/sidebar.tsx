@@ -64,6 +64,8 @@ interface SidebarProps {
   role: Role;
   className?: string;
   onNavigate?: () => void;
+  /** Count shown next to a nav item, keyed by href (e.g. open "Unprocessable data" flags on /data-sorting). */
+  badges?: Record<string, number>;
 }
 
 function isActive(pathname: string, href: string) {
@@ -76,12 +78,14 @@ function NavLink({
   icon: Icon,
   active,
   onNavigate,
+  badge,
 }: {
   href: string;
   label: string;
   icon: LucideIcon;
   active: boolean;
   onNavigate?: () => void;
+  badge?: number;
 }) {
   return (
     <li>
@@ -97,12 +101,20 @@ function NavLink({
       >
         <Icon className="h-4 w-4 shrink-0" />
         {label}
+        {badge ? (
+          <span
+            className="ml-auto rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white"
+            title={`${badge} upload${badge === 1 ? "" : "s"} flagged as unprocessable data`}
+          >
+            {badge}
+          </span>
+        ) : null}
       </Link>
     </li>
   );
 }
 
-export function Sidebar({ role, className, onNavigate }: SidebarProps) {
+export function Sidebar({ role, className, onNavigate, badges }: SidebarProps) {
   const pathname = usePathname();
 
   const sections = [
@@ -139,6 +151,7 @@ export function Sidebar({ role, className, onNavigate }: SidebarProps) {
                   icon={icon}
                   active={pathname === href}
                   onNavigate={onNavigate}
+                  badge={badges?.[href]}
                 />
               ))}
               {role === "admin" && label === "Advanced" && (

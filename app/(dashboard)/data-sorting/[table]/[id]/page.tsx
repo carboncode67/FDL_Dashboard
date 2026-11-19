@@ -7,9 +7,12 @@ import { isFlaggedDuplicate } from "@/lib/upload-item-utils";
 import { haversineMetres } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 import { getEditMode } from "@/lib/edit-mode";
-import { canDelete, type Role } from "@/lib/roles";
+import { canDelete, canEdit, isAdmin, type Role } from "@/lib/roles";
 import DetailClient from "./detail-client";
-import { runWithTenant } from "@/lib/lab-db";
+import { runWithTenant, effectiveLabSlug } from "@/lib/lab-db";
+import { agentLabId } from "@/lib/agent/admin";
+import { GAP_TABLES, gapTableForSlug } from "@/lib/processing-gaps";
+import type { GapInfo } from "./unprocessable-card";
 
 const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 
@@ -332,7 +335,7 @@ export default async function DetailPage({
   searchParams,
 }: {
   params: Promise<{ table: string; id: string }>;
-  searchParams: Promise<{ tab?: string; status?: string; type?: string; farm?: string; search?: string; duplicate?: string }>;
+  searchParams: Promise<{ tab?: string; status?: string; type?: string; farm?: string; search?: string; duplicate?: string; unprocessable?: string }>;
 }) {
   return runWithTenant(async () => {
   const { table, id } = await params;
@@ -349,6 +352,7 @@ export default async function DetailPage({
   const filterFarm   = sp.farm   ?? "all";
   const search       = sp.search ?? "";
   const filterDuplicate = sp.duplicate === "1";
+  const filterUnprocessable = sp.unprocessable === "1";
 
   const [item, allItems, farms, session, editMode, categoryRows, metricValueRows] = await Promise.all([
     fetchItem(table, itemId),
@@ -415,7 +419,40 @@ export default async function DetailPage({
     return true;
   });
 
-  const filtered = applyFilters(allItems, filterStatus, filterType, filterFarm, search, filterDuplicate);
+  // "Unprocessable data" flags (migration 102).
+  const labId = session ? await agentLabId(session, await effectiveLabSlug(session)) : null;
+  const openGaps = labId == null ? [] : await prisma.processingGap.findMany({
+    where: { lab_id: labId, status: "open" },
+    select: { source_table: true, source_id: true },
+  });
+  const gapKeys = new Set(openGaps.map((g) => `${GAP_TABLES[g.source_table]}-${g.source_id}`));
+  const gapTable = gapTableForSlug(table);
+  const gapRow = labId != null && gapTable
+    ? await prisma.processingGap.findFirst({ where: { lab_id: labId, source_table: gapTable, source_id: itemId } })
+    : null;
+  let gap: GapInfo | null = null;
+  if (gapRow) {
+    const obs = gapRow.observation_id
+      ? await prisma.agentObservation.findUnique({
+          where: { id: gapRow.observation_id },
+          select: { description: true, confidence: true },
+        })
+      : null;
+    gap = {
+      id: gapRow.id,
+      status: gapRow.status as GapInfo["status"],
+      data_product: gapRow.data_product,
+      description: obs?.description ?? null,
+      confidence: obs?.confidence ?? null,
+      decision_note: gapRow.decision_note,
+      decided_at: gapRow.decided_at?.toISOString() ?? null,
+    };
+  }
+
+  const filtered = applyFilters(
+    filterUnprocessable ? allItems.filter((x) => gapKeys.has(`${x.table}-${x.id}`)) : allItems,
+    filterStatus, filterType, filterFarm, search, filterDuplicate,
+  );
   const idx = filtered.findIndex((x) => x.table === table && x.id === itemId);
   const prev = idx > 0 ? filtered[idx - 1] : null;
   const next = idx >= 0 && idx < filtered.length - 1 ? filtered[idx + 1] : null;
@@ -424,6 +461,7 @@ export default async function DetailPage({
 
   const filterParams = new URLSearchParams({
     tab, status: filterStatus, type: filterType, farm: filterFarm, search, duplicate: filterDuplicate ? "1" : "0",
+    unprocessable: filterUnprocessable ? "1" : "0",
   });
 
   // All other items that belong to the same merge group as the current item.
@@ -456,6 +494,9 @@ export default async function DetailPage({
       canDelete={showDelete}
       categories={categories}
       metricValues={metricValues}
+      gap={gap}
+      canDecideGap={canEdit(role)}
+      canIgnoreGapType={isAdmin(role)}
     />
   );
   });

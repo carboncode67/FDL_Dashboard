@@ -11,6 +11,7 @@ import { OnboardingMessageEditor } from "./onboarding-message-editor";
 import { UserRolesTable } from "./user-roles-table";
 import { AgentSettings } from "./agent-settings";
 import { AgentChatAccess } from "./agent-chat-access";
+import { ProcessingGapIgnores } from "./processing-gap-ignores";
 import { effectiveLabSlug, runWithTenant } from "@/lib/lab-db";
 import { agentLabId } from "@/lib/agent/admin";
 
@@ -46,6 +47,9 @@ export default async function AdminPage() {
   ]);
 
   const labId = await agentLabId(session, await effectiveLabSlug(session));
+  const gapIgnores = labId == null ? [] : await prisma.processingGapIgnore
+    .findMany({ where: { lab_id: labId }, select: { id: true, data_product: true, note: true }, orderBy: { data_product: "asc" } })
+    .catch(() => []);
   const [agentTokens, agentTags] =
     labId == null
       ? [[], []]
@@ -140,6 +144,11 @@ export default async function AdminPage() {
           {labId != null && (
             <div className="mt-6">
               <AgentChatAccess />
+            </div>
+          )}
+          {labId != null && (
+            <div className="mt-6">
+              <ProcessingGapIgnores initialRows={gapIgnores} />
             </div>
           )}
         </CardContent>

@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { createHash } from "crypto";
 import { verifyWebhookSignature } from "@/lib/webhook-auth";
+import { reevaluateGapsQuietly } from "@/lib/processing-gaps";
 
 export const runtime = "nodejs";
 
@@ -153,6 +154,9 @@ async function handlePayload(payload: ProcessingWebhookPayload) {
         finished_at: new Date(),
       },
     });
+
+    // A pipeline going live can cover uploads flagged "Unprocessable data".
+    if (success) reevaluateGapsQuietly(pipeline.lab_id);
 
     return NextResponse.json({ ok: true, action: success ? "live" : "failed" });
   }

@@ -7,6 +7,7 @@ import type { Role } from "@/lib/roles";
 import { matchAndTriggerPipelines } from "@/lib/pipeline-match";
 import { propagateToGroup } from "@/lib/upload-group-sync";
 import { runWithTenant } from "@/lib/lab-db";
+import { evaluateGapQuietly, gapTableForSlug } from "@/lib/processing-gaps";
 
 const ALLOWED = ["photos", "notes", "recordings", "locations", "lab-member-uploads", "documents", "videos"] as const;
 type Table = (typeof ALLOWED)[number];
@@ -132,6 +133,13 @@ export async function PATCH(
       project_id: record.project_id ?? null,
       inputFileUrl: `${baseUrl}/api/data/files/${table}/${id}`,
     }).catch((err) => console.error("[uploads PATCH] pipeline trigger failed", err));
+  }
+
+  // "Unprocessable data" flag: sorting can make an observed upload eligible, or
+  // a new category can put it in a live pipeline's scope (resolving its flag).
+  const gapTable = gapTableForSlug(table);
+  if (gapTable && ("status" in data || "category" in data || "project_id" in data)) {
+    await evaluateGapQuietly(gapTable, uploadId);
   }
 
   return NextResponse.json(result);

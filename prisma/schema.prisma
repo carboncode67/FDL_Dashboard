@@ -2348,6 +2348,7 @@ model AgentObservation {
   extracted_text      String?
   suspected_injection Boolean   @default(false)
   confidence          Float?    @db.Real
+  data_product        String? // migration 102: what kind of processable data this is (DATA_PRODUCTS), "none" = not data
   model               String?
   prompt_sha256       String?   @db.Char(64)
   status              String    @default("current") // current | superseded | dismissed
@@ -2643,5 +2644,43 @@ model ManagementEventUpload {
 
   @@id([event_id, upload_table, upload_id])
   @@map("Management_Event_Uploads")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// "Unprocessable data" flags (migration 102, docs/unprocessable-data-flag-plan.md).
+// Dashboard-owned, not agent output: lib/processing-gaps.ts opens one when a
+// sorted upload's observation names a data product no processing tool covers.
+model ProcessingGap {
+  id                      Int       @id @default(autoincrement())
+  lab_id                  Int
+  source_table            String // agent registry names: photos | notes | lab_member_uploads | documents
+  source_id               Int
+  farm_id                 Int?
+  data_product            String
+  observation_id          Int?
+  status                  String    @default("open") // open | dismissed | resolved
+  decided_by_id           String?
+  decided_at              DateTime? @db.Timestamptz(6)
+  decision_note           String?
+  resolved_by_pipeline_id Int?
+  created_at              DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@unique([lab_id, source_table, source_id])
+  @@map("Processing_Gaps")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// "Never flag <data_product> in this lab" (migration 102).
+model ProcessingGapIgnore {
+  id            Int      @id @default(autoincrement())
+  lab_id        Int
+  data_product  String
+  created_by_id String?
+  note          String?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([lab_id, data_product])
+  @@map("Processing_Gap_Ignores")
   @@schema("pgntarg2udzj1f3")
 }

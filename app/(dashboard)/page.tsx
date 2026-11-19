@@ -22,6 +22,7 @@ import {
 import { format } from "date-fns";
 import Link from "next/link";
 import { runWithTenant } from "@/lib/lab-db";
+import { UnprocessableBanner } from "@/components/unprocessable-banner";
 
 async function getDashboardData() {
   const now = new Date();
@@ -176,6 +177,8 @@ export default async function DashboardPage() {
         <h2 className="text-2xl font-bold text-stone-900">Dashboard</h2>
         <p className="text-stone-500 mt-1">Overview of all field operations</p>
       </div>
+
+      <UnprocessableBanner />
 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">

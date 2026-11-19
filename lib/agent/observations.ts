@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { pointInGeometry } from "@/lib/geo";
 import type { AgentAuth } from "@/lib/agent/auth";
 import { getAgentRow, getAgentTable } from "@/lib/agent/registry";
+import { DATA_PRODUCTS, isDataProduct } from "@/lib/data-products";
+import { evaluateGapQuietly } from "@/lib/processing-gaps";
 
 /**
  * The space-time observation map (migration 097, docs/agent-sandbox-plan.md §6a).
@@ -179,6 +181,14 @@ export async function writeObservation(
     growth_stage: plain(body, "growth_stage", 40),
     extracted_text: plain(body, "extracted_text", 1000),
     suspected_injection: body.suspected_injection === true,
+    // What kind of processable data this is (migration 102) — drives the
+    // "Unprocessable data" flag, which the dashboard decides, not the model.
+    data_product: (() => {
+      const d = body.data_product;
+      if (d == null || d === "") return null;
+      if (!isDataProduct(d)) throw new ObservationError(`data_product must be one of: ${DATA_PRODUCTS.join(", ")}`);
+      return d;
+    })(),
     confidence: (() => {
       const c = body.confidence;
       if (c == null) return null;
@@ -223,7 +233,7 @@ export async function writeObservation(
   const prompt_sha256 = typeof body.prompt_sha256 === "string" && /^[0-9a-f]{64}$/.test(body.prompt_sha256) ? body.prompt_sha256 : null;
 
   const run_id = await claim(agent, body);
-  return prisma.$transaction(async (tx) => {
+  const written = await prisma.$transaction(async (tx) => {
     await tx.agentObservation.updateMany({
       where: { lab_id: agent.labId, source_table: table, source_id: id, status: "current" },
       data: { status: "superseded" },
@@ -249,6 +259,8 @@ export async function writeObservation(
       select: { id: true, farm_id: true, field_id: true, observed_at: true, location_source: true, time_source: true },
     });
   });
+  await evaluateGapQuietly(table, id);
+  return written;
 }
 
 // ── reads ───────────────────────────────────────────────────────────────────
@@ -310,7 +322,7 @@ export async function listObservations(labId: number, params: URLSearchParams) {
         id: true, source_table: true, source_id: true, farm_id: true, field_id: true,
         latitude: true, longitude: true, location_source: true, observed_at: true, time_source: true,
         subjects: true, crop: true, growth_stage: true, description: true, extracted_text: true,
-        suspected_injection: true, confidence: true,
+        suspected_injection: true, confidence: true, data_product: true,
       },
     }),
   ]);

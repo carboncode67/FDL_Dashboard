@@ -3,6 +3,7 @@ import { authenticateUpload } from "@/lib/upload-auth";
 import { runWithLab } from "@/lib/lab-db";
 import { isUploadTable } from "@/lib/data-api";
 import { prisma } from "@/lib/prisma";
+import { evaluateGapQuietly, gapTableForSlug } from "@/lib/processing-gaps";
 
 export async function PATCH(
   req: Request,
@@ -40,6 +41,11 @@ export async function PATCH(
     case "recordings":         result = await prisma.recording.update({ where: { id: numId }, data }); break;
     case "locations":          result = await prisma.location.update({ where: { id: numId }, data }); break;
     case "lab-member-uploads": result = await prisma.labMemberUpload.update({ where: { id: numId }, data }); break;
+  }
+
+  const gapTable = gapTableForSlug(table);
+  if (gapTable && ("status" in data || "category" in data || "project_id" in data)) {
+    await evaluateGapQuietly(gapTable, numId);
   }
 
   return NextResponse.json(result);

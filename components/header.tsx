@@ -48,6 +48,7 @@ interface HeaderProps {
   labs?: LabOption[];
   activeLabSlug?: string | null;
   homeLabSlug?: string | null;
+  navBadges?: Record<string, number>;
 }
 
 interface ProjectOption {
@@ -80,6 +81,7 @@ export function Header({
   labs,
   activeLabSlug,
   homeLabSlug,
+  navBadges,
 }: HeaderProps) {
   const { data: session } = useSession();
   const router = useRouter();
@@ -185,7 +187,7 @@ export function Header({
   return (
     <header className="h-14 border-b border-stone-200 bg-white flex items-center justify-between px-4 sm:px-6 shrink-0">
       <div className="flex items-center gap-3">
-        {role && <MobileNav role={role} />}
+        {role && <MobileNav role={role} badges={navBadges} />}
         <h1 className="text-lg font-semibold text-stone-900">{title}</h1>
         {editMode && (
           <span className="rounded px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 border border-red-200">

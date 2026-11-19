@@ -23,13 +23,13 @@ function scopeFilter(
   return { OR: [{ [field]: null }, { [field]: value }] };
 }
 
-// Called from mutation points where an upload becomes "categorized enough to
-// match" (Data Sorting save, Test data row ingestion). Best-effort and
-// non-blocking — a processing-machine failure must never fail the caller's request.
-export async function matchAndTriggerPipelines(opts: MatchTriggerOpts): Promise<void> {
-  if (!processingConfigured) return;
+export type MatchScope = Pick<MatchTriggerOpts, "table" | "category" | "project_id" | "data_table_id">;
 
-  const pipelines = await prisma.pipeline.findMany({
+// The live pipelines that would run on an upload with this scope. Pure lookup —
+// no trigger, no processingConfigured gate — so lib/processing-gaps.ts can ask
+// "does any tool cover this upload?" with exactly the trigger's rule.
+export function findMatchingLivePipelines(opts: MatchScope) {
+  return prisma.pipeline.findMany({
     where: {
       status: "live",
       match_table: opts.table,
@@ -40,6 +40,15 @@ export async function matchAndTriggerPipelines(opts: MatchTriggerOpts): Promise<
       ],
     },
   });
+}
+
+// Called from mutation points where an upload becomes "categorized enough to
+// match" (Data Sorting save, Test data row ingestion). Best-effort and
+// non-blocking — a processing-machine failure must never fail the caller's request.
+export async function matchAndTriggerPipelines(opts: MatchTriggerOpts): Promise<void> {
+  if (!processingConfigured) return;
+
+  const pipelines = await findMatchingLivePipelines(opts);
 
   const baseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
   // Same trigger event for every pipeline matched below — resolve once, not per-pipeline.

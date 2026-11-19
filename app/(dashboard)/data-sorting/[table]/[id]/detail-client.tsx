@@ -25,6 +25,7 @@ import {
 import { isFlaggedDuplicate } from "@/lib/upload-item-utils";
 import UploadPointMapWrapper from "@/components/upload-point-map-wrapper";
 import UploadTrackMapWrapper from "@/components/upload-track-map-wrapper";
+import UnprocessableCard, { type GapInfo } from "./unprocessable-card";
 
 interface FarmOption { id: number; name: string; }
 
@@ -116,6 +117,9 @@ export default function DetailClient({
   canDelete,
   categories,
   metricValues: initialMetricValues,
+  gap,
+  canDecideGap,
+  canIgnoreGapType,
 }: {
   item: UploadItem;
   farms: FarmOption[];
@@ -131,6 +135,9 @@ export default function DetailClient({
   canDelete: boolean;
   categories: CategoryOption[];
   metricValues: Record<number, string>;
+  gap: GapInfo | null;
+  canDecideGap: boolean;
+  canIgnoreGapType: boolean;
 }) {
   const router = useRouter();
   const [farmId, setFarmId]       = useState(item.farm_id ? String(item.farm_id) : "");
@@ -405,6 +412,10 @@ export default function DetailClient({
             </Button>
           </div>
         </div>
+      )}
+
+      {gap && (
+        <UnprocessableCard gap={gap} canDecide={canDecideGap} canIgnoreType={canIgnoreGapType} />
       )}
 
       {/* Merge group indicator */}

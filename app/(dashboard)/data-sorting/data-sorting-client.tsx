@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FolderKanban, Search, Trash2, GitMerge, AlertTriangle, Download } from "lucide-react";
 import { isFlaggedDuplicate } from "@/lib/upload-item-utils";
+import { dataProductLabel } from "@/lib/data-products";
 
 export interface UploadItem {
   id: number;
@@ -43,6 +44,8 @@ export interface UploadItem {
   duplicate_dismissed: boolean;
   needs_further_processing: boolean;
   annotation_count?: number;
+  /** Open "Unprocessable data" flag's data product (migration 102), else null. */
+  unprocessable?: string | null;
 }
 
 interface FarmOption { id: number; name: string; }
@@ -137,6 +140,7 @@ export function DataSortingClient({
   const [filterType, setFilterType] = useState(() => searchParams.get("type") ?? "all");
   const [filterFarm, setFilterFarm] = useState(() => searchParams.get("farm") ?? "all");
   const [filterDuplicate, setFilterDuplicate] = useState(() => searchParams.get("duplicate") === "1");
+  const [filterUnprocessable, setFilterUnprocessable] = useState(() => searchParams.get("unprocessable") === "1");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -190,12 +194,13 @@ export function DataSortingClient({
       farm: filterFarm,
       search,
       duplicate: filterDuplicate ? "1" : "0",
+      unprocessable: filterUnprocessable ? "1" : "0",
     });
     window.history.replaceState(null, "", `/data-sorting?${params.toString()}`);
-  }, [activeTab, filterStatus, filterType, filterFarm, search, filterDuplicate]);
+  }, [activeTab, filterStatus, filterType, filterFarm, search, filterDuplicate, filterUnprocessable]);
 
   const hasActiveFilters =
-    filterStatus !== "all" || filterType !== "all" || filterFarm !== "all" || search !== "" || filterDuplicate;
+    filterStatus !== "all" || filterType !== "all" || filterFarm !== "all" || search !== "" || filterDuplicate || filterUnprocessable;
 
   function clearFilters() {
     setSearch("");
@@ -203,6 +208,7 @@ export function DataSortingClient({
     setFilterType("all");
     setFilterFarm("all");
     setFilterDuplicate(false);
+    setFilterUnprocessable(false);
   }
 
   const filtered = items.filter((item) => {
@@ -210,6 +216,7 @@ export function DataSortingClient({
     if (filterType !== "all" && item.media_type !== filterType) return false;
     if (filterFarm !== "all" && item.farm_id !== Number(filterFarm)) return false;
     if (filterDuplicate && !isFlaggedDuplicate(item)) return false;
+    if (filterUnprocessable && !item.unprocessable) return false;
     if (search) {
       const q = search.toLowerCase();
       const haystack = [item.uploader, item.farm, item.category, item.description]
@@ -300,6 +307,7 @@ export function DataSortingClient({
       farm: filterFarm,
       search,
       duplicate: filterDuplicate ? "1" : "0",
+      unprocessable: filterUnprocessable ? "1" : "0",
     });
     router.push(`/data-sorting/${item.table}/${item.id}?${params.toString()}`);
   }
@@ -571,6 +579,15 @@ export function DataSortingClient({
         </Button>
 
         <Button
+          variant={filterUnprocessable ? "secondary" : "outline"}
+          size="sm"
+          title="Data the agent recognised that no processing tool covers yet"
+          onClick={() => setFilterUnprocessable((v) => !v)}
+        >
+          Unprocessable{filterUnprocessable ? "" : ` (${items.filter((i) => i.unprocessable).length})`}
+        </Button>
+
+        <Button
           variant="outline"
           size="sm"
           disabled={!hasActiveFilters}
@@ -724,6 +741,14 @@ function ItemBadges({ item, groupCount }: { item: UploadItem; groupCount?: numbe
       {isFlaggedDuplicate(item) && (
         <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
           Duplicate
+        </span>
+      )}
+      {item.unprocessable && (
+        <span
+          className="inline-flex items-center gap-0.5 rounded-full bg-rose-100 px-1.5 py-0.5 text-xs font-medium text-rose-700"
+          title={dataProductLabel(item.unprocessable)}
+        >
+          <AlertTriangle className="h-3 w-3" /> Unprocessable
         </span>
       )}
     </div>

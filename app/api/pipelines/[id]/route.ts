@@ -5,6 +5,7 @@ import { isAdmin, type Role } from "@/lib/roles";
 import fs from "fs";
 import path from "path";
 import { runWithTenant } from "@/lib/lab-db";
+import { reevaluateGapsQuietly } from "@/lib/processing-gaps";
 
 const DATA_DIR = process.env.DATA_DIR ?? "./upload-data";
 
@@ -58,6 +59,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   const pipeline = await prisma.pipeline.update({ where: { id: parseInt(id) }, data });
+  // Status or match scope changed → "Unprocessable data" flags may open or resolve.
+  reevaluateGapsQuietly(pipeline.lab_id);
   return NextResponse.json(pipeline);
   });
 }
@@ -75,6 +78,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!pipeline) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await prisma.pipeline.delete({ where: { id: pipeline.id } }); // Runs cascade
+  reevaluateGapsQuietly(pipeline.lab_id); // uploads it covered may be unprocessable again
 
   for (const [dir, filename] of [
     ["pipeline-datasets", pipeline.sample_dataset_filename],

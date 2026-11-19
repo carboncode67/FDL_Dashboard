@@ -4,7 +4,9 @@ import { getEditMode } from "@/lib/edit-mode";
 import { canDelete, type Role } from "@/lib/roles";
 import { getEffectiveScope } from "@/lib/get-user-filters";
 import { DataSortingClient, UploadItem } from "./data-sorting-client";
-import { runWithTenant } from "@/lib/lab-db";
+import { runWithTenant, effectiveLabSlug } from "@/lib/lab-db";
+import { agentLabId } from "@/lib/agent/admin";
+import { GAP_TABLES } from "@/lib/processing-gaps";
 
 export default async function DataSortingPage() {
   return runWithTenant(async () => {
@@ -309,6 +311,15 @@ export default async function DataSortingPage() {
       needs_further_processing: r.needs_further_processing ?? false,
     })),
   ].sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime());
+
+  // "Unprocessable data" flags (migration 102) → badge + filter.
+  const labId = session ? await agentLabId(session, await effectiveLabSlug(session)) : null;
+  const openGaps = labId == null ? [] : await prisma.processingGap.findMany({
+    where: { lab_id: labId, status: "open" },
+    select: { source_table: true, source_id: true, data_product: true },
+  });
+  const gapByKey = new Map(openGaps.map((g) => [`${GAP_TABLES[g.source_table]}-${g.source_id}`, g.data_product]));
+  for (const item of items) item.unprocessable = gapByKey.get(`${item.table}-${item.id}`) ?? null;
 
   const farmList = farms.map((f) => ({ id: f.id, name: f.Farm_Name ?? `Farm ${f.id}` }));
   const categories = categoryRows.map((c) => ({
