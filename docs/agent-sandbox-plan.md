@@ -579,6 +579,14 @@ table inet agents_egress {
   journald, not to a writable volume the runner can see.
 - **Kill switch:** revoke the token in the Dashboard (takes effect on the next
   request), or `sudo -u agents systemctl --user disable --now agents-run.timer`.
+- **As built (Datamachine, live 2026-11-19):** `datamachine/setup-agents-host.sh`
+  installs `agents-run.{service,timer}`: 01:00 nightly, `observe --limit 300` then
+  `synthesize`. It installs them disabled, with `--dry-run`, and rewrites the
+  unit on every run. Going live is a drop-in
+  `agents-run.service.d/live.conf` (`Environment=AGENT_RUN_FLAGS=`) plus enabling
+  the timer; both survive re-runs. Stage A uses the host's ollama.service through
+  a Caddy filter instead of the Quadlet Ollama above. Commands: `Client/CLAUDE.md`
+  → Agents sandbox.
 
 ### 7.5 Isolation acceptance checks
 

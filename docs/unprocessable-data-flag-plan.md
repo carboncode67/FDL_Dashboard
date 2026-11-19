@@ -1,7 +1,8 @@
 # "Unprocessable data" flag (GitHub issue #3)
 
-Status: built 2026-11-19 on branch `unprocessable-data` in Dashboard-UI and Client.
-Migration 102 applied to local dev only.
+Status: live on production since 2026-11-19 (Dashboard-UI 39a5d04, Client 79a2c0e +
+481e5b7). Migration 102 has been run on TrueNAS dev and production. The nightly
+Data Sleuth run (`agents-run.timer` on the Datamachine) is enabled.
 
 ## What it does
 
@@ -91,10 +92,24 @@ triggered it.
 
 ## Deploy order (production)
 
+All done 2026-11-19:
+
 1. Run `migrations/102_processing_gaps.sql` on TrueNAS dev and production. The layout's sidebar count fails soft without it, but Data Sorting and the admin page need it.
 2. Deploy the Dashboard-UI image.
-3. Rebuild the broker image (new dependencies) and restage `Client/agents` on the Datamachine.
-4. Flags appear after the next observe run. On prod that depends on the Data Sleuth Datamachine rollout (stage 2).
+3. Restage `Client/agents` on the Datamachine. `setup-agents-host.sh` rebuilds the broker image with the new dependencies; its header has the tar/scp/setup commands.
+4. Do a dry run by hand (`./agents.sh once --dry-run observe --limit 5 --tables …`), then go live. Going live means the drop-in `agents-run.service.d/live.conf` (`Environment=AGENT_RUN_FLAGS=`) plus `systemctl --user enable --now agents-run.timer`, as the `agents` user. See `Client/CLAUDE.md` → Agents sandbox.
+
+Flags open after each night's observe run (01:00, up to 300 uploads). The prompt change re-observes every upload once, so with a large backlog the first flags take a few nights to all appear.
+
+### Found during rollout
+
+The first Datamachine dry run printed "nothing to observe" for every photo and
+note, and described form responses as empty. The cause: the runner read fields
+off `get_row`'s `{table, agent_authored, row}` envelope instead of `.row`, so
+pass 1 never fetched any content. This dated from pass 1's first version; it had
+never been seen because prod had only had dry runs. Fixed in Client 481e5b7 with
+`Sleuth.record()`. Skip lines now give the reason, e.g. `nothing to observe —
+no content and no record fields`.
 
 ## Not built
 
