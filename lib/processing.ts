@@ -149,6 +149,39 @@ export async function triggerYieldClean(payload: TriggerYieldCleanPayload): Prom
   await processingFetch(`/yield-runs/${payload.yield_run_id}/clean`, { method: "POST", body: JSON.stringify(payload) });
 }
 
+// Machine vision (lib/vision.ts, GitHub issue #4): PipelineProcessor embeds
+// each source with DINOv3 (cached there), fits the light head on the labels
+// and calls back vision_completed / vision_failed. Geometry is pixels for a
+// photo source, lon/lat for an ortho.
+export interface TriggerVisionRunPayload {
+  vision_run_id: number;
+  callback_url: string;
+  model?: string | null;
+  head: "knn" | "logreg";
+  k: number;
+  threshold: number;
+  min_patches: number;
+  gsd_m: number | null;
+  max_side: number | null;
+  classes: { id: number; name: string; background: boolean }[];
+  sources: { key: string; kind: "photo" | "ortho"; download_url: string; sha256: string | null; crs_epsg: number | null }[];
+  labels: { source_key: string; class_id: number; geom: unknown }[];
+}
+
+export async function triggerVisionRun(payload: TriggerVisionRunPayload): Promise<void> {
+  await processingFetch(`/vision-runs/${payload.vision_run_id}/run`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+/** Models installed on the processor (VISION_MODELS_DIR), or null if unreachable. */
+export async function fetchVisionModels(): Promise<{ configured: boolean; default: string; models: string[] } | null> {
+  if (!processingConfigured) return null;
+  try {
+    return await processingFetch("/vision/models", { signal: AbortSignal.timeout(5000) });
+  } catch {
+    return null;
+  }
+}
+
 // On-demand NAIP imagery tile (PipelineProcessor's GET /naip/tiles/{z}/{x}/{y},
 // naip_tiles.py) for the sampling-map bounding-box basemap feature. Returns
 // null when NAIP has no coverage there (processor 404); throws on any other

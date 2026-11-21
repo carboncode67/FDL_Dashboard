@@ -162,7 +162,13 @@ export function VectorLayer({ url }: { url: string }) {
   return (
     <GeoJSON
       data={data}
-      style={() => ({ color: "#0891b2", weight: 2, fillColor: "#06b6d4", fillOpacity: 0.25 })}
+      style={(f) => {
+        // A vision-run layer (lib/vision.ts) colours each polygon by class.
+        const c = f?.properties?._color
+        return typeof c === "string"
+          ? { color: c, weight: 1.5, fillColor: c, fillOpacity: 0.3 }
+          : { color: "#0891b2", weight: 2, fillColor: "#06b6d4", fillOpacity: 0.25 }
+      }}
       pointToLayer={(f, latlng) => {
         // A cleaned yield layer (lib/yield-runs.ts) carries a per-point `_color`
         // (yield quintile) and tens of thousands of points: canvas, no outline.

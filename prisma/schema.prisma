@@ -1240,6 +1240,7 @@ model Task {
   Assignees   TaskAssignee[]
   UploadLinks TaskUploadLink[]
   CvatTasks   CvatTask[]
+  VisionJob   VisionJob?
 
   // Tenant scope (Planned Changes #10). Nullable for now — migration 067
   // (Phase 1: additive/backfilled, no FK/NOT NULL/RLS yet).
@@ -1786,6 +1787,7 @@ model Basemap {
   SamplingMaps      SamplingMap[]
   S3Uploads         S3Upload[]
   YieldRuns         YieldRun[]
+  VisionSources     VisionSource[]
 
   @@index([farm_id])
   @@index([tiling_status])
@@ -1844,6 +1846,7 @@ model FarmLayer {
   Document   Document?  @relation(fields: [document_id], references: [id], onDelete: SetNull)
   UploadedBy User?      @relation(fields: [uploaded_by_id], references: [id], onDelete: SetNull)
   YieldRuns  YieldRun[]
+  VisionRuns VisionRun[]
 
   @@index([farm_id])
   @@map("Farm_Layers")
@@ -2682,5 +2685,134 @@ model ProcessingGapIgnore {
 
   @@unique([lab_id, data_product])
   @@map("Processing_Gap_Ignores")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Machine vision (GitHub issue #4, migration 103, lib/vision.ts,
+// docs/machine-vision-plan.md). Geometry is pixels of the (EXIF-rotated)
+// photo for a photo source and lon/lat for a basemap source; the
+// pixel<->CRS mapping lives on PipelineProcessor only.
+model VisionJob {
+  id            Int      @id @default(autoincrement())
+  task_id       Int      @unique
+  mode          String   @default("detection") // detection | segmentation
+  status        String   @default("labeling") // labeling | running | review | done
+  settings      Json     @default("{}")
+  created_by_id String?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  Task    Task           @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  Classes VisionClass[]
+  Sources VisionSource[]
+  Labels  VisionLabel[]
+  Runs    VisionRun[]
+
+  @@map("Vision_Jobs")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model VisionClass {
+  id            Int     @id @default(autoincrement())
+  job_id        Int
+  name          String
+  color         String  @default("#e11d48")
+  is_background Boolean @default(false)
+  sort_order    Int     @default(0)
+
+  Job         VisionJob          @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  Labels      VisionLabel[]
+  Predictions VisionPrediction[]
+
+  @@index([job_id])
+  @@map("Vision_Classes")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model VisionSource {
+  id           Int      @id @default(autoincrement())
+  job_id       Int
+  kind         String // photo | basemap
+  upload_id    Int?
+  upload_table String?
+  basemap_id   Int?
+  meta         Json?
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  Job         VisionJob          @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  Basemap     Basemap?           @relation(fields: [basemap_id], references: [id], onDelete: Cascade)
+  Labels      VisionLabel[]
+  Predictions VisionPrediction[]
+
+  @@index([job_id])
+  @@map("Vision_Sources")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model VisionLabel {
+  id            Int      @id @default(autoincrement())
+  job_id        Int
+  source_id     Int
+  class_id      Int
+  geom_kind     String // point | box | polygon
+  geom          Json
+  origin        String   @default("manual") // manual | gps_import | prediction_confirmed | prediction_rejected | cvat
+  prediction_id Int?
+  created_by_id String?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  Job    VisionJob    @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  Source VisionSource @relation(fields: [source_id], references: [id], onDelete: Cascade)
+  Class  VisionClass  @relation(fields: [class_id], references: [id], onDelete: Cascade)
+
+  @@index([job_id])
+  @@index([source_id])
+  @@map("Vision_Labels")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model VisionRun {
+  id               Int       @id @default(autoincrement())
+  job_id           Int
+  status           String    @default("pending") // pending | running | ready | failed
+  params           Json      @default("{}")
+  label_count      Int       @default(0)
+  metrics          Json?
+  prediction_count Int?
+  layer_id         Int?
+  error_message    String?
+  created_by_id    String?
+  started_at       DateTime? @db.Timestamptz(6)
+  finished_at      DateTime? @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+
+  Job         VisionJob          @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  Layer       FarmLayer?         @relation(fields: [layer_id], references: [id], onDelete: SetNull)
+  Predictions VisionPrediction[]
+
+  @@index([job_id])
+  @@map("Vision_Runs")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model VisionPrediction {
+  id             Int     @id @default(autoincrement())
+  run_id         Int
+  source_id      Int
+  class_id       Int
+  score          Float   @db.Real
+  patches        Int?
+  centroid       Json
+  bbox           Json
+  polygon        Json?
+  review         String  @default("unreviewed") // unreviewed | correct | incorrect
+  reviewed_by_id String?
+
+  Run    VisionRun    @relation(fields: [run_id], references: [id], onDelete: Cascade)
+  Source VisionSource @relation(fields: [source_id], references: [id], onDelete: Cascade)
+  Class  VisionClass  @relation(fields: [class_id], references: [id], onDelete: Cascade)
+
+  @@index([run_id])
+  @@map("Vision_Predictions")
   @@schema("pgntarg2udzj1f3")
 }

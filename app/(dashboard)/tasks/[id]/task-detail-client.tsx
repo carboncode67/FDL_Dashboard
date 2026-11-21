@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Search, ArrowLeft } from "lucide-react";
 import { CLASSIFICATIONS, STATUSES, PRIORITIES, type TaskRow } from "../tasks-client";
+import { VisionPanel, type VisionPanelData } from "@/components/vision-panel";
 
 interface PickerItem {
   upload_id: number;
@@ -33,7 +34,7 @@ const STATUS_VARIANT: Record<string, "outline" | "secondary" | "default"> = {
 };
 
 export function TaskDetailClient({
-  task: initialTask, experiments, users, pickerItems: initialPickerItems, projects, canEdit, canDelete,
+  task: initialTask, experiments, users, pickerItems: initialPickerItems, projects, canEdit, canDelete, vision,
 }: {
   task: TaskRow;
   experiments: { id: number; name: string }[];
@@ -42,6 +43,7 @@ export function TaskDetailClient({
   projects: { id: number; name: string }[];
   canEdit: boolean;
   canDelete: boolean;
+  vision: VisionPanelData | null;
 }) {
   const router = useRouter();
   const [task, setTask] = useState(initialTask);
@@ -491,6 +493,8 @@ export function TaskDetailClient({
           </Card>
         </div>
       </div>
+
+      {vision && <VisionPanel taskId={task.id} data={vision} canEdit={canEdit} />}
     </div>
   );
 }
