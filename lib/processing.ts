@@ -186,3 +186,32 @@ export async function triggerCatalogRun(runId: number, payload: TriggerCatalogRu
   await processingFetch(`/v2/runs/${runId}/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
 }
 
+
+// ── Vision source copies + full-resolution chips (PipelineProcessor vision_sources.py) ──
+
+export interface VisionSourceRef {
+  key: string;
+  kind: "ortho" | "photo";
+  download_url: string;
+  sha256: string | null;
+  crs_epsg: number | null;
+}
+
+/** Asks the processor to download a source now (the label checker's chips need it). */
+export async function prepareVisionSource(src: VisionSourceRef): Promise<{ state: string }> {
+  return processingFetch("/vision/sources/prepare", { method: "POST", body: JSON.stringify(src) });
+}
+
+/**
+ * A full-resolution PNG chip around lon/lat. Returns the processor's raw
+ * response: 200 image/png with X-Chip-Bounds, or 409 {detail: state} when the
+ * source isn't downloaded yet. Throws only when the processor is unreachable.
+ */
+export async function fetchVisionChip(opts: { key: string; sha256: string | null; lon: number; lat: number; sizeM: number }): Promise<Response> {
+  if (!PROCESSING_URL) throw new Error("PROCESSING_URL is not configured");
+  const q = new URLSearchParams({ lon: String(opts.lon), lat: String(opts.lat), size_m: String(opts.sizeM) });
+  if (opts.sha256) q.set("sha256", opts.sha256);
+  return fetch(`${PROCESSING_URL}/vision/sources/${encodeURIComponent(opts.key)}/chip?${q}`, {
+    headers: authHeader(), signal: AbortSignal.timeout(30_000),
+  });
+}

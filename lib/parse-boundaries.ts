@@ -384,8 +384,30 @@ export async function geopackageEpsg(buffer: Buffer): Promise<number | null> {
   }
 }
 
-export function applyEpsgTransform(fc: FeatureCollection, epsg: number): FeatureCollection {
-  if (epsg === 4326) return fc;
+/** True when every position in the geometry is a pair of finite numbers (false for EMPTY / NaN). */
+function finiteGeometry(geom: Geometry): boolean {
+  if (geom.type === "GeometryCollection") return geom.geometries.length > 0 && geom.geometries.every(finiteGeometry);
+  const depth = GEOMETRY_DEPTHS[geom.type];
+  if (depth === undefined) return false;
+  const walk = (c: unknown, d: number): boolean => {
+    if (!Array.isArray(c)) return false;
+    if (d === 0) return c.length >= 2 && Number.isFinite(c[0]) && Number.isFinite(c[1]);
+    return c.length > 0 && c.every((x) => walk(x, d - 1));
+  };
+  return walk((geom as { coordinates: unknown }).coordinates, depth);
+}
+
+/**
+ * The collection reprojected to WGS84. Features whose geometry has empty or
+ * non-finite coordinates (a GeoPackage "POINT EMPTY" comes back as NaNs)
+ * can't be reprojected and are dropped rather than failing the whole file;
+ * how many is in `droppedInvalid`. Features with no geometry pass through.
+ */
+export function applyEpsgTransform(fc: FeatureCollection, epsg: number): FeatureCollection & { droppedInvalid?: number } {
+  const valid = fc.features.filter((f) => !f.geometry || finiteGeometry(f.geometry));
+  const droppedInvalid = fc.features.length - valid.length;
+  if (droppedInvalid) fc = { ...fc, features: valid };
+  if (epsg === 4326) return droppedInvalid ? { ...fc, droppedInvalid } : fc;
 
   const def = loadEpsgDef(epsg);
   if (!def) throw new Error(`Unknown EPSG:${epsg} — not found in epsg-index`);
@@ -399,6 +421,7 @@ export function applyEpsgTransform(fc: FeatureCollection, epsg: number): Feature
       ...f,
       geometry: f.geometry ? reprojectGeometry(f.geometry, converter) : f.geometry,
     })),
+    ...(droppedInvalid ? { droppedInvalid } : {}),
   };
 }
 
@@ -432,9 +455,9 @@ export async function parseVectorUpload(
       shp: Buffer; dbf?: Buffer; prj?: string; cpg?: string;
     }) => Promise<FeatureCollection>;
     fc = await fromParts({ shp: buffer, dbf: part(".dbf"), prj: prj?.toString("utf8"), cpg: part(".cpg")?.toString("utf8") });
-    if (prj) return fc;
+    if (prj) return applyEpsgTransform(fc, 4326);
   } else throw new Error("Unsupported file type. Use .geojson, .json, .zip, .shp, .gpkg, .kml, or .kmz");
 
-  if (lower.endsWith(".kml") || lower.endsWith(".kmz")) return fc;
+  if (lower.endsWith(".kml") || lower.endsWith(".kmz")) return applyEpsgTransform(fc, 4326);
   return applyEpsgTransform(fc, epsg);
 }

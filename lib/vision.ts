@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { processingConfigured, triggerVisionRun, type TriggerVisionRunPayload } from "@/lib/processing";
+import { prepareVisionSource, processingConfigured, triggerVisionRun, type TriggerVisionRunPayload, type VisionSourceRef } from "@/lib/processing";
 import { basemapSourceDownloadUrl } from "@/lib/basemap-source";
 import { parsePointsCsv } from "@/lib/csv-points";
 import { applyEpsgTransform, geopackageEpsg, parseVectorUpload } from "@/lib/parse-boundaries";
@@ -126,6 +126,33 @@ export async function syncPhotoSources(jobId: number): Promise<void> {
   if (drop.length) await prisma.visionSource.deleteMany({ where: { id: { in: drop } } });
 }
 
+type BasemapRow = NonNullable<Awaited<ReturnType<typeof prisma.basemap.findUnique>>>;
+
+/**
+ * How the processor knows an ortho: its key + sha256 name the processor's
+ * local copy (vision_sources.py), so runs and label-checker chips must agree.
+ */
+export async function orthoSourceRef(basemapId: number, b: BasemapRow): Promise<VisionSourceRef> {
+  return {
+    key: `basemap-${basemapId}`, kind: "ortho",
+    download_url: await basemapSourceDownloadUrl(b),
+    sha256: b.sha256, crs_epsg: b.crs_override_epsg,
+  };
+}
+
+/** Asks the processor to fetch these orthos now, so the label checker has full-resolution chips before any run. */
+export async function prepareOrthos(basemapIds: number[]): Promise<void> {
+  if (!processingConfigured) return;
+  for (const id of basemapIds) {
+    try {
+      const b = await prisma.basemap.findUnique({ where: { id } });
+      if (b && b.tiling_status === "ready") await prepareVisionSource(await orthoSourceRef(id, b));
+    } catch (err) {
+      console.error(`[vision] prepare basemap ${id}`, err);
+    }
+  }
+}
+
 /** Sets the job's basemap sources; one with labels is kept even if deselected. */
 export async function setBasemapSources(jobId: number, basemapIds: number[]): Promise<void> {
   const ids = Array.from(new Set(basemapIds.filter((n) => Number.isInteger(n))));
@@ -141,6 +168,7 @@ export async function setBasemapSources(jobId: number, basemapIds: number[]): Pr
   const add = ready.filter((id) => !have.has(id));
   if (add.length) {
     await prisma.visionSource.createMany({ data: add.map((basemap_id) => ({ job_id: jobId, kind: "basemap", basemap_id })), skipDuplicates: true });
+    void prepareOrthos(add); // best-effort, in the background
   }
   const drop = current.filter((s) => !ready.includes(s.basemap_id!) && s._count.Labels === 0).map((s) => s.id);
   if (drop.length) await prisma.visionSource.deleteMany({ where: { id: { in: drop } } });
@@ -247,7 +275,8 @@ async function readLabelFile(files: LabelFile[], epsgIn: number | null): Promise
   }
 
   const features: LabelFeature[] = [];
-  let skipped = 0;
+  // Empty / NaN geometries dropped during reprojection count as unusable too.
+  let skipped = (fc as { droppedInvalid?: number }).droppedInvalid ?? 0;
   const pt = (p: unknown): [number, number] | null =>
     Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]) && Math.abs(p[0]) <= 180 && Math.abs(p[1]) <= 90 ? [p[0], p[1]] : null;
   const addPolygon = (rings: unknown, props: Record<string, unknown>) => {
@@ -451,11 +480,7 @@ export async function startVisionRun(jobId: number, rawParams: unknown, userId: 
     for (const s of job.Sources) {
       if (s.kind === "basemap") {
         if (!s.Basemap) continue;
-        sources.push({
-          key: keyOf.get(s.id)!, kind: "ortho",
-          download_url: await basemapSourceDownloadUrl(s.Basemap),
-          sha256: s.Basemap.sha256, crs_epsg: s.Basemap.crs_override_epsg,
-        });
+        sources.push(await orthoSourceRef(s.basemap_id!, s.Basemap));
       } else {
         sources.push({
           key: keyOf.get(s.id)!, kind: "photo",
@@ -554,7 +579,7 @@ export async function ingestVisionResults(payload: VisionWebhookPayload): Promis
 
   // Ortho predictions -> one Farm_Layers overlay (the first basemap's farm),
   // replacing the layer an earlier run of this job made.
-  const layerId = await writePredictionLayer(run.id, run.job_id, run.Job.Task.description, preds, sourceByKey, classById);
+  const layerId = await writePredictionLayer(run.id, run.job_id, run.Job.Task.description, preds, sourceByKey, classById, run.Job.mode);
 
   await prisma.visionRun.update({
     where: { id: run.id },
@@ -578,6 +603,7 @@ async function writePredictionLayer(
   preds: ProcessorPrediction[],
   sourceByKey: Map<string, { kind: string; Basemap: { farm_id: number; display_name: string | null; original_filename: string } | null }>,
   classById: Map<number, { name: string; color: string }>,
+  mode: string,
 ): Promise<number | null> {
   const ortho = preds.filter((p) => sourceByKey.get(p.source_key)?.kind === "basemap" && classById.has(p.class_id));
   const earlier = await prisma.visionRun.findMany({ where: { job_id: jobId, id: { not: runId }, layer_id: { not: null } }, select: { layer_id: true } });
@@ -593,7 +619,7 @@ async function writePredictionLayer(
     const cls = classById.get(p.class_id)!;
     return {
       type: "Feature" as const,
-      geometry: (p.polygon as GeoJSON.Geometry | undefined) ?? { type: "Point" as const, coordinates: p.centroid },
+      geometry: predictionGeometry(p, mode === "segmentation" ? "polygon" : "box"),
       properties: { class: cls.name, score: Math.round(p.score * 1000) / 1000, _color: cls.color },
     };
   });
@@ -613,8 +639,30 @@ async function writePredictionLayer(
   return layer.id;
 }
 
+export type PredictionShape = "box" | "point" | "polygon";
+
+/**
+ * How a prediction is drawn: a detection frame (its bounding box), its centre
+ * point, or the patch outline the processor traced. Detection jobs default to
+ * frames, segmentation jobs to outlines.
+ */
+export function predictionGeometry(
+  p: { centroid: unknown; bbox: unknown; polygon?: unknown },
+  shape: PredictionShape,
+): GeoJSON.Geometry {
+  const c = p.centroid as [number, number];
+  if (shape === "point") return { type: "Point", coordinates: c };
+  if (shape === "polygon" && p.polygon) return p.polygon as GeoJSON.Geometry;
+  const b = p.bbox as [number, number, number, number] | null;
+  if (!b || b.length !== 4) return { type: "Point", coordinates: c };
+  const [w, s, e, n] = b;
+  return { type: "Polygon", coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] };
+}
+
 /** Predictions of one run as GeoJSON (orthos: lon/lat; photos: pixel space). */
-export async function predictionsGeojson(runId: number, sourceId?: number) {
+export async function predictionsGeojson(runId: number, sourceId?: number, shape?: PredictionShape) {
+  const run = await prisma.visionRun.findUnique({ where: { id: runId }, select: { Job: { select: { mode: true } } } });
+  const use: PredictionShape = shape ?? (run?.Job.mode === "segmentation" ? "polygon" : "box");
   const preds = await prisma.visionPrediction.findMany({
     where: { run_id: runId, ...(sourceId ? { source_id: sourceId } : {}) },
     include: { Class: { select: { name: true } }, Source: true },
@@ -624,7 +672,7 @@ export async function predictionsGeojson(runId: number, sourceId?: number) {
     type: "FeatureCollection",
     features: preds.map((p) => ({
       type: "Feature",
-      geometry: p.polygon ?? { type: "Point", coordinates: p.centroid },
+      geometry: predictionGeometry(p, use),
       properties: {
         id: p.id, class: p.Class.name, score: p.score, review: p.review,
         source: sourceKey(p.Source), space: p.Source.kind === "basemap" ? "lonlat" : "pixel",
@@ -695,4 +743,87 @@ export async function setObjectSize(jobId: number, value: unknown): Promise<numb
   const settings = { ...((job.settings ?? {}) as Record<string, unknown>), object_size_m: size };
   await prisma.visionJob.update({ where: { id: jobId }, data: { settings: settings as Prisma.InputJsonValue } });
   return size;
+}
+
+// ── Detection review (phase 3) ───────────────────────────────────────────────
+// Step through a run's ortho predictions on full-resolution chips and say
+// whether each is right. A verdict becomes a training label at the
+// prediction's centre (origin prediction_confirmed / prediction_rejected,
+// prediction_id set), so the next run learns from it:
+//   correct     → label of the predicted class
+//   wrong_class → label of the class the reviewer picked
+//   not_object  → background label
+//   reset       → verdict and its label removed
+
+export type ReviewFilter = {
+  sourceId?: number; classId?: number; review?: "unreviewed" | "correct" | "incorrect" | "all";
+  order?: "confident" | "uncertain"; offset?: number; limit?: number;
+};
+
+export async function listPredictionsForReview(runId: number, f: ReviewFilter) {
+  const where: Prisma.VisionPredictionWhereInput = {
+    run_id: runId,
+    Source: { kind: "basemap" },
+    ...(f.sourceId ? { source_id: f.sourceId } : {}),
+    ...(f.classId ? { class_id: f.classId } : {}),
+    ...(f.review && f.review !== "all" ? { review: f.review } : {}),
+  };
+  const limit = Math.min(Math.max(f.limit ?? 50, 1), 200);
+  const [total, items, counts] = await Promise.all([
+    prisma.visionPrediction.count({ where }),
+    prisma.visionPrediction.findMany({
+      where,
+      orderBy: [{ score: f.order === "uncertain" ? "asc" : "desc" }, { id: "asc" }],
+      skip: Math.max(f.offset ?? 0, 0),
+      take: limit,
+      select: { id: true, source_id: true, class_id: true, score: true, patches: true, centroid: true, bbox: true, review: true },
+    }),
+    prisma.visionPrediction.groupBy({ by: ["review"], where: { run_id: runId, Source: { kind: "basemap" } }, _count: true }),
+  ]);
+  return {
+    total, items,
+    reviewed: Object.fromEntries(counts.map((c) => [c.review, c._count])) as Record<string, number>,
+  };
+}
+
+export async function reviewPrediction(
+  jobId: number, predictionId: number,
+  verdict: "correct" | "wrong_class" | "not_object" | "reset", classId: number | null, userId: string | null,
+) {
+  const p = await prisma.visionPrediction.findFirst({
+    where: { id: predictionId, Run: { job_id: jobId } },
+    include: { Source: { select: { kind: true } } },
+  });
+  if (!p) throw new VisionInputError("Prediction not found");
+  if (p.Source.kind !== "basemap") throw new VisionInputError("Only ortho detections can be reviewed here");
+  const classes = await prisma.visionClass.findMany({ where: { job_id: jobId }, select: { id: true, is_background: true } });
+  const bg = classes.find((c) => c.is_background)!;
+  const existing = await prisma.visionLabel.findFirst({ where: { job_id: jobId, prediction_id: p.id } });
+
+  if (verdict === "reset") {
+    if (existing) await prisma.visionLabel.delete({ where: { id: existing.id } });
+    return prisma.visionPrediction.update({ where: { id: p.id }, data: { review: "unreviewed", reviewed_by_id: null } });
+  }
+  let labelClass: number;
+  if (verdict === "correct") labelClass = p.class_id;
+  else if (verdict === "not_object") labelClass = bg.id;
+  else {
+    if (!classId || !classes.some((c) => c.id === classId && !c.is_background)) throw new VisionInputError("Pick the right class");
+    if (classId === p.class_id) throw new VisionInputError("That's the class it predicted; use Correct");
+    labelClass = classId;
+  }
+  const data = {
+    class_id: labelClass,
+    geom_kind: "point",
+    geom: { type: "Point", coordinates: p.centroid } as Prisma.InputJsonValue,
+    origin: verdict === "correct" ? "prediction_confirmed" : "prediction_rejected",
+    checked_at: new Date(),
+    rejected: false,
+  };
+  if (existing) await prisma.visionLabel.update({ where: { id: existing.id }, data });
+  else await prisma.visionLabel.create({ data: { ...data, job_id: jobId, source_id: p.source_id, prediction_id: p.id, created_by_id: userId } });
+  return prisma.visionPrediction.update({
+    where: { id: p.id },
+    data: { review: verdict === "correct" ? "correct" : "incorrect", reviewed_by_id: userId },
+  });
 }

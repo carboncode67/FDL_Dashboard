@@ -12,6 +12,7 @@ import dynamic from "next/dynamic";
 import { scaleParams } from "@/lib/vision-scale";
 
 const VisionLabelChecker = dynamic(() => import("@/components/vision-label-checker"), { ssr: false });
+const VisionDetectionReview = dynamic(() => import("@/components/vision-detection-review"), { ssr: false });
 
 // Machine vision on a workflow Task (GitHub issue #4, lib/vision.ts). Phase 2:
 // set up classes and sources, import field GPS points as labels on an ortho,
@@ -99,7 +100,7 @@ export function VisionPanel({ taskId, data, canEdit }: { taskId: number; data: V
             <ImportSection job={job} canEdit={canEdit} busy={busy} act={act} />
             <ScaleSection key={String(job.settings.object_size_m ?? "")} job={job} canEdit={canEdit} busy={busy} act={act} />
             <RunSection job={job} canEdit={canEdit && data.processingConfigured} busy={busy || active} act={act} />
-            <RunsList job={job} />
+            <RunsList job={job} canEdit={canEdit} />
           </>
         )}
       </CardContent>
@@ -555,12 +556,22 @@ function RunSection({ job, canEdit, busy, act }: { job: Job; canEdit: boolean; b
   );
 }
 
-function RunsList({ job }: { job: Job }) {
+function RunsList({ job, canEdit }: { job: Job; canEdit: boolean }) {
+  const router = useRouter();
+  const [reviewing, setReviewing] = useState<number | null>(null);
   if (job.runs.length === 0) return null;
+  const orthos = job.sources.filter((s) => s.kind === "basemap" && s.tiles).map((s) => ({ id: s.id, name: s.name, tiles: s.tiles! }));
   const className = new Map(job.classes.map((c) => [String(c.id), c.name]));
   const fmt = (iso: string) => new Date(iso).toLocaleString();
   return (
     <section className="space-y-2">
+      {reviewing != null && (
+        <VisionDetectionReview
+          jobId={job.id} runId={reviewing} sources={orthos} classes={job.classes} canEdit={canEdit}
+          objectSize={typeof job.settings.object_size_m === "number" ? job.settings.object_size_m : null}
+          onClose={() => { setReviewing(null); router.refresh(); }}
+        />
+      )}
       <h3 className="font-medium text-stone-800">Runs</h3>
       <ul className="space-y-2">
         {job.runs.map((r) => {
@@ -583,8 +594,14 @@ function RunsList({ job }: { job: Job }) {
                 </p>
               )}
               {r.status === "ready" && (
-                <div className="flex gap-3">
-                  <a className="text-blue-600 hover:underline" href={`/api/vision/runs/${r.id}/predictions`}>Download GeoJSON</a>
+                <div className="flex flex-wrap gap-3">
+                  {orthos.length > 0 && (r.prediction_count ?? 0) > 0 && (
+                    <button className="text-blue-600 hover:underline" onClick={() => setReviewing(r.id)}>Review detections</button>
+                  )}
+                  <a className="text-blue-600 hover:underline" href={`/api/vision/runs/${r.id}/predictions`}>
+                    Download {job.mode === "segmentation" ? "outlines" : "frames"} (GeoJSON)
+                  </a>
+                  <a className="text-blue-600 hover:underline" href={`/api/vision/runs/${r.id}/predictions?shape=point`}>points</a>
                   {r.layer_farm_id && <Link className="text-blue-600 hover:underline" href={`/farms/${r.layer_farm_id}`}>View on farm map</Link>}
                 </div>
               )}

@@ -7,6 +7,12 @@
 // set: the solid circle is the object size, the dashed one is what a point
 // label actually trains on (lib/vision-scale.ts).
 //
+// Imagery: the basemap's tile pyramid stops well short of a drone ortho's own
+// resolution, so each label also gets a full-resolution chip cut from the
+// original ortho on the processing machine (GET .../sources/[id]/chip,
+// PipelineProcessor vision_sources.py), shown over the tiles in its own pane.
+// The next labels' chips are fetched ahead so stepping is instant.
+//
 // Loaded with next/dynamic (ssr: false) from vision-panel.tsx; plain Leaflet
 // rather than react-leaflet since the view is driven imperatively.
 
@@ -16,6 +22,7 @@ import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { scaleParams } from "@/lib/vision-scale";
+import { addChipPane, chipSize, ChipLoader, MAX_ZOOM, showChip, zoomFor as zoomForPx } from "@/components/vision-chips";
 import { X } from "lucide-react";
 
 type Label = { id: number; class_id: number; geom_kind: string; geom: GeoJSON.Point | GeoJSON.Polygon; origin: string; checked: boolean; rejected: boolean };
@@ -35,11 +42,8 @@ function centerOf(l: Label): [number, number] {
   return [y / n, x / n];
 }
 
-/** Zoom at which VIEW_PX pixels span `meters` at this latitude. */
 function zoomFor(lat: number, meters: number, tiles: Tiles): number {
-  const z = Math.log2((156543.03 * Math.cos((lat * Math.PI) / 180) * VIEW_PX) / meters);
-  const hi = (tiles.max_zoom ?? 21) + 2;
-  return Math.max(tiles.min_zoom ?? 12, Math.min(hi, Math.round(z * 2) / 2));
+  return zoomForPx(lat, meters, VIEW_PX, tiles.min_zoom);
 }
 
 export default function VisionLabelChecker({
@@ -60,6 +64,9 @@ export default function VisionLabelChecker({
   const [size, setSize] = useState<string>(objectSize ? String(objectSize) : "");
   const [saving, setSaving] = useState(false);
 
+  const [chipNote, setChipNote] = useState<string | null>(null);
+  const chipLayer = useRef<L.LayerGroup | null>(null);
+  const [chips] = useState(() => new ChipLoader(jobId, sourceId));
   const mapDiv = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const others = useRef<L.LayerGroup | null>(null);
@@ -92,21 +99,28 @@ export default function VisionLabelChecker({
   // Map setup.
   useEffect(() => {
     if (!mapDiv.current || map.current) return;
-    const m = L.map(mapDiv.current, { zoomControl: true, attributionControl: false, maxZoom: 24, zoomSnap: 0.5 });
+    const m = L.map(mapDiv.current, { zoomControl: true, attributionControl: false, maxZoom: MAX_ZOOM, zoomSnap: 0.5 });
+    // Chips sit between the tiles (200) and the label markers/vectors (400+).
+    addChipPane(m);
     const ring = tiles.footprint?.coordinates?.[0];
     L.tileLayer(tiles.url, {
-      maxZoom: 24,
+      maxZoom: MAX_ZOOM,
       ...(tiles.max_zoom != null ? { maxNativeZoom: tiles.max_zoom } : {}),
       ...(tiles.min_zoom != null ? { minNativeZoom: tiles.min_zoom } : {}),
       ...(ring ? { bounds: L.latLngBounds(ring.map(([x, y]) => [y, x] as [number, number])) } : {}),
     }).addTo(m);
+    chipLayer.current = L.layerGroup().addTo(m);
     others.current = L.layerGroup().addTo(m);
     current.current = L.layerGroup().addTo(m);
     if (ring) m.fitBounds(L.latLngBounds(ring.map(([x, y]) => [y, x] as [number, number])));
     else m.setView([0, 0], 2);
     map.current = m;
-    return () => { m.remove(); map.current = null; };
-  }, [tiles]);
+    return () => {
+      m.remove();
+      map.current = null;
+      chips.dispose();
+    };
+  }, [tiles, chips]);
 
   const patch = useCallback(async (id: number, body: Record<string, unknown>) => {
     setError(null);
@@ -155,7 +169,7 @@ export default function VisionLabelChecker({
     const color = label.rejected ? "#a8a29e" : c?.color ?? "#e11d48";
     const [lat, lng] = centerOf(label);
     if (shownId.current !== label.id) {
-      m.setView([lat, lng], zoomFor(lat, Math.max((sizeM ?? 1) * 6, 3), tiles), { animate: false });
+      m.setView([lat, lng], zoomFor(lat, chipSize(sizeM), tiles), { animate: false });
       shownId.current = label.id;
     }
     if (label.geom.type === "Polygon") {
@@ -183,6 +197,23 @@ export default function VisionLabelChecker({
     });
     marker.on("dragend", (e) => move(label.id, (e.target as L.Marker).getLatLng()));
   }, [label, classOf, sizeM, scale.point_radius_m, tiles, canEdit, move]);
+
+  // Full-resolution chip under the current label; the next two load ahead.
+  useEffect(() => {
+    const layer = chipLayer.current;
+    if (!layer || !label) return;
+    const size = chipSize(sizeM);
+    const [lat, lng] = centerOf(label);
+    const cancel = showChip(layer, chips, lat, lng, size, setChipNote);
+    const i = queue.indexOf(label.id);
+    for (const id of queue.slice(i + 1, i + 3)) {
+      const next = byId.get(id);
+      if (next) { const [a, b] = centerOf(next); void chips.get(a, b, size); }
+    }
+    return cancel;
+    // Re-fetch when the label or the object size changes, not when the label is edited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [label?.id, sizeM, chips]);
 
   // Click on the tile = put the point there.
   useEffect(() => {
@@ -275,7 +306,12 @@ export default function VisionLabelChecker({
           </p>
         </div>
 
-        <div ref={mapDiv} style={{ height: VIEW_PX }} className="w-full rounded-md border border-stone-200 bg-stone-100" />
+        <div className="relative">
+          <div ref={mapDiv} style={{ height: VIEW_PX }} className="w-full rounded-md border border-stone-200 bg-stone-100" />
+          {chipNote && (
+            <p className="pointer-events-none absolute bottom-2 left-2 right-2 z-[500] rounded bg-white/90 px-2 py-1 text-xs text-stone-700 shadow">{chipNote}</p>
+          )}
+        </div>
 
         {error && <p className="text-red-600">{error}</p>}
         {labels == null ? (
