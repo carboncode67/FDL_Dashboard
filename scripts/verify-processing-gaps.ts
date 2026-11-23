@@ -35,7 +35,7 @@ async function main() {
   });
   const run = await prisma.agentRun.create({ data: { lab_id: LAB, token_id: token.id, task: TAG } });
   const docIds: number[] = [];
-  const pipelineIds: number[] = [];
+  const triggerIds: number[] = [];
   const doc = async (extra: Record<string, unknown> = {}) => {
     const d = await prisma.document.create({
       data: { filename: `${TAG}.pdf`, description: TAG, farm_id: farm.id, lab_id: LAB, status: 2, ...extra },
@@ -68,22 +68,19 @@ async function main() {
     check("gap row is open with the product", (await gapOf(a))?.status === "open" && (await gapOf(a))?.data_product === "soil_lab_report");
     check("re-evaluating is idempotent", (await evaluateGap("documents", a)) === "unchanged");
 
-    // 3. A live pipeline matching documents + this category → resolved.
-    const p = await prisma.pipeline.create({
-      data: {
-        name: TAG, status: "live", match_table: "documents", match_category: `${TAG} Soil`, lab_id: LAB,
-        sample_dataset_filename: "x", sample_dataset_original_name: "x", script_filename: "x", script_original_name: "x",
-      },
+    // 3. An enabled pipeline trigger rule matching documents + this category → resolved.
+    const p = await prisma.pipelineTrigger.create({
+      data: { lab_id: LAB, pipeline_key: TAG.toLowerCase(), trigger_input: "card", match_table: "documents", match_category: `${TAG} Soil` },
     });
-    pipelineIds.push(p.id);
+    triggerIds.push(p.id);
     const changed = await reevaluateGaps(LAB);
     const g3 = await gapOf(a);
-    check("live matching pipeline resolves it", g3?.status === "resolved" && g3?.resolved_by_pipeline_id === p.id, `changed=${changed}`);
+    check("matching pipeline trigger resolves it", g3?.status === "resolved", `changed=${changed}`);
 
-    // 4. Pipeline disabled → re-opened.
-    await prisma.pipeline.update({ where: { id: p.id }, data: { status: "disabled" } });
+    // 4. Trigger switched off → re-opened.
+    await prisma.pipelineTrigger.update({ where: { id: p.id }, data: { enabled: false } });
     await reevaluateGaps(LAB);
-    check("disabling the pipeline re-opens it", (await gapOf(a))?.status === "open");
+    check("switching the trigger off re-opens it", (await gapOf(a))?.status === "open");
 
     // 5. Dismissed → stays dismissed through re-observation and re-evaluation.
     await prisma.processingGap.update({ where: { id: (await gapOf(a))!.id }, data: { status: "dismissed", decided_at: new Date() } });
@@ -125,7 +122,7 @@ async function main() {
     await prisma.agentRun.deleteMany({ where: { id: run.id } }); // cascades observations
     await prisma.agentToken.deleteMany({ where: { id: token.id } });
     await prisma.document.deleteMany({ where: { id: { in: docIds } } });
-    await prisma.pipeline.deleteMany({ where: { id: { in: pipelineIds } } });
+    await prisma.pipelineTrigger.deleteMany({ where: { id: { in: triggerIds } } });
     await prisma.$disconnect();
   }
   console.log(failures ? `\n${failures} FAILED` : "\nall passed");

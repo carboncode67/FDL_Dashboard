@@ -1,7 +1,11 @@
 # Pipeline requests and reviewed pipeline definitions — plan
 
-> **Status (2026-11-23):** plan only, nothing built. Replaces the "upload a script and an LLM wires it"
-> model of the Pipelines feature (item 90). Compute side: `FarmersDatabase/PipelineProcessor/`.
+> **Status (2026-11-23):** phases 1–3 built, uncommitted: request intake; ops, definitions, executor,
+> catalogue and generic ingest (first pipeline `yield-clean-krige`, status testing); upload trigger
+> rules. The legacy script pipelines were removed outright (none were in use): Dashboard `/pipelines`
+> + `/api/pipelines/*`, processor `/pipelines/*`, `ollama_wiring.py`, `sandbox.py`, `standard_image/`.
+> Their tables stay, read-only. Migrations 105–107 on local dev only; not yet tried in a browser or
+> with the real yieldclean image. Phases 4–5 are plan.
 
 ## Goal
 
@@ -55,6 +59,7 @@ inputs:
   - name: ortho
     kind: basemap
     trigger: manual           # manual | match
+    data_product: imagery     # optional hint for the agent (lib/data-products.ts)
   - name: fields
     kind: farm_fields
 outputs:
@@ -144,13 +149,14 @@ record id in `sample_data`, not uploaded again.
   filled in. Checked at startup: every op exists, and each step's input types match what feeds it.
 * **`GET /pipelines/catalog`**: live definitions (key, version, inputs, outputs, params) and the op
   list. The Dashboard reads it on the Pipelines page and marks matching requests `live`.
-* **`POST /pipeline-runs/{id}/run`** `{key, version, inputs: {name: download URL / ids}, params}`:
+* **`POST /v2/runs/{id}/run`** `{key, version, inputs: {name: download URL / ids}, params}` (built
+  under `/v2/*` so it sits beside the legacy `/pipelines/*` routes):
   one generic executor runs the steps in order, then calls back with outputs by kind. One generic
   ingest on the Dashboard routes each output to its sink.
 
-## What goes away
+## What went away (done 2026-11-23)
 
-Once existing pipelines are moved over:
+No legacy pipeline was in use, so these were removed outright rather than migrated:
 * Script / requirements / model upload as a runnable pipeline.
 * `ollama_wiring.py` (still imported by `main.py` for wiring and diagnose-and-retry).
 * Per-pipeline Docker image builds from user-supplied requirements.
@@ -167,7 +173,27 @@ The Docker sandbox itself stays, as a run mode for reviewed ops that wrap outsid
    two-step pipeline to prove chaining.
 3. **Live pipelines on the new model.** Triggers (reusing `lib/pipeline-match.ts`) and per-pipeline
    default settings; existing script pipelines re-implemented or retired; remove the LLM wiring.
-4. **(Future) user composition.** Users fill in `steps` from the op catalogue with type checking.
+4. **Agent links data to pipelines** (needs phases 1–2; only pipelines on the new model).
+   * **Read-only catalogue tool** for the agent: key, name, description, input kinds and match
+     rules, output kinds, the settings list. Not step code, run outputs, processor URLs or tokens.
+   * **New proposal type, "link upload to pipeline input"**: `{source_table, source_id,
+     pipeline_key, input_name}`. Shown beside the agent's sort suggestions; a person approves it in
+     their own session, which starts the run. The agent never triggers a run itself and never
+     sets settings (the pipeline's defaults are used).
+   * **Dashboard checks before a proposal is shown** (failures are dropped, as with other
+     proposals): input kind matches, same lab, farm in the approver's scope, pipeline live, no
+     earlier run of this pipeline version on this upload.
+   * **Where the agent helps:** uploads the deterministic matcher (`lib/pipeline-match.ts`) misses,
+     e.g. an unsorted photo that is really a scale ticket. Request inputs can carry a
+     `data_product` hint (the agent's existing vocabulary, `lib/data-products.ts`) to make this
+     easier. When nothing fits, the "unprocessable data" flag can point at an open request, and
+     the agent can suggest existing uploads as a request's sample data.
+   * **Possible later:** an admin marks some pipelines "agent may auto-run": cheap, only add new
+     outputs (never replace), only on sorted uploads, with a daily cap per pipeline. Everything
+     else stays behind approval.
+   * Request descriptions (written by lab members) become agent input. Acceptable: far less
+     exposed than farmer content.
+5. **(Future) user composition.** Users fill in `steps` from the op catalogue with type checking.
    Safe because every op is reviewed code; only the order and settings come from the UI.
 
 ## Not decided yet

@@ -21,83 +21,6 @@ async function processingFetch(path: string, init?: RequestInit) {
   return res.json();
 }
 
-// Natural-language context about the dataset a pipeline processes, so the
-// LLM script-wiring step (and a human reviewer) knows what the data means and
-// how the lab wants it handled — not just the script source + a filename.
-export interface PipelineDataContext {
-  pipeline_description: string | null;
-  data_table: {
-    name: string;
-    description: string | null;
-    data_processing_instructions: string | null;
-    columns: { label: string; field_type: string }[];
-    // Raw text of an attached example table (real rows), capped — see
-    // SAMPLE_PREVIEW_MAX_CHARS in app/api/pipelines/route.ts.
-    sample_preview: string | null;
-  } | null;
-}
-
-export interface RegisterPipelinePayload {
-  pipeline_id: number;
-  name: string;
-  match_table: string | null; // null for target_kind = "drone_flight" pipelines
-  sample_dataset_url: string;
-  script_url: string;
-  model_url: string | null;
-  callback_url: string;
-  // When true, per-farm spatial-context rasters (terrain/soil/imagery) are
-  // available on the server and the wiring LLM should account for them —
-  // e.g. spatially-informed interpolation (regression kriging, ML).
-  use_spatial_context?: boolean;
-  data_context?: PipelineDataContext | null;
-}
-
-// Kicks off registration on the processing machine: it downloads the sample
-// dataset/script/model, has the LLM wire the script into a runnable command,
-// test-runs it against the sample dataset, and calls `callback_url` with the result.
-export async function registerPipeline(
-  payload: RegisterPipelinePayload
-): Promise<{ external_pipeline_id: string }> {
-  return processingFetch("/pipelines", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export interface TriggerRunPayload {
-  run_id: number;
-  callback_url: string;
-  // Exactly one of these two — input_file_url for the normal upload-matched/re-test
-  // path, drone_flight_record_id for a manual per-flight organize run (see
-  // PipelineRun.target_drone_flight_id and Item90_Processing_Pipeline_Scope.md).
-  input_file_url?: string;
-  drone_flight_record_id?: number;
-  // Operator instruction for this run only — the processor re-runs its LLM
-  // wiring step with this folded in and executes the one-off command instead
-  // of the pipeline's stored one ("set output raster resolution to 5m").
-  prompt?: string;
-  // The resolved farm's geocoded location (Farms.latitude/longitude), when the
-  // run resolved to one (see lib/pipeline-farm.ts) — ground truth for the
-  // processor's geo_sanity CRS verification, not fed into the pipeline script.
-  farm_centroid?: { lat: number; lng: number };
-}
-
-export async function triggerPipelineRun(
-  externalPipelineId: string,
-  payload: TriggerRunPayload
-): Promise<{ external_job_id: string }> {
-  return processingFetch(`/pipelines/${encodeURIComponent(externalPipelineId)}/run`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function deletePipeline(externalPipelineId: string) {
-  return processingFetch(`/pipelines/${encodeURIComponent(externalPipelineId)}`, {
-    method: "DELETE",
-  });
-}
-
 export interface TriggerBasemapTilingPayload {
   basemap_id: number;
   download_url: string;
@@ -115,10 +38,8 @@ export interface TriggerBasemapTilingPayload {
 }
 
 // Planned Changes items 6+7 (docs/raster-tiling-plan.md). First-party
-// operation on the processing machine — not routed through the LLM-wiring /
-// sandbox pipeline machinery, since this is our own code, not a user script.
-// Same fire-and-forget shape as triggerPipelineRun: the processor accepts the
-// job and reports back to callback_url when tiling finishes.
+// operation on the processing machine, fire-and-forget: the processor accepts
+// the job and reports back to callback_url when tiling finishes.
 export async function triggerBasemapTiling(payload: TriggerBasemapTilingPayload): Promise<void> {
   await processingFetch(`/basemaps/${payload.basemap_id}/tile`, {
     method: "POST",
@@ -222,3 +143,46 @@ export interface TriggerNaipPackagePayload {
 export async function triggerNaipPackage(payload: TriggerNaipPackagePayload): Promise<void> {
   await processingFetch("/naip/packages", { method: "POST", body: JSON.stringify(payload) });
 }
+
+// ── Declarative pipelines (PipelineProcessor /v2/*, docs/pipeline-requests-plan.md phase 2) ──
+
+export interface CatalogParam {
+  name: string; type: string; default: unknown; help?: string; min?: number; max?: number; choices?: string[];
+}
+export interface CatalogPipeline {
+  key: string; version: number; name: string; status: string; description: string;
+  inputs: { name: string; kind: string; required: boolean; data_product?: string; note?: string }[];
+  outputs: { name: string; kind: string; note?: string }[];
+  params: CatalogParam[];
+  steps: { id: string; op: string; optional: boolean }[];
+}
+export interface PipelineCatalog {
+  pipelines: CatalogPipeline[];
+  ops: { name: string; version: number; doc: string; resources: string }[];
+  errors: Record<string, string>;
+}
+
+/** The processor's runnable pipelines, or null if it isn't configured/reachable. */
+export async function fetchPipelineCatalog(): Promise<PipelineCatalog | null> {
+  if (!processingConfigured) return null;
+  try {
+    return await processingFetch("/v2/catalog", { signal: AbortSignal.timeout(8000) });
+  } catch (err) {
+    console.error("[pipeline catalog]", err);
+    return null;
+  }
+}
+
+export interface TriggerCatalogRunPayload {
+  key: string;
+  version: number;
+  callback_url: string;
+  farm_id: number | null;
+  inputs: Record<string, Record<string, unknown> | null>;
+  params: Record<string, unknown>;
+}
+
+export async function triggerCatalogRun(runId: number, payload: TriggerCatalogRunPayload): Promise<void> {
+  await processingFetch(`/v2/runs/${runId}/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+}
+

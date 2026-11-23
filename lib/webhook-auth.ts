@@ -1,10 +1,9 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
-// Shared HMAC-over-body verification for processing-machine webhooks —
-// originally inlined in app/api/pipelines/webhook/route.ts, now also used by
-// app/api/basemaps/webhook/route.ts (items 6+7). Both share
-// PROCESSING_WEBHOOK_SECRET since both are called by the same processing
-// machine (PipelineProcessor) — no new secret to provision.
+// Shared HMAC-over-body verification for processing-machine webhooks
+// (basemaps, yield runs, vision runs, NAIP packages, declarative pipeline
+// runs). All share PROCESSING_WEBHOOK_SECRET since all are called by the same
+// processing machine (PipelineProcessor) — no new secret to provision.
 //
 // Not used by the CVAT webhook (app/api/annotations/webhook) — that one
 // verifies against a separate secret (CVAT_WEBHOOK_SECRET) from a different

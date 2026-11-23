@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { findMatchingLivePipelines } from "@/lib/pipeline-match";
 import { isDataProduct } from "@/lib/data-products";
 
 /**
@@ -65,7 +64,11 @@ async function loadUpload(table: string, id: number): Promise<UploadScope | null
   }
 }
 
-/** The pipeline covering this upload (0 = covered by something that isn't a pipeline), or null if none. */
+/**
+ * Whether a processing tool covers this upload: 0 = covered, null = not.
+ * (A number rather than a boolean because Processing_Gaps.resolved_by_pipeline_id
+ * used to record the legacy script pipeline; resolved rows now leave it null.)
+ */
 async function coveringTool(table: string, id: number, up: UploadScope): Promise<number | null> {
   const slug = GAP_TABLES[table];
   if (up.data_table_id != null) return 0; // test-data template matched; rows go through the ingest route
@@ -73,16 +76,10 @@ async function coveringTool(table: string, id: number, up: UploadScope): Promise
     const yr = await prisma.yieldRun.findFirst({ where: { source_document_id: id }, select: { id: true } });
     if (yr) return 0;
   }
-  const run = await prisma.pipelineRun.findFirst({
-    where: { trigger_upload_table: slug, trigger_upload_id: id, status: { not: "failed" } },
-    select: { pipeline_id: true },
-    orderBy: { id: "desc" },
-  });
-  if (run) return run.pipeline_id;
-  const [live] = await findMatchingLivePipelines({
-    table: slug, category: up.category, project_id: up.project_id, data_table_id: up.data_table_id,
-  });
-  return live ? live.id : null;
+  // Declarative pipelines (migration 107): ran on it, or a trigger rule matches it.
+  const { declarativeCovers } = await import("@/lib/pipeline-triggers");
+  if (await declarativeCovers({ table: slug, id, category: up.category, project_id: up.project_id, data_table_id: up.data_table_id })) return 0;
+  return null;
 }
 
 export type GapOutcome = "opened" | "updated" | "resolved" | "removed" | "unchanged";

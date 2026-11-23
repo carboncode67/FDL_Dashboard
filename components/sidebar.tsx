@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
+  Workflow,
   LayoutDashboard,
   FolderKanban,
   Building2,
@@ -51,6 +52,8 @@ const advancedNav: NavItem[] = [
   { href: "/treatments", label: "Treatment Types", icon: Beaker },
   { href: "/task-templates", label: "Task Templates", icon: LayoutTemplate },
   { href: "/tasks", label: "Tasks", icon: ClipboardList },
+  { href: "/pipeline-catalog", label: "Pipeline Catalogue", icon: Cpu },
+  { href: "/pipeline-requests", label: "Pipeline Requests", icon: Workflow },
   { href: "/data-categories", label: "Data Categories", icon: Tag },
 ];
 
@@ -66,10 +69,6 @@ interface SidebarProps {
   onNavigate?: () => void;
   /** Count shown next to a nav item, keyed by href (e.g. open "Unprocessable data" flags on /data-sorting). */
   badges?: Record<string, number>;
-}
-
-function isActive(pathname: string, href: string) {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
 function NavLink({
@@ -154,15 +153,6 @@ export function Sidebar({ role, className, onNavigate, badges }: SidebarProps) {
                   badge={badges?.[href]}
                 />
               ))}
-              {role === "admin" && label === "Advanced" && (
-                <NavLink
-                  href="/pipelines"
-                  label="Pipelines"
-                  icon={Cpu}
-                  active={isActive(pathname, "/pipelines")}
-                  onNavigate={onNavigate}
-                />
-              )}
             </ul>
           </div>
         ))}

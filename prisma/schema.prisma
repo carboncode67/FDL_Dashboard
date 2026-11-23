@@ -76,6 +76,9 @@ model User {
   CreatedSamplingMaps      SamplingMap[]
   SamplingMapAssignments   SamplingMapAssignment[]
   SamplingPointCollections SamplingPointCollection[]
+  PipelineRequestsRequested PipelineRequest[] @relation("PipelineRequestRequestedBy")
+  PipelineRequestsDecided   PipelineRequest[] @relation("PipelineRequestStatusBy")
+  PipelineRunsV2            PipelineRunV2[]   @relation("PipelineRunV2CreatedBy")
 
   @@map("users")
   @@schema("public")
@@ -193,6 +196,7 @@ model Farm {
   Basemaps               Basemap[]
   FarmLayers             FarmLayer[]
   YieldRuns              YieldRun[]
+  PipelineRunsV2         PipelineRunV2[]
   S3Uploads              S3Upload[]
   SamplingMapAssignments SamplingMapAssignment[]
   SamplingMaps           SamplingMap[]
@@ -2818,5 +2822,117 @@ model VisionPrediction {
 
   @@index([run_id])
   @@map("Vision_Predictions")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Pipeline requests (migration 105, docs/pipeline-requests-plan.md): a lab
+// member describes a workflow; the developer downloads its skeleton
+// pipeline.yaml and implements it. Nothing here is executed.
+model PipelineRequest {
+  id              Int       @id @default(autoincrement())
+  lab_id          Int
+  pipeline_key    String
+  name            String
+  description     String    @default("")
+  inputs          Json      @default("[]")
+  outputs         Json      @default("[]")
+  params          Json      @default("[]")
+  sample_data     Json      @default("[]")
+  status          String    @default("requested") // requested | accepted | declined | in_development | testing | live | retired
+  admin_note      String?
+  live_version    Int?
+  requested_by_id String?
+  status_by_id    String?
+  status_at       DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  RequestedBy User?                       @relation("PipelineRequestRequestedBy", fields: [requested_by_id], references: [id], onDelete: SetNull)
+  StatusBy    User?                       @relation("PipelineRequestStatusBy", fields: [status_by_id], references: [id], onDelete: SetNull)
+  Attachments PipelineRequestAttachment[]
+  Runs        PipelineRunV2[]
+
+  @@unique([lab_id, pipeline_key])
+  @@index([lab_id, status])
+  @@map("Pipeline_Requests")
+  @@schema("pgntarg2udzj1f3")
+}
+
+model PipelineRequestAttachment {
+  id             Int      @id @default(autoincrement())
+  lab_id         Int
+  request_id     Int
+  original_name  String
+  stored_name    String
+  bytes          BigInt
+  uploaded_by_id String?
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  Request PipelineRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
+
+  @@index([request_id])
+  @@map("Pipeline_Request_Attachments")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// Runs of declarative pipelines (migration 106, lib/pipeline-catalog.ts): the
+// definition lives on PipelineProcessor (GET /v2/catalog), so a run records
+// the key + version it ran.
+model PipelineRunV2 {
+  id               Int       @id @default(autoincrement())
+  lab_id           Int
+  pipeline_key     String
+  pipeline_version Int?
+  pipeline_name    String
+  farm_id          Int?
+  request_id       Int?
+  inputs           Json      @default("{}")
+  params           Json      @default("{}")
+  status           String    @default("pending") // pending | running | ready | partial | failed
+  steps            Json?
+  outputs          Json?
+  error_message    String?
+  created_by_id    String?
+  started_at       DateTime? @db.Timestamptz(6)
+  finished_at      DateTime? @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  // Which upload (and trigger rule) started it (migration 107); null = started by hand.
+  trigger_table    String?
+  trigger_id       Int?
+  trigger_rule_id  Int?
+
+  Farm    Farm?            @relation(fields: [farm_id], references: [id], onDelete: Cascade)
+  TriggerRule PipelineTrigger? @relation(fields: [trigger_rule_id], references: [id], onDelete: SetNull)
+  Request PipelineRequest? @relation(fields: [request_id], references: [id], onDelete: SetNull)
+  CreatedBy User?          @relation("PipelineRunV2CreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
+
+  @@index([farm_id])
+  @@index([lab_id, pipeline_key])
+  @@index([trigger_table, trigger_id])
+  @@map("Pipeline_Runs_V2")
+  @@schema("pgntarg2udzj1f3")
+}
+
+// "Run <pipeline_key> when an upload like this arrives" (migration 107,
+// lib/pipeline-triggers.ts). match_* NULL = wildcard, as legacy Pipelines.
+model PipelineTrigger {
+  id                  Int      @id @default(autoincrement())
+  lab_id              Int
+  pipeline_key        String
+  trigger_input       String
+  match_table         String
+  match_category      String?
+  match_project_id    Int?
+  match_data_table_id Int?
+  params              Json     @default("{}")
+  enabled             Boolean  @default(true)
+  created_by_id       String?
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  Runs PipelineRunV2[]
+
+  @@map("Pipeline_Triggers")
   @@schema("pgntarg2udzj1f3")
 }

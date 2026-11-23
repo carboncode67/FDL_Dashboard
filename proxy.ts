@@ -22,10 +22,10 @@ export default auth((req) => {
                       nextUrl.pathname.startsWith("/api/whatsapp") ||
                       // Agents — lib/agent/auth.ts (Agent_Tokens only)
                       nextUrl.pathname.startsWith("/api/agent/") ||
-                      nextUrl.pathname === "/api/pipelines/webhook" ||
                       nextUrl.pathname === "/api/basemaps/webhook" ||
                       nextUrl.pathname === "/api/yield-runs/webhook" ||
                       nextUrl.pathname === "/api/vision-runs/webhook" ||
+                      nextUrl.pathname === "/api/pipeline-runs-v2/webhook" ||
                       nextUrl.pathname === "/api/naip/packages/webhook" ||
                       (nextUrl.pathname.startsWith("/api/farms/") && (
                         nextUrl.pathname.endsWith("/summary") ||

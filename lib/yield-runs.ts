@@ -130,30 +130,48 @@ const STATIC_CONTEXT = ["USGS3DEP_10m", "POLARIS"] as const;
  * season has no Sentinel-2 (or a static product is missing), asks GeoDaRT for
  * what's missing, once per run; the run goes ahead now with what there is.
  */
-async function contextForRun(
-  run: { id: number; farm_id: number; created_at: Date; context_job_id: number | null; uploaded_by_id: string | null },
-  baseUrl: string,
-) {
-  const win = seasonWindow(run.created_at);
+/**
+ * A farm's context rasters for the season of `when` (seasonWindow): its
+ * Sentinel-2 dates, plus the newest fetch of each static product, in the
+ * {id, product, capture_date, url} shape PipelineProcessor stages. `missing`
+ * = products with nothing on file (Sentinel-2 only counts with a GeoDaRT key).
+ * Shared by yield runs and declarative pipelines' context_rasters input.
+ */
+export async function selectContextRasters(farmId: number, when: Date, baseUrl: string) {
+  const window = seasonWindow(when);
   const s2 = await prisma.contextRaster.findMany({
     where: {
-      farm_id: run.farm_id,
+      farm_id: farmId,
       product: "Sentinel2",
-      capture_date: { gte: new Date(`${win.start}T00:00:00Z`), lte: new Date(`${win.end}T00:00:00Z`) },
+      capture_date: { gte: new Date(`${window.start}T00:00:00Z`), lte: new Date(`${window.end}T00:00:00Z`) },
     },
     orderBy: { capture_date: "asc" },
   });
   const statics = [];
   const missing: ProductCode[] = [];
   for (const product of STATIC_CONTEXT) {
-    const newest = await prisma.contextRaster.findFirst({ where: { farm_id: run.farm_id, product }, orderBy: { job_id: "desc" } });
+    const newest = await prisma.contextRaster.findFirst({ where: { farm_id: farmId, product }, orderBy: { job_id: "desc" } });
     if (!newest) {
       missing.push(product);
       continue;
     }
-    statics.push(...(await prisma.contextRaster.findMany({ where: { farm_id: run.farm_id, product, job_id: newest.job_id } })));
+    statics.push(...(await prisma.contextRaster.findMany({ where: { farm_id: farmId, product, job_id: newest.job_id } })));
   }
   if (!s2.length && geodartHasKey) missing.push("Sentinel2");
+  const rasters = [...s2, ...statics].map((r) => ({
+    id: r.id,
+    product: r.product,
+    capture_date: r.capture_date ? r.capture_date.toISOString().slice(0, 10) : null,
+    url: `${baseUrl}/api/files/context/${r.filename}`,
+  }));
+  return { rasters, missing, window };
+}
+
+async function contextForRun(
+  run: { id: number; farm_id: number; created_at: Date; context_job_id: number | null; uploaded_by_id: string | null },
+  baseUrl: string,
+) {
+  const { rasters, missing, window: win } = await selectContextRasters(run.farm_id, run.created_at, baseUrl);
 
   if (missing.length && run.context_job_id == null) {
     try {
@@ -171,12 +189,7 @@ async function contextForRun(
     }
   }
 
-  return [...s2, ...statics].map((r) => ({
-    id: r.id,
-    product: r.product,
-    capture_date: r.capture_date ? r.capture_date.toISOString().slice(0, 10) : null,
-    url: `${baseUrl}/api/files/context/${r.filename}`,
-  }));
+  return rasters;
 }
 
 /** Re-sends the finished runs that asked for this context fetch, once. */
@@ -222,7 +235,7 @@ export interface YieldWebhookPayload {
 
 // Bearer PROCESSING_API_KEY, the secret PipelineProcessor's _check_auth expects —
 // same as the basemap webhook's tile-archive download.
-async function fetchFromProcessor(url: string): Promise<Response> {
+export async function fetchFromProcessor(url: string): Promise<Response> {
   const apiKey = process.env.PROCESSING_API_KEY;
   const res = await fetch(url, { headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {} });
   if (!res.ok || !res.body) throw new Error(`download failed: ${res.status} ${url}`);
@@ -248,18 +261,23 @@ export async function deleteYieldMapBasemap(basemapId: number): Promise<void> {
 }
 
 /**
- * Keeps the processor's yield map as a ready Basemap (the coloured GeoTIFF as
- * its source, so Retile works, and the tile pyramid under basemap-tiles/).
+ * Keeps a tiled raster the processor produced as a ready Basemap: the GeoTIFF
+ * as its source (so Retile works) and the tile pyramid under basemap-tiles/.
  * Returns the new Basemap id; throws on a download/extract failure, after
- * cleaning up what it wrote.
+ * cleaning up what it wrote. Used for yield maps and for declarative
+ * pipelines' raster_tiles outputs.
  */
-async function ingestYieldMap(
-  run: { id: number; farm_id: number; uploaded_by_id: string | null },
-  base: string,
-  map: YieldMapPayload,
-): Promise<number> {
+export async function ingestTiledRaster(opts: {
+  farmId: number;
+  uploadedById: string | null;
+  filePrefix: string;
+  originalFilename: string;
+  displayName: string;
+  map: Pick<YieldMapPayload, "source_url" | "tile_archive_url" | "footprint" | "crs_status" | "crs_epsg" | "min_zoom" | "max_zoom">;
+}): Promise<number> {
+  const { map } = opts;
   fs.mkdirSync(BASEMAP_SOURCES_DIR, { recursive: true });
-  const sourceFilename = `yield-map-${run.id}-${Date.now()}.tif`;
+  const sourceFilename = `${opts.filePrefix}-${Date.now()}.tif`;
   const sourcePath = path.join(BASEMAP_SOURCES_DIR, sourceFilename);
   const res = await fetchFromProcessor(map.source_url!);
   const hash = crypto.createHash("sha256");
@@ -278,17 +296,17 @@ async function ingestYieldMap(
 
   const basemap = await prisma.basemap.create({
     data: {
-      farm_id: run.farm_id,
-      uploaded_by_id: run.uploaded_by_id,
-      original_filename: `${base}_yield_map.tif`,
+      farm_id: opts.farmId,
+      uploaded_by_id: opts.uploadedById,
+      original_filename: opts.originalFilename,
       source_filename: sourceFilename,
       bytes: BigInt(bytes),
       sha256: hash.digest("hex"),
-      display_name: `Yield map — ${base}${map.unit ? ` (${map.unit})` : ""}`,
+      display_name: opts.displayName,
       tiling_status: "tiling",
     },
   });
-  const tmpZip = path.join(os.tmpdir(), `yield-${run.id}-map-tiles-${Date.now()}.zip`);
+  const tmpZip = path.join(os.tmpdir(), `${opts.filePrefix}-tiles-${Date.now()}.zip`);
   try {
     await downloadTileArchive(map.tile_archive_url!, tmpZip);
     await extractTiles(tmpZip, path.join(BASEMAP_TILES_DIR, String(basemap.id)));
@@ -311,6 +329,21 @@ async function ingestYieldMap(
   } finally {
     fs.unlink(tmpZip, () => {});
   }
+}
+
+function ingestYieldMap(
+  run: { id: number; farm_id: number; uploaded_by_id: string | null },
+  base: string,
+  map: YieldMapPayload,
+): Promise<number> {
+  return ingestTiledRaster({
+    farmId: run.farm_id,
+    uploadedById: run.uploaded_by_id,
+    filePrefix: `yield-map-${run.id}`,
+    originalFilename: `${base}_yield_map.tif`,
+    displayName: `Yield map — ${base}${map.unit ? ` (${map.unit})` : ""}`,
+    map,
+  });
 }
 
 export async function ingestYieldResults(payload: YieldWebhookPayload): Promise<string> {
