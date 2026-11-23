@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { X } from "lucide-react";
+import dynamic from "next/dynamic";
+import { scaleParams } from "@/lib/vision-scale";
+
+const VisionLabelChecker = dynamic(() => import("@/components/vision-label-checker"), { ssr: false });
 
 // Machine vision on a workflow Task (GitHub issue #4, lib/vision.ts). Phase 2:
 // set up classes and sources, import field GPS points as labels on an ortho,
@@ -22,7 +26,12 @@ export interface VisionPanelData {
     status: string;
     settings: Record<string, unknown>;
     classes: { id: number; name: string; color: string; is_background: boolean; label_count: number }[];
-    sources: { id: number; kind: string; name: string; label_count: number; basemap_id: number | null; farm_id: number | null; meta: Record<string, unknown> | null }[];
+    sources: {
+      id: number; kind: string; name: string; label_count: number; basemap_id: number | null; farm_id: number | null;
+      checked_count: number; rejected_count: number;
+      tiles: { url: string; min_zoom: number | null; max_zoom: number | null; footprint: GeoJSON.Polygon | null } | null;
+      meta: Record<string, unknown> | null;
+    }[];
     runs: {
       id: number; status: string; created_at: string; finished_at: string | null; label_count: number;
       prediction_count: number | null; error_message: string | null; params: Record<string, unknown>;
@@ -88,6 +97,7 @@ export function VisionPanel({ taskId, data, canEdit }: { taskId: number; data: V
             <ClassesSection job={job} canEdit={canEdit} busy={busy} act={act} />
             <SourcesSection job={job} data={data} canEdit={canEdit} busy={busy} act={act} />
             <ImportSection job={job} canEdit={canEdit} busy={busy} act={act} />
+            <ScaleSection key={String(job.settings.object_size_m ?? "")} job={job} canEdit={canEdit} busy={busy} act={act} />
             <RunSection job={job} canEdit={canEdit && data.processingConfigured} busy={busy || active} act={act} />
             <RunsList job={job} />
           </>
@@ -183,8 +193,19 @@ function ClassesSection({ job, canEdit, busy, act }: { job: Job; canEdit: boolea
 function SourcesSection({ job, data, canEdit, busy, act }: { job: Job; data: VisionPanelData; canEdit: boolean; busy: boolean; act: Act }) {
   const chosen = useMemo(() => new Set(job.sources.filter((s) => s.basemap_id != null).map((s) => s.basemap_id!)), [job.sources]);
   const photos = job.sources.filter((s) => s.kind === "photo");
+  const router = useRouter();
+  const [checking, setChecking] = useState<number | null>(null);
+  const checkSrc = job.sources.find((s) => s.id === checking);
   return (
     <section className="space-y-2">
+      {checkSrc?.tiles && (
+        <VisionLabelChecker
+          jobId={job.id} sourceId={checkSrc.id} sourceName={checkSrc.name} tiles={checkSrc.tiles}
+          classes={job.classes} canEdit={canEdit}
+          objectSize={typeof job.settings.object_size_m === "number" ? job.settings.object_size_m : null}
+          onClose={() => { setChecking(null); router.refresh(); }}
+        />
+      )}
       <h3 className="font-medium text-stone-800">Images</h3>
       <p className="text-stone-600">
         {photos.length} photo{photos.length !== 1 ? "s" : ""} from this task&apos;s linked files
@@ -214,6 +235,16 @@ function SourcesSection({ job, data, canEdit, busy, act }: { job: Job; data: Vis
                 <span>{b.name}</span>
                 <span className="text-stone-400">{b.farm_name}</span>
                 {src && <span className="text-stone-500">· {src.label_count} labels</span>}
+                {src && src.label_count + src.rejected_count > 0 && (
+                  <span className="text-stone-400">
+                    · {src.checked_count} checked{src.rejected_count ? `, ${src.rejected_count} rejected` : ""}
+                  </span>
+                )}
+                {src?.tiles && src.label_count + src.rejected_count > 0 && (
+                  <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={(e) => { e.preventDefault(); setChecking(src.id); }}>
+                    Check labels
+                  </Button>
+                )}
                 {src?.meta?.gsd_m != null && <span className="text-stone-400">· embedded at {(Number(src.meta.gsd_m) * 100).toFixed(1)} cm/px</span>}
               </label>
             );
@@ -224,61 +255,248 @@ function SourcesSection({ job, data, canEdit, busy, act }: { job: Job; data: Vis
   );
 }
 
+function ScaleSection({ job, canEdit, busy, act }: { job: Job; canEdit: boolean; busy: boolean; act: Act }) {
+  const saved = typeof job.settings.object_size_m === "number" ? job.settings.object_size_m : null;
+  const [size, setSize] = useState(saved != null ? String(saved) : "");
+  if (!job.sources.some((s) => s.kind === "basemap")) return null;
+  const sizeM = Number(size) > 0 ? Number(size) : null;
+  const sc = scaleParams(sizeM);
+  const save = () => {
+    if ((sizeM ?? null) === saved) return;
+    act(() => send(`/api/vision/${job.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ object_size_m: sizeM }),
+    }));
+  };
+  return (
+    <section className="space-y-2">
+      <h3 className="font-medium text-stone-800">Object scale</h3>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="space-y-1">
+          <span className="block text-xs text-stone-500">Rough object size on the orthos (m across)</span>
+          <Input className="h-8 w-28" type="number" min={0.02} max={200} step={0.05} value={size} disabled={!canEdit || busy}
+            placeholder="e.g. 0.3" onChange={(e) => setSize(e.target.value)} onBlur={save}
+            onKeyDown={(e) => { if (e.key === "Enter") save(); }} />
+        </label>
+        <p className="max-w-md text-xs text-stone-500">
+          {sizeM
+            ? <>Orthos are embedded at ≈{((sc.gsd_m ?? 0) * 100).toFixed(1)} cm/px (native if the ortho is coarser), and each point label trains on a ~{(sc.point_radius_m * 2).toFixed(2)} m disc around it. Changing this re-embeds the ortho on the next run.</>
+            : <>e.g. weed seedling 0.1, thistle 0.4, cow 2, tree crown 8. Without it, orthos are used at native resolution and each point covers one patch. You can also size it by eye in &quot;Check labels&quot;.</>}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+type LabelPreview = {
+  features: number; points: number; polygons: number; skipped: number; outside: number;
+  epsg: number; epsgDetected: boolean;
+  columns: { name: string; distinct: number; values: { value: string; count: number }[] }[];
+};
+
+const LABEL_ACCEPT = ".csv,.geojson,.json,.zip,.shp,.dbf,.prj,.cpg,.shx,.gpkg,.kml,.kmz";
+const LIKELY_LABEL_COLUMNS = ["class", "label", "category", "type", "cls", "species", "name"];
+const NO_BG = "\u0000none"; // select value: the file has no background value
+
+function guessLabelColumn(p: LabelPreview): string {
+  const usable = p.columns.filter((c) => c.distinct >= 2 && c.distinct <= 21);
+  for (const want of LIKELY_LABEL_COLUMNS) {
+    const hit = usable.find((c) => c.name.toLowerCase() === want);
+    if (hit) return hit.name;
+  }
+  return "";
+}
+
 function ImportSection({ job, canEdit, busy, act }: { job: Job; canEdit: boolean; busy: boolean; act: Act }) {
   const orthos = job.sources.filter((s) => s.kind === "basemap");
   const [sourceId, setSourceId] = useState<string>("");
-  const [file, setFile] = useState<File | null>(null);
-  const [classColumn, setClassColumn] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [epsg, setEpsg] = useState("");
+  const [preview, setPreview] = useState<LabelPreview | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
+  const [column, setColumn] = useState("");
+  const [bgValue, setBgValue] = useState(NO_BG);
   const [defaultClass, setDefaultClass] = useState("");
   const [result, setResult] = useState<string | null>(null);
+  const sid = sourceId || String(orthos[0]?.id ?? "");
+  const col = preview?.columns.find((c) => c.name === column) ?? null;
+
+  const formFor = (mode: "preview" | "import") => {
+    const fd = new FormData();
+    for (const f of files) fd.append("file", f);
+    fd.set("source_id", sid);
+    if (epsg.trim()) fd.set("epsg", epsg.trim());
+    fd.set("mode", mode);
+    return fd;
+  };
+
+  async function readFile(nextFiles = files, nextSid = sid, nextEpsg = epsg) {
+    setPreview(null);
+    setPreviewError(null);
+    setResult(null);
+    if (nextFiles.length === 0) return;
+    setReading(true);
+    const fd = new FormData();
+    for (const f of nextFiles) fd.append("file", f);
+    fd.set("source_id", nextSid);
+    if (nextEpsg.trim()) fd.set("epsg", nextEpsg.trim());
+    fd.set("mode", "preview");
+    try {
+      const res = await fetch(`/api/vision/${job.id}/labels/import`, { method: "POST", body: fd });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPreviewError(body.error ?? `Couldn't read the file (${res.status})`);
+        return;
+      }
+      const p = body as LabelPreview;
+      setPreview(p);
+      const guess = guessLabelColumn(p);
+      setColumn(guess);
+      const vals = p.columns.find((c) => c.name === guess)?.values ?? [];
+      // Pre-pick an obvious negative value; the user confirms it.
+      const neg = vals.find((v) => /^(background|bg|none|null|no|negative|neg|0|false|other|soil)$/i.test(v.value));
+      setBgValue(neg ? neg.value : NO_BG);
+    } catch {
+      setPreviewError("Network error");
+    } finally {
+      setReading(false);
+    }
+  }
+
   if (!canEdit || orthos.length === 0) return null;
-  const sid = sourceId || String(orthos[0].id);
+  const known = new Map(job.classes.map((c) => [c.name.toLowerCase(), c]));
+  const mapping = col
+    ? col.values.map((v) => {
+        if (bgValue !== NO_BG && v.value.toLowerCase() === bgValue.toLowerCase()) return { ...v, to: "background", kind: "bg" as const };
+        if (v.value === "") return { ...v, to: "skipped (empty)", kind: "skip" as const };
+        const k = known.get(v.value.toLowerCase());
+        return k ? { ...v, to: k.is_background ? "background" : k.name, kind: (k.is_background ? "bg" : "class") as "bg" | "class" }
+          : { ...v, to: `new class "${v.value}"`, kind: "new" as const };
+      })
+    : [];
+  const hasBackground = mapping.some((m) => m.kind === "bg");
+  const canImport = !!preview && preview.features > 0 && (column ? true : !!defaultClass);
+
   return (
     <section className="space-y-2">
-      <h3 className="font-medium text-stone-800">Import field GPS points as labels</h3>
+      <h3 className="font-medium text-stone-800">Import training labels from a file</h3>
       <p className="text-stone-500 text-xs">
-        GeoJSON points or a CSV with lat/lon columns (WGS84). The class comes from a column whose values match the class
-        names (include &quot;background&quot; points too), or from one class for the whole file.
+        Field GPS points or digitised polygons: CSV (lat/lon columns), GeoJSON, shapefile (.zip, or .shp with its
+        .dbf/.prj), GeoPackage, or KML/KMZ. Pick the column holding the labels and the value that means
+        &quot;not an object&quot; (background); every other value becomes a class of that name.
       </p>
       <div className="flex flex-wrap items-end gap-2">
-        <select className={selectCls} value={sid} onChange={(e) => setSourceId(e.target.value)}>
-          {orthos.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <input type="file" accept=".geojson,.json,.csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-xs" />
-        <Input className="h-8 w-36" placeholder="Class column" value={classColumn} onChange={(e) => setClassColumn(e.target.value)} />
-        <select className={selectCls} value={defaultClass} onChange={(e) => setDefaultClass(e.target.value)}>
-          <option value="">(no default class)</option>
-          {job.classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <Button size="sm" variant="outline" disabled={busy || !file || (!classColumn.trim() && !defaultClass)}
-          onClick={() => act(async () => {
-            const fd = new FormData();
-            fd.set("file", file!);
-            fd.set("source_id", sid);
-            if (classColumn.trim()) fd.set("class_column", classColumn.trim());
-            if (defaultClass) fd.set("default_class_id", defaultClass);
-            try {
-              const res = await fetch(`/api/vision/${job.id}/labels/import`, { method: "POST", body: fd });
-              const body = await res.json().catch(() => ({}));
-              if (!res.ok) return body.error ?? `Import failed (${res.status})`;
-              setResult(`Imported ${body.imported} points${body.skipped ? `, skipped ${body.skipped}` : ""}` +
-                (body.unknownClasses?.length ? ` — unknown classes: ${body.unknownClasses.join(", ")}` : ""));
-              return null;
-            } catch {
-              return "Network error";
-            }
-          })}>
-          Import
-        </Button>
+        <label className="space-y-1">
+          <span className="block text-xs text-stone-500">Ortho</span>
+          <select className={selectCls} value={sid} onChange={(e) => { setSourceId(e.target.value); void readFile(files, e.target.value); }}>
+            {orthos.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </label>
+        <label className="space-y-1">
+          <span className="block text-xs text-stone-500">File(s)</span>
+          <input type="file" multiple accept={LABEL_ACCEPT} className="text-xs"
+            onChange={(e) => { const fs = Array.from(e.target.files ?? []); setFiles(fs); void readFile(fs); }} />
+        </label>
+        <label className="space-y-1">
+          <span className="block text-xs text-stone-500">EPSG (if not lon/lat)</span>
+          <Input className="h-8 w-28" inputMode="numeric" placeholder={preview?.epsgDetected ? String(preview.epsg) : "auto"} value={epsg}
+            onChange={(e) => setEpsg(e.target.value.replace(/\D/g, ""))}
+            onBlur={() => { if (files.length) void readFile(files, sid, epsg); }} />
+        </label>
+      </div>
+      {reading && <p className="text-stone-500 text-xs">Reading file…</p>}
+      {previewError && <p className="text-red-600 text-xs">{previewError}</p>}
+
+      {preview && (
+        <div className="space-y-2 rounded-md border border-stone-200 p-3">
+          <p className="text-xs text-stone-600">
+            {preview.features} labels ({preview.points} points, {preview.polygons} polygons)
+            {preview.outside > 0 && <span className="text-amber-700"> · {preview.outside} outside this ortho, will be skipped</span>}
+            {preview.skipped > 0 && <> · {preview.skipped} unusable (lines, empty or oversized shapes)</>}
+            {" "}· read as EPSG:{preview.epsg}{preview.epsgDetected ? " (from the file)" : ""}
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="space-y-1">
+              <span className="block text-xs text-stone-500">Label column</span>
+              <select className={selectCls} value={column}
+                onChange={(e) => { setColumn(e.target.value); setBgValue(NO_BG); }}>
+                <option value="">(one class for the whole file)</option>
+                {preview.columns.map((c) => <option key={c.name} value={c.name}>{c.name} ({c.distinct} values)</option>)}
+              </select>
+            </label>
+            {col ? (
+              <label className="space-y-1">
+                <span className="block text-xs text-stone-500">Background (negative) value</span>
+                <select className={selectCls} value={bgValue} onChange={(e) => setBgValue(e.target.value)}>
+                  <option value={NO_BG}>(none in this file)</option>
+                  {col.values.map((v) => (
+                    <option key={v.value} value={v.value}>{v.value === "" ? "(empty)" : v.value} · {v.count}</option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <label className="space-y-1">
+                <span className="block text-xs text-stone-500">Class</span>
+                <select className={selectCls} value={defaultClass} onChange={(e) => setDefaultClass(e.target.value)}>
+                  <option value="">Pick a class…</option>
+                  {job.classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </label>
+            )}
+            <Button size="sm" variant="outline" disabled={busy || reading || !canImport}
+              onClick={() => act(async () => {
+                const fd = formFor("import");
+                if (column) {
+                  fd.set("class_column", column);
+                  if (bgValue !== NO_BG) fd.set("background_value", bgValue);
+                } else fd.set("default_class_id", defaultClass);
+                try {
+                  const res = await fetch(`/api/vision/${job.id}/labels/import`, { method: "POST", body: fd });
+                  const body = await res.json().catch(() => ({}));
+                  if (!res.ok) return body.error ?? `Import failed (${res.status})`;
+                  const extra = [
+                    body.createdClasses?.length ? `new classes: ${body.createdClasses.join(", ")}` : "",
+                    body.outside ? `${body.outside} outside the ortho` : "",
+                    body.emptyValues ? `${body.emptyValues} with no label` : "",
+                    body.skipped ? `${body.skipped} unusable` : "",
+                  ].filter(Boolean);
+                  setResult(`Imported ${body.imported} labels${extra.length ? ` (${extra.join("; ")})` : ""}`);
+                  return null;
+                } catch {
+                  return "Network error";
+                }
+              })}>
+              Import
+            </Button>
+          </div>
+          {col && (
+            <div className="text-xs text-stone-600">
+              <ul className="grid gap-x-4 sm:grid-cols-2">
+                {mapping.map((m) => (
+                  <li key={m.value} className="truncate">
+                    <span className="font-mono">{m.value === "" ? "(empty)" : m.value}</span> × {m.count} →{" "}
+                    <span className={m.kind === "bg" ? "text-stone-500" : m.kind === "new" ? "text-blue-700" : m.kind === "skip" ? "text-stone-400" : "text-stone-800"}>{m.to}</span>
+                  </li>
+                ))}
+              </ul>
+              {col.distinct > col.values.length && <p className="text-stone-500">…and {col.distinct - col.values.length} more values.</p>}
+              {!hasBackground && <p className="text-amber-700">No background in this file. A run needs background labels, so import some separately or pick the negative value.</p>}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        {result && <p className="text-stone-600">{result}</p>}
         <Button size="sm" variant="ghost" disabled={busy}
           onClick={() => {
-            if (!window.confirm("Remove every GPS-imported label on this ortho?")) return;
+            if (!window.confirm("Remove every imported label on this ortho?")) return;
             act(() => send(`/api/vision/${job.id}/labels?source_id=${sid}&origin=gps_import`, { method: "DELETE" }));
           }}>
           Clear imported
         </Button>
       </div>
-      {result && <p className="text-stone-600">{result}</p>}
     </section>
   );
 }
@@ -319,8 +537,8 @@ function RunSection({ job, canEdit, busy, act }: { job: Job; canEdit: boolean; b
         </label>
         {hasOrtho && (
           <label className="space-y-1">
-            <span className="block text-xs text-stone-500">Ortho resolution (cm/px, blank = native)</span>
-            <Input className="h-8 w-28" type="number" step={0.5} min={0.1} value={gsdCm} onChange={(e) => setGsdCm(e.target.value)} />
+            <span className="block text-xs text-stone-500">Ortho resolution override (cm/px)</span>
+            <Input className="h-8 w-28" type="number" step={0.5} min={0.1} value={gsdCm} placeholder="from object size" onChange={(e) => setGsdCm(e.target.value)} />
           </label>
         )}
         <Button size="sm" disabled={busy || blocker != null}

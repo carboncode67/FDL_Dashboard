@@ -163,6 +163,8 @@ export interface TriggerVisionRunPayload {
   min_patches: number;
   gsd_m: number | null;
   max_side: number | null;
+  /** Ortho point labels cover patches within this radius (metres); 0 = one patch. */
+  point_radius_m: number;
   classes: { id: number; name: string; background: boolean }[];
   sources: { key: string; kind: "photo" | "ortho"; download_url: string; sha256: string | null; crs_epsg: number | null }[];
   labels: { source_key: string; class_id: number; geom: unknown }[];

@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveScope, scopeIncludesFarm } from "@/lib/get-user-filters";
 import { withVisionJob } from "@/lib/vision-route";
-import { BACKGROUND_COLOR, VISION_PALETTE, VisionInputError, setBasemapSources, syncPhotoSources } from "@/lib/vision";
+import { BACKGROUND_COLOR, VISION_PALETTE, VisionInputError, setBasemapSources, setObjectSize, syncPhotoSources } from "@/lib/vision";
 
 // Edit a vision job: { add_classes?: string[], remove_class_ids?: number[],
-// basemap_ids?: number[], mode?: "detection" | "segmentation" }. Removing a
+// basemap_ids?: number[], mode?: "detection" | "segmentation", object_size_m?: metres | null }. Removing a
 // class deletes its labels (and predictions); the background class can't go.
 export const runtime = "nodejs";
 
@@ -13,7 +13,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ jobId:
   const { jobId } = await params;
   return withVisionJob(jobId, { edit: true }, async ({ session, jobId }) => {
     const body = (await req.json().catch(() => ({}))) as {
-      add_classes?: unknown; remove_class_ids?: unknown; basemap_ids?: unknown; mode?: unknown;
+      add_classes?: unknown; remove_class_ids?: unknown; basemap_ids?: unknown; mode?: unknown; object_size_m?: unknown;
     };
 
     if (Array.isArray(body.add_classes)) {
@@ -45,6 +45,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ jobId:
       }
       await setBasemapSources(jobId, ids);
     }
+    if ("object_size_m" in body) await setObjectSize(jobId, body.object_size_m);
     if (body.mode === "detection" || body.mode === "segmentation") {
       await prisma.visionJob.update({ where: { id: jobId }, data: { mode: body.mode } });
     }

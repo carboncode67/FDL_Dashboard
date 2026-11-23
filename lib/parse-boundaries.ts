@@ -358,6 +358,32 @@ export async function parseGeopackage(buffer: Buffer): Promise<FeatureCollection
   }
 }
 
+/** EPSG code of a GeoPackage's first geometry column, or null if it isn't an EPSG CRS. */
+export async function geopackageEpsg(buffer: Buffer): Promise<number | null> {
+  const Database = (await import("better-sqlite3")).default;
+  const os = await import("os");
+  const fs = await import("fs");
+  const path = await import("path");
+  const tmp = path.join(os.tmpdir(), `gpkg_srs_${Date.now()}_${Math.random().toString(36).slice(2)}.gpkg`);
+  fs.writeFileSync(tmp, buffer);
+  try {
+    const db = new Database(tmp, { readonly: true });
+    try {
+      const row = db.prepare(
+        `SELECT s.organization AS org, s.organization_coordsys_id AS code
+           FROM gpkg_geometry_columns g JOIN gpkg_spatial_ref_sys s ON s.srs_id = g.srs_id LIMIT 1`,
+      ).get() as { org: string | null; code: number | null } | undefined;
+      return row && String(row.org).toUpperCase() === "EPSG" && Number.isInteger(row.code) && row.code! > 0 ? row.code! : null;
+    } finally {
+      db.close();
+    }
+  } catch {
+    return null;
+  } finally {
+    fs.unlinkSync(tmp);
+  }
+}
+
 export function applyEpsgTransform(fc: FeatureCollection, epsg: number): FeatureCollection {
   if (epsg === 4326) return fc;
 

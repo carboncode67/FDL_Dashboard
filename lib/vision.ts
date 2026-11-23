@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { processingConfigured, triggerVisionRun, type TriggerVisionRunPayload } from "@/lib/processing";
 import { basemapSourceDownloadUrl } from "@/lib/basemap-source";
 import { parsePointsCsv } from "@/lib/csv-points";
+import { applyEpsgTransform, geopackageEpsg, parseVectorUpload } from "@/lib/parse-boundaries";
+import { pointInGeometry } from "@/lib/geo";
+import { scaleParams } from "@/lib/vision-scale";
+import type { FeatureCollection, Geometry } from "geojson";
 
 // Machine vision (GitHub issue #4, migration 103, docs/machine-vision-plan.md).
 // A Vision_Jobs row hangs off a workflow Task. Its sources are the Task's
@@ -31,11 +35,15 @@ export type VisionParams = {
   gsd_m: number | null;
   max_side: number | null;
   model: string | null;
+  /** Rough size of the objects on orthos, metres; sets the working GSD and how far a point label reaches. */
+  object_size_m: number | null;
 };
 
 export const DEFAULT_PARAMS: VisionParams = {
-  head: "knn", k: 10, threshold: 0.5, min_patches: 1, gsd_m: null, max_side: null, model: null,
+  head: "knn", k: 10, threshold: 0.5, min_patches: 1, gsd_m: null, max_side: null, model: null, object_size_m: null,
 };
+
+export { scaleParams } from "@/lib/vision-scale";
 
 export function parseParams(input: unknown): VisionParams {
   const o = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
@@ -51,6 +59,7 @@ export function parseParams(input: unknown): VisionParams {
     gsd_m: num(o.gsd_m, 0.001, 10, null),
     max_side: (() => { const n = num(o.max_side, 224, 4096, null); return n == null ? null : Math.round(n); })(),
     model: typeof o.model === "string" && /^[\w.-]{1,100}$/.test(o.model) ? o.model : null,
+    object_size_m: num(o.object_size_m, 0.02, 200, null),
   };
 }
 
@@ -183,58 +192,218 @@ export async function addLabels(jobId: number, labels: LabelInput[], userId: str
   return res.count;
 }
 
-/**
- * Field GPS points (GeoJSON or CSV with lat/lon columns, EPSG:4326) as point
- * labels on one basemap source. The class comes from `classColumn` (matched
- * to class names, case-insensitive) or `defaultClassId`.
- */
-export async function importPointLabels(
-  jobId: number,
-  opts: { sourceId: number; text: string; filename: string; classColumn: string | null; defaultClassId: number | null; userId: string | null },
-): Promise<{ imported: number; skipped: number; unknownClasses: string[] }> {
-  const src = await prisma.visionSource.findFirst({ where: { id: opts.sourceId, job_id: jobId } });
-  if (!src || src.kind !== "basemap") throw new VisionInputError("Pick a basemap source for GPS points");
-  const classes = await prisma.visionClass.findMany({ where: { job_id: jobId } });
-  const byName = new Map(classes.map((c) => [c.name.toLowerCase(), c.id]));
+// ── Training-label files (field GPS points / digitised polygons) ─────────────
+// CSV (lat/lon or x/y columns), GeoJSON, zipped or loose shapefile (.shp with
+// .dbf/.prj/.cpg), GeoPackage, KML/KMZ. Parsed with the farm-upload parser
+// (lib/parse-boundaries.ts) and reprojected to lon/lat. Points become point
+// labels; polygons (and each part of a multipolygon) become polygon labels.
+// The class comes from a label column: one value means background, every
+// other value is a class of that name (created if the job lacks it).
 
-  let features: { geometry: { type: string; coordinates: number[] } | null; properties: Record<string, unknown> | null }[];
-  if (/\.csv$/i.test(opts.filename)) {
-    features = parsePointsCsv(opts.text).features as typeof features;
-  } else {
-    let parsed: { type?: string; features?: typeof features };
-    try {
-      parsed = JSON.parse(opts.text);
-    } catch {
-      throw new VisionInputError("File isn't valid GeoJSON or CSV");
-    }
-    if (parsed?.type !== "FeatureCollection" || !Array.isArray(parsed.features)) throw new VisionInputError("GeoJSON must be a FeatureCollection");
-    features = parsed.features;
+export const LABEL_FILE_EXTENSIONS = [".csv", ".geojson", ".json", ".zip", ".shp", ".gpkg", ".kml", ".kmz"];
+const SIDECAR_EXTENSIONS = [".dbf", ".prj", ".cpg", ".shx"];
+const MAX_POLYGON_VERTICES = 2000;
+const MAX_PREVIEW_VALUES = 50;
+
+export type LabelFile = { name: string; buffer: Buffer };
+type LabelFeature = { geom: { type: "Point" | "Polygon"; coordinates: unknown }; props: Record<string, unknown>; first: [number, number] };
+
+const ext = (name: string) => (name.toLowerCase().match(/\.[^.]+$/)?.[0] ?? "");
+
+/** Normalises an attribute value for matching: trimmed string, "" for null/missing. */
+export function labelValue(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  return String(v).trim();
+}
+
+async function readLabelFile(files: LabelFile[], epsgIn: number | null): Promise<{ features: LabelFeature[]; skipped: number; epsg: number; epsgDetected: boolean }> {
+  const main = files.filter((f) => LABEL_FILE_EXTENSIONS.includes(ext(f.name)));
+  if (main.length !== 1) {
+    throw new VisionInputError(main.length
+      ? "Pick one label file (plus a shapefile's .dbf/.prj/.cpg)"
+      : `Unsupported file type. Use ${LABEL_FILE_EXTENSIONS.join(", ")}`);
+  }
+  const file = main[0];
+  const sidecars = files.filter((f) => f !== file && SIDECAR_EXTENSIONS.includes(ext(f.name)));
+  const e = ext(file.name);
+  if (e === ".shp" && !sidecars.some((s) => ext(s.name) === ".dbf")) {
+    throw new VisionInputError("A loose .shp needs its .dbf alongside (select both, plus .prj if there is one), or upload the shapefile as a .zip");
   }
 
-  const unknown = new Set<string>();
-  const labels: LabelInput[] = [];
+  let epsg = epsgIn ?? 4326;
+  let epsgDetected = false;
+  if (epsgIn == null && e === ".gpkg") {
+    const found = await geopackageEpsg(file.buffer);
+    if (found) { epsg = found; epsgDetected = true; }
+  }
+  let fc: FeatureCollection;
+  try {
+    fc = e === ".csv"
+      ? applyEpsgTransform(parsePointsCsv(file.buffer.toString("utf8")), epsg)
+      : await parseVectorUpload(file.name, file.buffer, epsg, sidecars);
+  } catch (err) {
+    throw new VisionInputError(err instanceof Error ? err.message : "Couldn't read the file");
+  }
+
+  const features: LabelFeature[] = [];
   let skipped = 0;
-  for (const f of features) {
-    const c = f.geometry?.type === "Point" ? f.geometry.coordinates : null;
-    if (!c || !Number.isFinite(c[0]) || !Number.isFinite(c[1]) || Math.abs(c[0]) > 180 || Math.abs(c[1]) > 90) {
-      skipped++;
-      continue;
+  const pt = (p: unknown): [number, number] | null =>
+    Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]) && Math.abs(p[0]) <= 180 && Math.abs(p[1]) <= 90 ? [p[0], p[1]] : null;
+  const addPolygon = (rings: unknown, props: Record<string, unknown>) => {
+    const outer = Array.isArray(rings) ? (rings[0] as unknown[]) : null;
+    const ring = outer?.map(pt);
+    if (!ring || ring.length < 4 || ring.length > MAX_POLYGON_VERTICES || ring.some((p) => !p)) return skipped++;
+    const r = ring as [number, number][];
+    features.push({ geom: { type: "Polygon", coordinates: [r] }, props, first: r[0] });
+  };
+  const visit = (g: Geometry | null | undefined, props: Record<string, unknown>) => {
+    if (!g) return skipped++;
+    switch (g.type) {
+      case "Point": {
+        const p = pt(g.coordinates);
+        if (!p) return skipped++;
+        features.push({ geom: { type: "Point", coordinates: p }, props, first: p });
+        return;
+      }
+      case "MultiPoint":
+        for (const c of g.coordinates) visit({ type: "Point", coordinates: c }, props);
+        return;
+      case "Polygon":
+        return addPolygon(g.coordinates, props);
+      case "MultiPolygon":
+        for (const c of g.coordinates) addPolygon(c, props);
+        return;
+      case "GeometryCollection":
+        for (const c of g.geometries) visit(c, props);
+        return;
+      default:
+        skipped++; // lines aren't labels
     }
-    let classId = opts.defaultClassId;
-    if (opts.classColumn) {
-      const v = String(f.properties?.[opts.classColumn] ?? "").trim();
-      const hit = byName.get(v.toLowerCase());
-      if (hit) classId = hit;
-      else if (v) unknown.add(v);
-    }
-    if (classId == null || !classes.some((k) => k.id === classId)) {
-      skipped++;
-      continue;
-    }
-    labels.push({ source_id: src.id, class_id: classId, geom: { type: "Point", coordinates: [c[0], c[1]] }, origin: "gps_import" });
+  };
+  for (const f of fc.features) visit(f.geometry, (f.properties ?? {}) as Record<string, unknown>);
+
+  // Nothing usable but plenty of features: almost always projected coordinates read as lon/lat.
+  if (features.length === 0 && fc.features.length > 0) {
+    throw new VisionInputError(
+      `None of the ${fc.features.length} features are usable points or polygons in lon/lat. ` +
+      (epsg === 4326 ? "If the file is in a projected CRS (e.g. UTM), enter its EPSG code." : `Check that EPSG:${epsg} is the file's CRS.`),
+    );
   }
+  return { features, skipped, epsg, epsgDetected };
+}
+
+async function basemapSourceFor(jobId: number, sourceId: number) {
+  const src = await prisma.visionSource.findFirst({ where: { id: sourceId, job_id: jobId }, include: { Basemap: { select: { footprint: true } } } });
+  if (!src || src.kind !== "basemap") throw new VisionInputError("Pick an ortho to put the labels on");
+  return src;
+}
+
+const insideFootprint = (footprint: unknown, f: LabelFeature) =>
+  !footprint || pointInGeometry(f.first[1], f.first[0], footprint);
+
+export type LabelFilePreview = {
+  features: number; points: number; polygons: number; skipped: number; outside: number;
+  epsg: number; epsgDetected: boolean;
+  columns: { name: string; distinct: number; values: { value: string; count: number }[] }[];
+};
+
+/** Reads a label file without importing it, so the user can pick the label column and background value. */
+export async function previewLabelFile(jobId: number, opts: { sourceId: number; files: LabelFile[]; epsg: number | null }): Promise<LabelFilePreview> {
+  const src = await basemapSourceFor(jobId, opts.sourceId);
+  const { features, skipped, epsg, epsgDetected } = await readLabelFile(opts.files, opts.epsg);
+  const counts = new Map<string, Map<string, number>>();
+  for (const f of features) {
+    for (const [k, v] of Object.entries(f.props)) {
+      if (v !== null && typeof v === "object") continue;
+      let m = counts.get(k);
+      if (!m) counts.set(k, (m = new Map()));
+      const s = labelValue(v);
+      m.set(s, (m.get(s) ?? 0) + 1);
+    }
+  }
+  const columns = Array.from(counts, ([name, m]) => ({
+    name,
+    distinct: m.size,
+    values: Array.from(m, ([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
+      .slice(0, MAX_PREVIEW_VALUES),
+  }));
+  return {
+    features: features.length,
+    points: features.filter((f) => f.geom.type === "Point").length,
+    polygons: features.filter((f) => f.geom.type === "Polygon").length,
+    skipped,
+    outside: features.filter((f) => !insideFootprint(src.Basemap?.footprint, f)).length,
+    epsg, epsgDetected, columns,
+  };
+}
+
+/**
+ * Imports a label file onto one ortho source. With `classColumn`, a feature
+ * whose value equals `backgroundValue` (case-insensitive; "" = empty/missing)
+ * is background and any other value is the class of that name, created if
+ * the job doesn't have it. Empty values are skipped unless they are the
+ * background value. Without a column, every feature gets `defaultClassId`.
+ * Labels outside the ortho's footprint are skipped.
+ */
+export async function importLabelFile(
+  jobId: number,
+  opts: {
+    sourceId: number; files: LabelFile[]; epsg: number | null;
+    classColumn: string | null; backgroundValue: string | null; defaultClassId: number | null; userId: string | null;
+  },
+): Promise<{ imported: number; skipped: number; outside: number; emptyValues: number; createdClasses: string[] }> {
+  const src = await basemapSourceFor(jobId, opts.sourceId);
+  const { features, skipped } = await readLabelFile(opts.files, opts.epsg);
+  const classes = await prisma.visionClass.findMany({ where: { job_id: jobId } });
+  const bg = classes.find((c) => c.is_background)!;
+  if (!opts.classColumn && (opts.defaultClassId == null || !classes.some((c) => c.id === opts.defaultClassId))) {
+    throw new VisionInputError("Pick the label column, or one class for the whole file");
+  }
+
+  const inside = features.filter((f) => insideFootprint(src.Basemap?.footprint, f));
+  const outside = features.length - inside.length;
+  const bgValue = opts.backgroundValue == null ? null : opts.backgroundValue.trim().toLowerCase();
+  let emptyValues = 0;
+  const wanted: { f: LabelFeature; name: string | null }[] = []; // name null = background / default class
+  for (const f of inside) {
+    if (!opts.classColumn) { wanted.push({ f, name: null }); continue; }
+    const v = labelValue(f.props[opts.classColumn]);
+    if (bgValue != null && v.toLowerCase() === bgValue) wanted.push({ f, name: null });
+    else if (v === "") emptyValues++;
+    else wanted.push({ f, name: v });
+  }
+
+  // Classes by name, case-insensitive; "background" in the file means background.
+  const byName = new Map(classes.map((c) => [c.name.toLowerCase(), c.id]));
+  const newNames = Array.from(new Set(wanted.flatMap((w) => (w.name ? [w.name] : []))))
+    .filter((n) => !byName.has(n.toLowerCase()))
+    .reduce<string[]>((acc, n) => (acc.some((a) => a.toLowerCase() === n.toLowerCase()) ? acc : [...acc, n]), []);
+  const fg = classes.filter((c) => !c.is_background).length;
+  if (fg + newNames.length > 20) {
+    throw new VisionInputError(
+      `"${opts.classColumn}" would add ${newNames.length} new classes (at most 20 in all). ` +
+      "Pick a column with fewer distinct values, or set which value is background.",
+    );
+  }
+  if (newNames.some((n) => n.length > 100)) throw new VisionInputError("Class names must be 100 characters or fewer");
+
+  if (newNames.length) {
+    await prisma.visionClass.createMany({
+      data: newNames.map((name, i) => ({
+        job_id: jobId, name, color: VISION_PALETTE[(fg + i) % VISION_PALETTE.length], sort_order: classes.length + i,
+      })),
+    });
+    for (const c of await prisma.visionClass.findMany({ where: { job_id: jobId, name: { in: newNames } } })) byName.set(c.name.toLowerCase(), c.id);
+  }
+  const labels: LabelInput[] = wanted.map((w) => ({
+    source_id: src.id,
+    class_id: w.name ? byName.get(w.name.toLowerCase())! : opts.classColumn ? bg.id : opts.defaultClassId!,
+    geom: w.f.geom, origin: "gps_import",
+  }));
   const imported = await addLabels(jobId, labels, opts.userId);
-  return { imported, skipped, unknownClasses: Array.from(unknown).slice(0, 20) };
+  return { imported, skipped, outside, emptyValues, createdClasses: newNames };
 }
 
 function processorError(err: unknown): string {
@@ -255,7 +424,7 @@ export async function startVisionRun(jobId: number, rawParams: unknown, userId: 
   await syncPhotoSources(jobId);
   const job = await prisma.visionJob.findUnique({
     where: { id: jobId },
-    include: { Classes: true, Sources: { include: { Basemap: true } }, Labels: true, Runs: { where: { status: { in: ["pending", "running"] } }, select: { id: true } } },
+    include: { Classes: true, Sources: { include: { Basemap: true } }, Labels: { where: { rejected: false } }, Runs: { where: { status: { in: ["pending", "running"] } }, select: { id: true } } },
   });
   if (!job) throw new VisionInputError("Job not found");
   if (job.Runs.length) throw new VisionInputError("A run is already in progress");
@@ -266,7 +435,10 @@ export async function startVisionRun(jobId: number, rawParams: unknown, userId: 
   if (!bg || !counts.get(bg.id)) throw new VisionInputError("Label some background first, so the model knows what to ignore");
   if (!job.Classes.some((c) => !c.is_background && counts.get(c.id))) throw new VisionInputError("Label at least one object of a class you're looking for");
 
-  const params = parseParams(rawParams);
+  // The object size is set on the job (label checker / run form) and carried into every run.
+  const saved = (job.settings ?? {}) as Record<string, unknown>;
+  const params = parseParams({ object_size_m: saved.object_size_m, ...(rawParams && typeof rawParams === "object" ? rawParams : {}) });
+  const scale = scaleParams(params.object_size_m);
   const run = await prisma.visionRun.create({
     data: { job_id: jobId, params: params as unknown as Prisma.InputJsonValue, label_count: job.Labels.length, created_by_id: userId },
   });
@@ -295,7 +467,10 @@ export async function startVisionRun(jobId: number, rawParams: unknown, userId: 
     await triggerVisionRun({
       vision_run_id: run.id,
       callback_url: `${baseUrl}/api/vision-runs/webhook`,
-      ...params,
+      head: params.head, k: params.k, threshold: params.threshold, min_patches: params.min_patches,
+      max_side: params.max_side, model: params.model,
+      gsd_m: params.gsd_m ?? scale.gsd_m,
+      point_radius_m: scale.point_radius_m,
       classes: job.Classes.map((c) => ({ id: c.id, name: c.name, background: c.is_background })),
       sources,
       labels: job.Labels.map((l) => ({ source_key: keyOf.get(l.source_id)!, class_id: l.class_id, geom: l.geom })),
@@ -457,4 +632,67 @@ export async function predictionsGeojson(runId: number, sourceId?: number) {
       },
     })),
   };
+}
+
+// ── Label checker (migration 104) ────────────────────────────────────────────
+
+export type ReviewLabel = {
+  id: number; class_id: number; geom_kind: string; geom: unknown; origin: string;
+  checked: boolean; rejected: boolean;
+};
+
+/** Every label on one source, for the label checker. */
+export async function listLabels(jobId: number, sourceId: number): Promise<ReviewLabel[]> {
+  const rows = await prisma.visionLabel.findMany({
+    where: { job_id: jobId, source_id: sourceId },
+    orderBy: { id: "asc" },
+    select: { id: true, class_id: true, geom_kind: true, geom: true, origin: true, checked_at: true, rejected: true },
+  });
+  return rows.map((r) => ({
+    id: r.id, class_id: r.class_id, geom_kind: r.geom_kind, geom: r.geom, origin: r.origin,
+    checked: r.checked_at != null, rejected: r.rejected,
+  }));
+}
+
+/**
+ * One label checker action: move a point (`geom`), change its class, keep it
+ * (`checked`), or reject / restore it. Moving or keeping marks it checked.
+ */
+export async function updateLabel(
+  jobId: number, labelId: number,
+  patch: { geom?: unknown; class_id?: unknown; checked?: unknown; rejected?: unknown },
+): Promise<ReviewLabel> {
+  const label = await prisma.visionLabel.findFirst({ where: { id: labelId, job_id: jobId }, include: { Source: { select: { kind: true } } } });
+  if (!label) throw new VisionInputError("Label not found");
+  const data: Prisma.VisionLabelUpdateInput = {};
+  if (patch.geom !== undefined) {
+    const g = validGeom(patch.geom, label.Source.kind);
+    if (g.geom_kind !== label.geom_kind) throw new VisionInputError("A label can only be moved, not reshaped");
+    data.geom = g.geom;
+    data.checked_at = new Date();
+  }
+  if (patch.class_id !== undefined) {
+    const cls = await prisma.visionClass.findFirst({ where: { id: Number(patch.class_id), job_id: jobId } });
+    if (!cls) throw new VisionInputError("Class isn't part of this job");
+    data.Class = { connect: { id: cls.id } };
+    data.checked_at = new Date();
+  }
+  if (patch.checked === true) data.checked_at = new Date();
+  if (patch.checked === false) data.checked_at = null;
+  if (typeof patch.rejected === "boolean") {
+    data.rejected = patch.rejected;
+    data.checked_at = new Date();
+  }
+  const r = await prisma.visionLabel.update({ where: { id: labelId }, data });
+  return { id: r.id, class_id: r.class_id, geom_kind: r.geom_kind, geom: r.geom, origin: r.origin, checked: r.checked_at != null, rejected: r.rejected };
+}
+
+/** Saves the job's rough object size (metres, null = not set). */
+export async function setObjectSize(jobId: number, value: unknown): Promise<number | null> {
+  const job = await prisma.visionJob.findUniqueOrThrow({ where: { id: jobId }, select: { settings: true } });
+  const size = value == null || value === "" ? null : parseParams({ object_size_m: value }).object_size_m;
+  if (value != null && value !== "" && size == null) throw new VisionInputError("Object size must be a number of metres");
+  const settings = { ...((job.settings ?? {}) as Record<string, unknown>), object_size_m: size };
+  await prisma.visionJob.update({ where: { id: jobId }, data: { settings: settings as Prisma.InputJsonValue } });
+  return size;
 }

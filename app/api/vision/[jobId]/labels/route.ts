@@ -1,12 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withVisionJob } from "@/lib/vision-route";
-import { addLabels } from "@/lib/vision";
+import { addLabels, listLabels } from "@/lib/vision";
 
 // POST { labels: [{ source_id, class_id, geom: GeoJSON Point|Polygon }] } —
 // pixels for a photo source, lon/lat for a basemap source.
 // DELETE ?ids=1,2 or ?source_id=&origin= (e.g. clear a GPS import to redo it).
+// GET ?source_id= — every label on that source (label checker), rejected included.
 export const runtime = "nodejs";
+
+export async function GET(req: Request, { params }: { params: Promise<{ jobId: string }> }) {
+  const { jobId } = await params;
+  return withVisionJob(jobId, { edit: false }, async ({ jobId }) => {
+    const sourceId = Number(new URL(req.url).searchParams.get("source_id"));
+    if (!Number.isInteger(sourceId)) return NextResponse.json({ error: "Pass source_id" }, { status: 400 });
+    return NextResponse.json({ labels: await listLabels(jobId, sourceId) });
+  });
+}
 
 export async function POST(req: Request, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;

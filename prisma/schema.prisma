@@ -2760,6 +2760,10 @@ model VisionLabel {
   prediction_id Int?
   created_by_id String?
   created_at    DateTime @default(now()) @db.Timestamptz(6)
+  // Label checker (migration 104): checked_at = last kept/moved; rejected
+  // labels are kept for undo but left out of runs and counts.
+  checked_at    DateTime? @db.Timestamptz(6)
+  rejected      Boolean   @default(false)
 
   Job    VisionJob    @relation(fields: [job_id], references: [id], onDelete: Cascade)
   Source VisionSource @relation(fields: [source_id], references: [id], onDelete: Cascade)

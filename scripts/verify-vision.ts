@@ -22,7 +22,7 @@
 import fs from "fs";
 import { prisma } from "@/lib/prisma";
 import {
-  addLabels, createVisionJob, importPointLabels, ingestVisionResults, predictionsGeojson, setBasemapSources, startVisionRun,
+  addLabels, createVisionJob, importLabelFile, previewLabelFile, ingestVisionResults, predictionsGeojson, setBasemapSources, startVisionRun,
 } from "@/lib/vision";
 
 const TAG = "VISION-FIXTURE";
@@ -55,15 +55,26 @@ async function main() {
     const orthoSrc = await prisma.visionSource.findFirst({ where: { job_id: job.id, kind: "basemap" } });
     check("basemap source added", orthoSrc?.basemap_id === basemapId);
 
-    // GPS import: a GeoJSON with a class column.
+    // GPS import: one file with positives and negatives, label column "cls",
+    // "none" = background; "Green" should match the existing class, "extra" creates one.
     const fc = {
       type: "FeatureCollection",
-      features: ortho.map((l) => ({ type: "Feature", geometry: l.geom, properties: { cls: l.class_id === 1 ? "Green" : "background" } })),
+      features: ortho.map((l, i) => ({
+        type: "Feature", geometry: l.geom,
+        properties: { cls: l.class_id === 1 ? (i === 0 ? "extra" : "Green") : "none" },
+      })),
     };
-    const imp = await importPointLabels(job.id, {
-      sourceId: orthoSrc!.id, text: JSON.stringify(fc), filename: "points.geojson", classColumn: "cls", defaultClassId: null, userId: null,
+    const files = [{ name: "points.geojson", buffer: Buffer.from(JSON.stringify(fc)) }];
+    const pv = await previewLabelFile(job.id, { sourceId: orthoSrc!.id, files, epsg: null });
+    const cls = pv.columns.find((c) => c.name === "cls");
+    check("preview lists the label column and its values", pv.features === ortho.length && !!cls?.values.some((v) => v.value === "none"), pv);
+    const imp = await importLabelFile(job.id, {
+      sourceId: orthoSrc!.id, files, epsg: null, classColumn: "cls", backgroundValue: "none", defaultClassId: null, userId: null,
     });
-    check("GPS points imported", imp.imported === ortho.length && imp.skipped === 0, imp);
+    check("GPS points imported", imp.imported === ortho.length - imp.outside && imp.skipped === 0, imp);
+    check("new value created a class, existing one matched", imp.createdClasses.join() === "extra", imp.createdClasses);
+    const bgCount = await prisma.visionLabel.count({ where: { job_id: job.id, class_id: bg.id } });
+    check("background value mapped to background", bgCount === ortho.filter((l) => l.class_id === 0).length, { bgCount });
 
     const n = await addLabels(job.id, photo.map((l) => ({ source_id: photoSrc!.id, class_id: l.class_id === 1 ? green.id : bg.id, geom: l.geom })), null);
     check("photo labels added (points + boxes)", n === photo.length);

@@ -124,8 +124,13 @@ async function loadVisionData(
     prisma.visionJob.findUnique({
       where: { task_id: task.id },
       include: {
-        Classes: { orderBy: { sort_order: "asc" }, include: { _count: { select: { Labels: true } } } },
-        Sources: { include: { _count: { select: { Labels: true } }, Basemap: { select: { farm_id: true, display_name: true, original_filename: true } } } },
+        Classes: { orderBy: { sort_order: "asc" }, include: { _count: { select: { Labels: { where: { rejected: false } } } } } },
+        Sources: {
+          include: {
+            _count: { select: { Labels: { where: { rejected: false } } } },
+            Basemap: { select: { farm_id: true, display_name: true, original_filename: true, footprint: true, min_zoom: true, max_zoom: true, updated_at: true } },
+          },
+        },
         Runs: { orderBy: { created_at: "desc" }, take: 10, include: { Layer: { select: { farm_id: true } } } },
       },
     }),
@@ -133,6 +138,14 @@ async function loadVisionData(
     getEffectiveScope(userId, category),
   ]);
   const farmId = experiment?.farm_id ?? null;
+  // Label checker progress per source.
+  const reviewCounts = job
+    ? await prisma.visionLabel.groupBy({ by: ["source_id", "rejected"], where: { job_id: job.id, OR: [{ checked_at: { not: null } }, { rejected: true }] }, _count: true })
+    : [];
+  const reviewOf = (sourceId: number) => ({
+    checked_count: reviewCounts.filter((r) => r.source_id === sourceId && !r.rejected).reduce((n, r) => n + r._count, 0),
+    rejected_count: reviewCounts.filter((r) => r.source_id === sourceId && r.rejected).reduce((n, r) => n + r._count, 0),
+  });
   const basemaps = await prisma.basemap.findMany({
     where: {
       tiling_status: "ready",
@@ -162,6 +175,12 @@ async function loadVisionData(
         id: s.id, kind: s.kind, basemap_id: s.basemap_id, farm_id: s.Basemap?.farm_id ?? null,
         name: s.kind === "basemap" ? (s.Basemap?.display_name || s.Basemap?.original_filename || `Basemap ${s.basemap_id}`) : `${s.upload_table} #${s.upload_id}`,
         label_count: s._count.Labels,
+        ...reviewOf(s.id),
+        tiles: s.Basemap ? {
+          url: `/api/basemaps/${s.basemap_id}/tiles/{z}/{x}/{y}.png?v=${s.Basemap.updated_at.getTime()}`,
+          min_zoom: s.Basemap.min_zoom, max_zoom: s.Basemap.max_zoom,
+          footprint: (s.Basemap.footprint ?? null) as GeoJSON.Polygon | null,
+        } : null,
         meta: (s.meta ?? null) as Record<string, unknown> | null,
       })),
       runs: job.Runs.map((r) => ({
